@@ -1,0 +1,109 @@
+using System.Security.Claims;
+using AspNet.Security.OAuth.Twitch;
+using Desertod.Infrastructure.Accounts;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.OAuth;
+
+namespace Desertod.Api.Auth;
+
+public sealed record LoginProviders(bool Twitch, bool Google, string? TelegramBotUsername, bool DevelopmentLogin);
+
+public static class AuthenticationSetup
+{
+    public const string TwitchProvider = "twitch";
+    public const string GoogleProvider = "google";
+    public const string TelegramProvider = "telegram";
+    public const string DevelopmentProvider = "dev";
+
+    public static IServiceCollection AddDesertodAuthentication(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
+    {
+        var twitch = configuration.GetSection("Authentication:Twitch");
+        var google = configuration.GetSection("Authentication:Google");
+        var telegram = configuration.GetSection("Authentication:Telegram");
+        services.Configure<TelegramOptions>(telegram);
+
+        var twitchConfigured = !string.IsNullOrWhiteSpace(twitch["ClientId"]) && !string.IsNullOrWhiteSpace(twitch["ClientSecret"]);
+        var googleConfigured = !string.IsNullOrWhiteSpace(google["ClientId"]) && !string.IsNullOrWhiteSpace(google["ClientSecret"]);
+        var telegramOptions = telegram.Get<TelegramOptions>() ?? new TelegramOptions();
+
+        services.AddSingleton(new LoginProviders(
+            twitchConfigured,
+            googleConfigured,
+            telegramOptions.IsConfigured ? telegramOptions.BotUsername : null,
+            environment.IsDevelopment()));
+
+        var authentication = services
+            .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+            .AddCookie(options =>
+            {
+                options.Cookie.Name = "desertod";
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SameSite = SameSiteMode.Lax;
+                options.ExpireTimeSpan = TimeSpan.FromDays(30);
+                options.SlidingExpiration = true;
+                options.Events.OnRedirectToLogin = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return Task.CompletedTask;
+                };
+                options.Events.OnRedirectToAccessDenied = context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    return Task.CompletedTask;
+                };
+            });
+
+        if (twitchConfigured)
+        {
+            authentication.AddTwitch(options =>
+            {
+                options.ClientId = twitch["ClientId"]!;
+                options.ClientSecret = twitch["ClientSecret"]!;
+                options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+                options.Events.OnCreatingTicket = context => AttachAccountAsync(
+                    context,
+                    TwitchProvider,
+                    context.Identity?.FindFirst(TwitchAuthenticationConstants.Claims.DisplayName)?.Value);
+            });
+        }
+
+        if (googleConfigured)
+        {
+            authentication.AddGoogle(options =>
+            {
+                options.ClientId = google["ClientId"]!;
+                options.ClientSecret = google["ClientSecret"]!;
+                options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+                options.Events.OnCreatingTicket = context => AttachAccountAsync(context, GoogleProvider, null);
+            });
+        }
+
+        return services;
+    }
+
+    public static string? SchemeFor(string provider) => provider switch
+    {
+        TwitchProvider => TwitchAuthenticationDefaults.AuthenticationScheme,
+        GoogleProvider => GoogleDefaults.AuthenticationScheme,
+        _ => null,
+    };
+
+    private static async Task AttachAccountAsync(OAuthCreatingTicketContext context, string provider, string? preferredName)
+    {
+        var identity = context.Identity ?? throw new InvalidOperationException("Missing identity.");
+        var providerUserId = identity.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                             ?? throw new InvalidOperationException($"{provider} did not return a user identifier.");
+        var displayName = preferredName ?? identity.FindFirst(ClaimTypes.Name)?.Value ?? $"{provider}-user";
+
+        var accounts = context.HttpContext.RequestServices.GetRequiredService<AccountService>();
+        var account = await accounts.ResolveExternalLoginAsync(
+            provider, providerUserId, displayName, context.HttpContext.RequestAborted);
+
+        identity.AddClaim(new Claim(AccountClaims.AccountId, account.Id.ToString()));
+        identity.AddClaim(new Claim(AccountClaims.Provider, provider));
+    }
+}

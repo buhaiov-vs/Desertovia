@@ -1,0 +1,8 @@
+bin/
+obj/
+.vs/
+*.user
+node_modules/
+web/dist/
+src/Desertod.Api/wwwroot/
+TestResults/

@@ -1,0 +1,209 @@
+import { ApiError, type CycleReport, type Era, type ProjectPhase, type RoleTier, type Stat } from '../api'
+import { en, type Dictionary, type UiKey } from './en'
+import { ru } from './ru'
+
+export type Language = 'en' | 'ru'
+
+/** English first: it is the default and the fallback for anything missing. */
+export const LANGUAGES: Array<{ code: Language; label: string }> = [
+  { code: 'en', label: 'English' },
+  { code: 'ru', label: 'Русский' },
+]
+
+export const DICTIONARIES: Record<Language, Dictionary> = { en, ru }
+export const LANGUAGE_STORAGE_KEY = 'desertod.language'
+type Parameters = Record<string, string | number>
+
+function isLanguage(value: string | null): value is Language {
+  return value !== null && value in DICTIONARIES
+}
+
+/** `?lang=` wins (handy for the stream overlay), then the saved choice, then the browser language, then English. */
+export function initialLanguage(): Language {
+  const fromQuery = new URLSearchParams(window.location.search).get('lang')
+  if (isLanguage(fromQuery)) return fromQuery
+  const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY)
+  if (isLanguage(stored)) return stored
+  const browser = (navigator.languages ?? [navigator.language]).map((tag) => tag.slice(0, 2).toLowerCase())
+  return browser.find(isLanguage) ?? 'en'
+}
+
+function format(template: string, parameters?: Parameters) {
+  if (!parameters) return template
+  return template.replace(/\{(\w+)\}/g, (match, name: string) =>
+    parameters[name] === undefined ? match : String(parameters[name]),
+  )
+}
+
+/** Farm work overflows when another citizen took the bed or the water first, not because storage is full. */
+const FARM_TASKS = /^(sow-|water-fields$|harvest$)/
+
+const amountFormats = new Map<string, Intl.NumberFormat>()
+
+function numberFormat(language: Language, options: Intl.NumberFormatOptions) {
+  const key = `${language}:${JSON.stringify(options)}`
+  let formatter = amountFormats.get(key)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat(language, options)
+    amountFormats.set(key, formatter)
+  }
+  return formatter
+}
+
+/** Large amounts are shortened (12K, 12 тыс.); small fractions keep one decimal, written the way the language writes it. */
+export function formatAmount(value: number, language: Language = 'en') {
+  if (value >= 10000) return numberFormat(language, { notation: 'compact', maximumFractionDigits: 0 }).format(value)
+  return numberFormat(language, { maximumFractionDigits: value < 10 ? 1 : 0 }).format(value)
+}
+
+export function createTranslator(language: Language) {
+  const dictionary = DICTIONARIES[language]
+  const t = (key: UiKey, parameters?: Parameters) => format(dictionary.ui[key] ?? en.ui[key], parameters)
+  const amount = (value: number) => formatAmount(value, language)
+  const resource = (kind: string) => dictionary.resources[kind] ?? en.resources[kind] ?? kind
+  const animal = (kind: string) => dictionary.animals[kind] ?? en.animals[kind] ?? kind
+  const animalHint = (kind: string) => dictionary.animalHints[kind] ?? en.animalHints[kind] ?? ''
+  const crop = (kind: string) => dictionary.crops[kind] ?? en.crops[kind] ?? kind
+  const cropHint = (kind: string) => dictionary.cropHints[kind] ?? en.cropHints[kind] ?? ''
+  /** "+3 wood" in English, "дерево +3" in Russian: the word order avoids number agreement. */
+  const produced = (kind: string, value: number) =>
+    t('amount.produced', { amount: amount(value), resource: resource(kind).toLowerCase() })
+  const role = (id: string) => dictionary.roles[id] ?? en.roles[id] ?? id
+  const job = (id: string) => dictionary.jobs[id] ?? en.jobs[id] ?? id
+  /** Tasks and construction jobs share one name space in reports and the feed. */
+  const task = (id: string) => dictionary.tasks[id] ?? en.tasks[id] ?? (id in en.jobs ? job(id) : id)
+  const project = (id: string) => dictionary.projects[id] ?? en.projects[id] ?? { name: id, description: '' }
+  const building = (kind: string) => dictionary.buildings[kind] ?? en.buildings[kind] ?? { name: kind, description: '' }
+  const stage = (id: string) => dictionary.stages[id] ?? en.stages[id] ?? id
+  const stat = (value: Stat) => dictionary.stats[value] ?? en.stats[value] ?? value
+  const technology = (id: string) =>
+    dictionary.technologies[id] ?? en.technologies[id] ?? { name: id, description: '' }
+  const era = (value: Era) => dictionary.eras[value] ?? en.eras[value]
+  /** "Intelligence 5, Charisma 2". */
+  const requirements = (list: Array<{ stat: Stat; minimum: number }>) =>
+    list.map((r) => `${stat(r.stat)} ${r.minimum}`).join(', ')
+  const storage = (kind: string) => dictionary.storages[kind] ?? en.storages[kind] ?? kind
+  const questText = (quest: { kind: string; resource: string | null }) => {
+    const entry = dictionary.quests[quest.kind] ?? en.quests[quest.kind] ?? { title: quest.kind, story: '' }
+    const parameters = { resource: quest.resource ? resource(quest.resource).toLowerCase() : '' }
+    return { title: format(entry.title, parameters), story: format(entry.story, parameters) }
+  }
+  /** The Governor's wording never carries numbers. */
+  const objective = (id: string, governor: boolean, parameters?: Parameters) => {
+    const entry = dictionary.objectives[id] ?? en.objectives[id]
+    if (!entry) return id
+    return format(governor ? entry.governor : entry.citizen, parameters)
+  }
+
+  /** Server problems carry a code and arguments; identifiers in the arguments are translated too. */
+  const error = (exception: unknown) => {
+    if (exception instanceof ApiError && exception.code) {
+      const template = dictionary.errors[exception.code] ?? en.errors[exception.code]
+      if (template) {
+        const parameters: Parameters = { ...exception.parameters }
+        if (typeof parameters.resource === 'string') parameters.resource = resource(parameters.resource).toLowerCase()
+        if (typeof parameters.taskId === 'string') parameters.task = task(parameters.taskId)
+        if (typeof parameters.roleId === 'string') parameters.role = role(parameters.roleId)
+        if (typeof parameters.animal === 'string') parameters.animal = animal(parameters.animal)
+        if (typeof parameters.crop === 'string') parameters.crop = crop(parameters.crop)
+        if (typeof parameters.building === 'string') parameters.building = building(parameters.building).name
+        if (typeof parameters.project === 'string') parameters.project = project(parameters.project).name
+        if (typeof parameters.requires === 'string') {
+          parameters.requires = parameters.requires
+            .split(',')
+            .map((kind) => building(kind).name)
+            .join(', ')
+        }
+        if (typeof parameters.stage === 'string') parameters.stage = stage(parameters.stage).toLowerCase()
+        if (typeof parameters.technology === 'string') parameters.technology = technology(parameters.technology).name
+        if (typeof parameters.technologies === 'string') {
+          parameters.technologies = parameters.technologies
+            .split(',')
+            .map((id) => technology(id).name)
+            .join(', ')
+        }
+        if (typeof parameters.stat === 'string') parameters.stat = stat(parameters.stat as Stat)
+        return format(template, parameters)
+      }
+    }
+    return exception instanceof Error ? exception.message : String(exception)
+  }
+
+  const describeReport = (report: CycleReport) => {
+    const parts: string[] = []
+    for (const item of report.produced) parts.push(produced(item.resource, item.amount))
+    if (report.moraleGained > 0) parts.push(t('report.morale', { value: amount(report.moraleGained * 100) }))
+    if (report.projectContribution > 0 && report.produced.length === 0) {
+      parts.push(t('report.contribution', { amount: amount(report.projectContribution) }))
+    }
+    if (report.levelsGained > 0) parts.push(t('report.level', { stat: stat(report.primary) }))
+    if (report.rareFind) parts.push(t('report.rare'))
+    if (report.buildingCompleted) parts.push(t('done.built', { building: building(report.buildingCompleted).name }))
+    if (report.technologyId) {
+      const name = technology(report.technologyId).name
+      parts.push(report.technologyDiscovered ? t('done.discovered', { technology: name }) : t('report.research', { technology: name }))
+    }
+    return `${report.citizenName} — ${task(report.taskId)}${parts.length ? `: ${parts.join(', ')}` : ''}`
+  }
+
+  /** `governorView`: the Governor and the stream overlay never hear about full storage from the game. */
+  const speechFor = (report: CycleReport, governorView = false) => {
+    if (report.buildingCompleted) return t('speech.built', { building: building(report.buildingCompleted).name })
+    if (report.technologyDiscovered && report.technologyId) {
+      return t('speech.discovered', { technology: technology(report.technologyId).name })
+    }
+    if (report.rareFind) return t('speech.gold')
+    if (report.levelsGained > 0) return t('speech.level', { stat: stat(report.primary) })
+    if (report.tired) return t('speech.tired')
+    if (report.overflowed && report.produced.length === 0 && FARM_TASKS.test(report.taskId)) return t('speech.fieldTaken')
+    if (report.overflowed && !governorView) return t('speech.full')
+    if (report.hungry && !governorView) return t('speech.hungry')
+    if (report.technologyId) return t('speech.research')
+    if (report.siteId && report.produced.length === 0) return t('speech.done')
+    if (report.taskId === 'carry-to-storage') return t('speech.carried')
+    if (report.taskId === 'build') return t('speech.build')
+    if (report.taskId === 'survey') return t('speech.survey')
+    if (report.taskId === 'supervise') return t('speech.supervise')
+    if (report.taskId === 'perform') return t('speech.perform')
+    const first = report.produced[0]
+    if (first) return produced(first.resource, first.amount)
+    return t('speech.done')
+  }
+
+  return {
+    language,
+    t,
+    amount,
+    produced,
+    /** An amount of goods held or carried: "3 wood" in English, "дерево: 3" in Russian. */
+    held: (kind: string, value: number) =>
+      t('amount.held', { amount: amount(value), resource: resource(kind).toLowerCase() }),
+    resource,
+    animal,
+    animalHint,
+    crop,
+    cropHint,
+    role,
+    task,
+    job,
+    project,
+    building,
+    stage,
+    stat,
+    technology,
+    era,
+    requirements,
+    storage,
+    quest: questText,
+    objective,
+    statHint: (value: Stat) => dictionary.statHints[value],
+    tier: (value: RoleTier) => dictionary.tiers[value],
+    phase: (value: ProjectPhase) => dictionary.phases[value],
+    priestLines: dictionary.priestLines,
+    error,
+    describeReport,
+    speechFor,
+  }
+}
+
+export type Translator = ReturnType<typeof createTranslator>

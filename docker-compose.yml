@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: desertod-postgres
+    environment:
+      POSTGRES_USER: desertod
+      POSTGRES_PASSWORD: desertod
+      POSTGRES_DB: desertod
+    ports:
+      - "5432:5432"
+    volumes:
+      - desertod-postgres-data:/var/lib/postgresql/data
+
+volumes:
+  desertod-postgres-data:

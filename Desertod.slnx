@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Desertod.Api/Desertod.Api.csproj" />
+    <Project Path="src/Desertod.Domain/Desertod.Domain.csproj" />
+    <Project Path="src/Desertod.Infrastructure/Desertod.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Desertod.Api.Tests/Desertod.Api.Tests.csproj" />
+    <Project Path="tests/Desertod.Domain.Tests/Desertod.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

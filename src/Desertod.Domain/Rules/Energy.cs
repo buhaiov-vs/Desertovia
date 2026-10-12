@@ -1,0 +1,17 @@
+namespace Desertod.Domain.Rules;
+
+public static class Energy
+{
+    public static double Maximum(int endurance) =>
+        GameRules.EnergyBase + GameRules.EnergyPerEndurance * endurance;
+
+    public static double RegenerationPerHour(int endurance) =>
+        Maximum(endurance) / GameRules.EnergyFullRegenerationHours;
+
+    /// <summary>Energy is stored as a snapshot and regenerates continuously from that moment.</summary>
+    public static double Current(double storedEnergy, DateTimeOffset storedAt, DateTimeOffset now, int endurance, double multiplier = 1)
+    {
+        var hours = Math.Max(0, (now - storedAt).TotalHours);
+        return Math.Min(Maximum(endurance), storedEnergy + hours * RegenerationPerHour(endurance) * multiplier);
+    }
+}

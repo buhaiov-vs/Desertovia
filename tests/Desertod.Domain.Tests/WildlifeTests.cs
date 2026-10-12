@@ -1,0 +1,165 @@
+using Desertod.Domain.Catalog;
+using Desertod.Domain.Rules;
+using Desertod.Domain.Stats;
+using Desertod.Domain.World;
+using static Desertod.Domain.Tests.TestWorld;
+
+namespace Desertod.Domain.Tests;
+
+public class WildlifeTests
+{
+    [Fact]
+    public void NewVillage_HasFullHerdsOfEveryAnimal()
+    {
+        var village = NewVillage();
+
+        foreach (var animal in WildlifeCatalog.Animals)
+        {
+            Assert.Equal(animal.Capacity, village.HerdOf(animal.Kind).Current(Now));
+        }
+    }
+
+    [Fact]
+    public void OldVillage_GetsItsHerdsOnce()
+    {
+        var village = NewVillage();
+        village.Wildlife.Clear();
+
+        Assert.True(village.EnsureCamp(Now));
+        Assert.Equal(WildlifeCatalog.Animals.Count, village.Wildlife.Count);
+        Assert.False(village.EnsureCamp(Now));
+    }
+
+    [Fact]
+    public void HuntingRabbits_TakesThemFromTheHerd_AndBringsMeatAndHides()
+    {
+        var village = NewVillage();
+        var citizen = NewCitizen(village);
+        var herd = village.HerdOf(AnimalKind.Rabbit);
+
+        CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), Now);
+        var end = citizen.CycleEndsAt!.Value;
+        var report = Finish(citizen, WorkContext.For(village));
+
+        var caught = herd.Definition.Capacity - herd.Current(end);
+        Assert.True(caught > 0);
+        var share = caught / Task("hunt").Hunt!.Animals;
+        Assert.Equal(5 * share, report.Produced.Single(p => p.Resource == ResourceKind.Food).Amount, 6);
+        Assert.Equal(1 * share, village.Stock(ResourceKind.Leather), 6);
+        Assert.False(report.Overflowed);
+    }
+
+    [Fact]
+    public void HuntingBirds_BringsFeathers()
+    {
+        var village = NewVillage();
+        var citizen = NewCitizen(village, (Stat.Dexterity, 3));
+
+        CycleEngine.Start(citizen, Task("hunt-birds"), WorkContext.For(village), Now);
+        Finish(citizen, WorkContext.For(village));
+
+        Assert.True(village.Stock(ResourceKind.Feathers) > 0);
+    }
+
+    [Theory]
+    [InlineData("hunt", 0)]
+    [InlineData("track-game", 2)]
+    [InlineData("hunt-birds", 3)]
+    public void EachPrey_NeedsItsDexterityLevel(string taskId, int dexterity)
+    {
+        var task = Task(taskId);
+        var village = NewVillage();
+        var skilled = NewCitizen(village, (Stat.Dexterity, dexterity));
+
+        if (dexterity > 0)
+        {
+            var novice = NewCitizen(village, (Stat.Dexterity, dexterity - 1));
+            var error = Assert.Throws<GameRuleException>(() => CycleEngine.Start(novice, task, WorkContext.For(village), Now));
+            Assert.Equal("hunt.skillRequired", error.Code);
+        }
+
+        CycleEngine.Start(skilled, task, WorkContext.For(village), Now);
+        Finish(skilled, WorkContext.For(village));
+        var prey = WildlifeCatalog.Get(task.Hunt!.Prey);
+        Assert.True(village.HerdOf(prey.Kind).Current(skilled.CycleEndsAt!.Value) < prey.Capacity);
+    }
+
+    [Fact]
+    public void HuntingExperience_FollowsTheHuntingTime()
+    {
+        var experience = new Dictionary<string, double>();
+        foreach (var taskId in new[] { "hunt", "track-game", "hunt-birds" })
+        {
+            var village = NewVillage();
+            var citizen = NewCitizen(village, (Stat.Dexterity, 3));
+            CycleEngine.Start(citizen, Task(taskId), WorkContext.For(village), Now);
+            experience[taskId] = Finish(citizen, WorkContext.For(village)).PrimaryExperience;
+        }
+
+        Assert.Equal(GameRules.BaseExperiencePerCycle, experience["hunt"], 6);
+        Assert.Equal(GameRules.BaseExperiencePerCycle * 2, experience["track-game"], 6);
+        Assert.Equal(GameRules.BaseExperiencePerCycle / 2, experience["hunt-birds"], 6);
+    }
+
+    [Fact]
+    public void ScarceHerd_GivesASmallerCatch()
+    {
+        var abundant = NewVillage();
+        var scarce = NewVillage();
+        var rabbits = scarce.HerdOf(AnimalKind.Rabbit);
+        rabbits.Count = rabbits.Definition.Capacity * WildlifeCatalog.AbundantShare / 2;
+
+        var full = Food(Hunt(abundant));
+        var citizen = NewCitizen(scarce);
+        CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(scarce), Now);
+        var abundance = rabbits.Abundance(citizen.CycleEndsAt!.Value);
+        var thin = Food(Finish(citizen, WorkContext.For(scarce)));
+
+        Assert.InRange(abundance, 0.5, 0.6);
+        Assert.Equal(full * abundance, thin, 6);
+    }
+
+    [Fact]
+    public void HuntedOutLand_CannotBeHunted_UntilAnimalsComeBack()
+    {
+        var village = NewVillage();
+        var citizen = NewCitizen(village);
+        var rabbits = village.HerdOf(AnimalKind.Rabbit);
+        rabbits.Count = 0;
+        rabbits.UpdatedAt = Now;
+
+        var error = Assert.Throws<GameRuleException>(() => CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), Now));
+        Assert.Equal("hunt.noAnimals", error.Code);
+
+        var later = Now.AddHours(rabbits.Definition.RecoveryHalfLifeHours);
+        Assert.Equal(rabbits.Definition.Capacity / 2, rabbits.Current(later), 6);
+        CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), later);
+    }
+
+    [Fact]
+    public void LastAnimalsCaughtByAnother_LeaveAnEmptyHunt_WithHalfExperience()
+    {
+        var village = NewVillage();
+        var citizen = NewCitizen(village);
+        var rabbits = village.HerdOf(AnimalKind.Rabbit);
+        rabbits.Count = WildlifeCatalog.MinimumToHunt;
+        rabbits.UpdatedAt = Now;
+
+        CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), Now);
+        rabbits.Take(rabbits.Current(citizen.CycleEndsAt!.Value), citizen.CycleEndsAt!.Value);
+        var report = Finish(citizen, WorkContext.For(village));
+
+        Assert.Empty(report.Produced);
+        Assert.True(report.Overflowed);
+        Assert.Equal(GameRules.BaseExperiencePerCycle * GameRules.OverflowExperienceMultiplier, report.PrimaryExperience, 6);
+    }
+
+    private static CycleReport Hunt(Entities.Village village)
+    {
+        var citizen = NewCitizen(village);
+        CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), Now);
+        return Finish(citizen, WorkContext.For(village));
+    }
+
+    private static double Food(CycleReport report) => report.Produced.Single(p => p.Resource == ResourceKind.Food).Amount;
+}

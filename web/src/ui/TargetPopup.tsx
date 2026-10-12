@@ -1,0 +1,189 @@
+import {
+  builtKinds,
+  CARRY_TO_STORAGE,
+  discoveredTechnologies,
+  isProjectTask,
+  projectWants,
+  takesSpot,
+  type Catalog,
+  type Citizen,
+  type Task,
+  type TilePoint,
+  type VillageState,
+} from '../api'
+import { inForestArea, type NatureKind, type WorldTarget } from '../game/worldMap'
+import { useI18n, type Translator } from '../i18n'
+import type { UiKey } from '../i18n/en'
+import { FieldsCard } from './FieldsCard'
+import { SiteCard, type JobChoice } from './SitesPanel'
+import { StorageCard } from './StorageCard'
+import { TaskList } from './TaskList'
+
+/** Workplaces of the tasks a natural place offers. */
+const NATURE_WORKPLACES: Record<NatureKind, string[]> = {
+  tree: ['forest'],
+  bush: ['berries'],
+  stone: ['stones'],
+  reeds: ['reeds', 'ford', 'pier'],
+  water: ['pier', 'ford', 'reeds'],
+  vein: ['gold-vein'],
+}
+
+/** A picked spot is only kept where the citizen really gathers what the place offers. */
+const SPOT_KINDS: readonly NatureKind[] = ['tree', 'bush', 'stone', 'reeds']
+
+const NATURE_TITLES: Record<NatureKind, UiKey> = {
+  tree: 'target.tree',
+  bush: 'target.bush',
+  stone: 'target.stone',
+  reeds: 'target.reeds',
+  water: 'target.water',
+  vein: 'target.vein',
+}
+
+function tasksFor(target: WorldTarget, catalog: Catalog, village: VillageState): Task[] {
+  switch (target.kind) {
+    case 'site':
+      return []
+    case 'animal':
+      return catalog.tasks.filter((task) => task.hunt?.prey === target.prey)
+    case 'campfire':
+      return catalog.tasks.filter((task) => task.workplace === 'camp' && task.effect === 'Morale')
+    case 'project':
+      return catalog.tasks.filter((task) => isProjectTask(task) && projectWants(village.project, task))
+    case 'building':
+      return catalog.tasks.filter(
+        (task) => task.requiredBuilding === target.building || (target.storage && task.id === CARRY_TO_STORAGE),
+      )
+    default: {
+      const workplaces = NATURE_WORKPLACES[target.kind]
+      return catalog.tasks.filter((task) => workplaces.includes(task.workplace) && projectWants(village.project, task))
+    }
+  }
+}
+
+function titleOf(target: WorldTarget, catalog: Catalog, citizen: Citizen, i18n: Translator) {
+  switch (target.kind) {
+    case 'site':
+    case 'building':
+      return i18n.building(target.building).name
+    case 'project':
+      return i18n.project(target.projectId).name
+    case 'campfire':
+      return i18n.t('target.campfire')
+    case 'animal': {
+      // Prey the citizen is not skilled enough for stays a mystery, as in the task list.
+      const needed = catalog.tasks.find((task) => task.hunt?.prey === target.prey)?.hunt?.dexterity ?? 0
+      const dexterity = citizen.stats.find((stat) => stat.stat === 'Dexterity')?.level ?? 0
+      return dexterity >= needed ? i18n.animal(target.prey) : i18n.t('task.preyUnknown')
+    }
+    default:
+      return i18n.t(NATURE_TITLES[target.kind])
+  }
+}
+
+/** Spot sent with a gathering task, so the citizen works right at the clicked tree, bush or stone. */
+function spotFor(target: WorldTarget, task: Task): TilePoint | null {
+  if (!('spot' in target) || !SPOT_KINDS.includes(target.kind as NatureKind) || !takesSpot(task)) return null
+  return target.spot
+}
+
+/** What the player can send their citizen to do at the place they clicked on the map. */
+export function TargetPopup({
+  target,
+  screen,
+  phone,
+  village,
+  catalog,
+  citizen,
+  now,
+  pending,
+  error,
+  onStart,
+  onStartJob,
+  onTake,
+  onClose,
+}: {
+  target: WorldTarget
+  /** Where the map was clicked, in pixels from the top-left corner of the game. */
+  screen: { x: number; y: number }
+  phone: boolean
+  village: VillageState
+  catalog: Catalog
+  citizen: Citizen
+  now: number
+  pending: boolean
+  error: string | null
+  onStart: (task: Task, spot: TilePoint | null) => void
+  onStartJob: (choice: JobChoice) => void
+  onTake: (plotId: string, resource: string) => void
+  onClose: () => void
+}) {
+  const i18n = useI18n()
+  const { t } = i18n
+  const working = citizen.cycleEndsAt ? now < Date.parse(citizen.cycleEndsAt) : false
+  const disabled = pending || working
+  const site = target.kind === 'site' ? village.sites.find((s) => s.plotId === target.plotId) : undefined
+  const tasks = tasksFor(target, catalog, village)
+  const beds = target.kind === 'building' ? village.fields.filter((bed) => bed.plotId === target.plotId) : []
+  const storage =
+    target.kind === 'building' && target.storage ? village.storages.find((s) => s.plotId === target.plotId) : undefined
+  const built = new Set<string>([...builtKinds(village, catalog), ...village.completedProjects])
+  const wildWood =
+    target.kind === 'tree' && !inForestArea(Math.floor(target.spot.x), Math.floor(target.spot.y))
+
+  // Opens below the click in the top half of the screen and above it in the bottom half; phones get a bottom sheet.
+  const below = screen.y < window.innerHeight / 2
+  const gap = 18
+  const margin = 8
+  const style = phone
+    ? undefined
+    : {
+        left: Math.max(margin, Math.min(screen.x - 170, window.innerWidth - 348)),
+        ...(below
+          ? { top: screen.y + gap, maxHeight: window.innerHeight - screen.y - gap - margin }
+          : { bottom: window.innerHeight - screen.y + gap, maxHeight: screen.y - gap - margin }),
+      }
+
+  return (
+    <div className={`target-popup ${phone ? 'sheet' : ''}`} style={style} role="dialog" aria-label={titleOf(target, catalog, citizen, i18n)}>
+      <header className="target-popup-header">
+        <strong>{titleOf(target, catalog, citizen, i18n)}</strong>
+        <button className="close" onClick={onClose} title={`${t('close')} (Esc)`}>
+          ✕
+        </button>
+      </header>
+      <div className="target-popup-body">
+        {working && <p className="small muted">{t('target.busy')}</p>}
+        {error && <p className="error">{error}</p>}
+        {wildWood && <p className="small muted">{t('target.wildWood')}</p>}
+        {site && (
+          <SiteCard site={site} catalog={catalog} village={village} citizen={citizen} disabled={disabled} onStartJob={onStartJob} />
+        )}
+        {beds.length > 0 && <FieldsCard beds={beds} now={now} />}
+        {storage && (
+          <StorageCard
+            storage={storage}
+            catalog={catalog}
+            take={{ citizen, disabled, onTake: (resource) => onTake(storage.plotId, resource) }}
+          />
+        )}
+        {tasks.length > 0 && (
+          <TaskList
+            tasks={tasks}
+            citizen={citizen}
+            catalog={catalog}
+            built={built}
+            discovered={discoveredTechnologies(village)}
+            wildlife={village.wildlife}
+            goldVein={village.goldVeinRemaining}
+            fields={village.fields}
+            disabled={disabled}
+            onStart={(task) => onStart(task, spotFor(target, task))}
+          />
+        )}
+        {!site && !storage && tasks.length === 0 && <p className="small muted">{t('target.nothing')}</p>}
+      </div>
+    </div>
+  )
+}

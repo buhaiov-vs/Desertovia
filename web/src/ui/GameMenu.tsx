@@ -1,0 +1,300 @@
+import { useState } from 'react'
+import {
+  blockedByLoad,
+  builtKinds,
+  discoveredTechnologies,
+  isProjectTask,
+  projectWants,
+  type BuildingDefinition,
+  type Catalog,
+  type Citizen,
+  type Me,
+  type Task,
+  type VillageState,
+} from '../api'
+import type { FeedEntry } from '../hooks'
+import { useI18n } from '../i18n'
+import type { UiKey } from '../i18n/en'
+import { BuildPanel } from './BuildPanel'
+import { CharacterSheet } from './CharacterSheet'
+import { CreateCitizenForm } from './CreateCitizenForm'
+import { LoginPanel } from './LoginPanel'
+import { TABS, tabsFor, type MenuTab } from './menuTabs'
+import { NextAction } from './NextAction'
+import { ProjectPanel } from './ProjectPanel'
+import { QuestPanel } from './QuestPanel'
+import { SettingsPanel } from './SettingsPanel'
+import { SitesPanel, type JobChoice } from './SitesPanel'
+import { TaskList } from './TaskList'
+import { TechnologyPanel } from './TechnologyPanel'
+
+type TaskFilter = 'all' | 'gather' | 'project' | 'crafts'
+
+const FILTERS: Record<TaskFilter, { label: UiKey; matches: (task: Task) => boolean }> = {
+  all: { label: 'filter.all', matches: () => true },
+  gather: {
+    label: 'filter.gather',
+    matches: (task) => (task.effect === 'Resources' && task.inputs.length === 0) || task.effect === 'Roam',
+  },
+  project: { label: 'filter.project', matches: isProjectTask },
+  crafts: { label: 'filter.crafts', matches: (task) => task.inputs.length > 0 || task.effect === 'Morale' },
+}
+
+export interface MenuProps {
+  slug: string
+  tab: MenuTab
+  onTab: (tab: MenuTab) => void
+  onClose: () => void
+  village: VillageState
+  /** The village owner: plans and builds, never works, sees no storage numbers. */
+  isOwner: boolean
+  /** Only known to the owner of a private village. */
+  inviteCode: string | null
+  onToggleLive: () => void
+  onNewInviteCode: () => Promise<void>
+  onPlace: (definition: BuildingDefinition) => void
+  onWithdraw: (plotId: string) => void
+  catalog: Catalog
+  me: Me | null
+  citizen: Citizen | null | undefined
+  now: number
+  pending: boolean
+  error: string | null
+  onStart: (task: Task) => void
+  onStartJob: (choice: JobChoice) => void
+  onCancelTask: () => void
+  /** Opens the open vote, or lets the Governor call one. */
+  onPoll: () => void
+  onResearch: () => void
+  onLoggedIn: () => void
+  onCreated: (citizen: Citizen) => void
+  feed: FeedEntry[]
+}
+
+function JoinPrompt(props: MenuProps) {
+  const { t } = useI18n()
+  if (!props.me) return <LoginPanel onLoggedIn={props.onLoggedIn} />
+  if (props.citizen === undefined) return <section className="card">{t('loading')}</section>
+  return <CreateCitizenForm slug={props.slug} isPrivate={props.village.isPrivate} onCreated={props.onCreated} />
+}
+
+export function GameMenu(props: MenuProps) {
+  const { tab, onTab, onClose, village, catalog, citizen, now, pending, error, onStart, onStartJob, isOwner: governor } = props
+  const i18n = useI18n()
+  const { t } = i18n
+  const [filter, setFilter] = useState<TaskFilter>('all')
+  const working = citizen?.cycleEndsAt ? now < Date.parse(citizen.cycleEndsAt) : false
+  const disabled = pending || working
+  const built = new Set<string>([...builtKinds(village, catalog), ...village.completedProjects])
+  const discovered = discoveredTechnologies(village)
+  // Project tasks only show while a project runs, and only the ones it has use for.
+  const visibleTask = (task: Task) => projectWants(village.project, task)
+  const projectTasks = village.project ? catalog.tasks.filter((task) => isProjectTask(task) && visibleTask(task)) : []
+  const expedition = catalog.tasks.find((task) => task.id === 'expedition')
+  const roam = catalog.tasks.find((task) => task.id === 'roam')
+  const sites = citizen && (
+    <SitesPanel catalog={catalog} village={village} citizen={citizen} disabled={disabled} onStartJob={onStartJob} />
+  )
+
+  return (
+    <div className="modal-backdrop" onPointerDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div className="modal menu" role="dialog" aria-label={t('menu.title')}>
+        <header className="modal-header">
+          <nav className="tabs">
+            {tabsFor(governor).map((key) => (
+              <button key={key} className={`tab ${tab === key ? 'active' : ''}`} onClick={() => onTab(key)}>
+                {t(TABS[key])}
+              </button>
+            ))}
+          </nav>
+          <button className="close" onClick={onClose} title={`${t('close')} (Esc)`}>
+            ✕
+          </button>
+        </header>
+
+        <div className="modal-body">
+          {citizen && <NextAction citizen={citizen} catalog={catalog} now={now} pending={pending} onCancel={props.onCancelTask} />}
+          {error && <p className="error">{error}</p>}
+
+          {tab === 'village' && (
+            <>
+              <QuestPanel
+                village={village}
+                catalog={catalog}
+                governor={governor}
+                citizen={citizen}
+                disabled={disabled}
+                onStart={onStart}
+                onPlan={() => onTab('build')}
+                onHelpBuild={() => document.getElementById('sites')?.scrollIntoView({ behavior: 'smooth' })}
+              />
+              {citizen && (
+                <div className="big-actions">
+                  <button
+                    className="big"
+                    onClick={() => {
+                      setFilter('gather')
+                      onTab('tasks')
+                    }}
+                  >
+                    {t('action.gather')}
+                  </button>
+                  <button
+                    className="big"
+                    disabled={disabled || !roam || blockedByLoad(roam, citizen) !== null}
+                    onClick={() => roam && onStart(roam)}
+                  >
+                    {t('action.roam')}
+                  </button>
+                  <button
+                    className="big"
+                    onClick={() => document.getElementById('sites')?.scrollIntoView({ behavior: 'smooth' })}
+                  >
+                    {t('action.help')}
+                  </button>
+                  <button
+                    className="big"
+                    disabled={disabled || !expedition || blockedByLoad(expedition, citizen) !== null}
+                    onClick={() => expedition && onStart(expedition)}
+                  >
+                    {t('action.expedition')}
+                  </button>
+                </div>
+              )}
+              {village.project && (
+                <ProjectPanel project={village.project} completed={village.completedProjects} governor={governor} />
+              )}
+              {governor ? (
+                <section className="card">
+                  <h3>{t('governor.title')}</h3>
+                  <p className="small">{t('governor.role')}</p>
+                  <button className="primary" onClick={() => onTab('build')}>
+                    {t('hud.build')}
+                  </button>
+                </section>
+              ) : citizen ? (
+                <section className="card" id="sites">
+                  <h3>{t('site.title')}</h3>
+                  {sites}
+                  {projectTasks.length > 0 && (
+                    <>
+                      <h3>{t('menu.helpBuild')}</h3>
+                      <TaskList
+                        tasks={projectTasks}
+                        citizen={citizen}
+                        catalog={catalog}
+                        built={built}
+                        discovered={discovered}
+                        wildlife={village.wildlife}
+                        goldVein={village.goldVeinRemaining}
+                        fields={village.fields}
+                        disabled={disabled}
+                        onStart={onStart}
+                      />
+                    </>
+                  )}
+                </section>
+              ) : (
+                <JoinPrompt {...props} />
+              )}
+              <section className="card">
+                <h3>{t('menu.chronicle')}</h3>
+                {props.feed.length === 0 ? (
+                  <p className="muted small">{t('menu.quiet')}</p>
+                ) : (
+                  <ul className="feed">
+                    {props.feed.map((entry) => (
+                      <li key={entry.key}>
+                        {entry.kind === 'cycle'
+                          ? i18n.describeReport(entry.report)
+                          : t('feed.built', { project: i18n.project(entry.completion.projectId).name })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
+
+          {tab === 'settings' && (
+            <SettingsPanel
+              slug={props.slug}
+              village={village}
+              me={props.me}
+              isOwner={governor}
+              inviteCode={props.inviteCode}
+              onToggleLive={props.onToggleLive}
+              onNewInviteCode={props.onNewInviteCode}
+              onAccountChanged={props.onLoggedIn}
+            />
+          )}
+
+          {tab === 'build' && governor && (
+            <BuildPanel catalog={catalog} village={village} onPlace={props.onPlace} onWithdraw={props.onWithdraw} />
+          )}
+
+          {tab === 'technologies' && (
+            <TechnologyPanel
+              catalog={catalog}
+              village={village}
+              citizen={citizen}
+              governor={governor}
+              disabled={disabled}
+              onPoll={props.onPoll}
+              onResearch={props.onResearch}
+            />
+          )}
+
+          {tab === 'character' &&
+            (citizen ? <CharacterSheet citizen={citizen} catalog={catalog} /> : <JoinPrompt {...props} />)}
+
+          {tab === 'tasks' &&
+            (citizen ? (
+              <>
+                <div className="chips">
+                  {(Object.keys(FILTERS) as TaskFilter[]).map((key) => (
+                    <button key={key} className={`chip ${filter === key ? 'active' : ''}`} onClick={() => setFilter(key)}>
+                      {t(FILTERS[key].label)}
+                    </button>
+                  ))}
+                </div>
+                {(filter === 'all' || filter === 'project') && (
+                  <section className="card">
+                    <h3>{t('site.title')}</h3>
+                    {sites}
+                  </section>
+                )}
+                {(['Basic', 'Journeyman', 'Master'] as const).map((tier) => {
+                  const roleIds = new Set(catalog.roles.filter((r) => r.tier === tier).map((r) => r.id))
+                  const tasks = catalog.tasks.filter(
+                    (task) => roleIds.has(task.roleId) && visibleTask(task) && FILTERS[filter].matches(task),
+                  )
+                  if (tasks.length === 0) return null
+                  return (
+                    <section key={tier} className="card">
+                      <h3>{i18n.tier(tier)}</h3>
+                      <TaskList
+                        tasks={tasks}
+                        citizen={citizen}
+                        catalog={catalog}
+                        built={built}
+                        discovered={discovered}
+                        wildlife={village.wildlife}
+                        goldVein={village.goldVeinRemaining}
+                        fields={village.fields}
+                        disabled={disabled}
+                        onStart={onStart}
+                      />
+                    </section>
+                  )
+                })}
+              </>
+            ) : (
+              <JoinPrompt {...props} />
+            ))}
+        </div>
+        <footer className="modal-footer muted small">{t('menu.hint')}</footer>
+      </div>
+    </div>
+  )
+}

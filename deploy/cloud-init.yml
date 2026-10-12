@@ -1,0 +1,54 @@
+#cloud-config
+package_update: true
+package_upgrade: true
+packages:
+  - ca-certificates
+  - curl
+  - unattended-upgrades
+  - fail2ban
+
+users:
+  - name: deploy
+    shell: /bin/bash
+    groups: [sudo]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - __DEPLOY_PUBLIC_KEY__
+
+write_files:
+  - path: /etc/ssh/sshd_config.d/10-desertod.conf
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      PermitEmptyPasswords no
+      AllowUsers deploy
+      X11Forwarding no
+      AllowAgentForwarding no
+      AllowTcpForwarding local
+      MaxAuthTries 3
+      LoginGraceTime 30
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+  - path: /etc/apt/apt.conf.d/52desertod-reboot
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+  - path: /etc/docker/daemon.json
+    content: |
+      {
+        "log-driver": "json-file",
+        "log-opts": { "max-size": "10m", "max-file": "5" }
+      }
+
+timezone: UTC
+
+runcmd:
+  - curl -fsSL https://get.docker.com | sh
+  - usermod -aG docker deploy
+  - systemctl enable --now docker fail2ban
+  - mkdir -p /opt/desertod
+  - chown deploy:deploy /opt/desertod
+  - truncate -s 0 /root/.ssh/authorized_keys
+  - systemctl restart ssh

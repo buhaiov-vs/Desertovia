@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import {
   api,
+  ApiError,
   CARRY_TO_STORAGE,
+  INVITE_PARAMETER,
   isStoryQuest,
   takesSpot,
   type BuildingDefinition,
@@ -17,10 +19,11 @@ import {
 import type { JobChoice } from '../ui/SitesPanel'
 import { inForestArea, tileBuiltOver, type WorldTarget } from '../game/worldMap'
 import { TargetPopup } from '../ui/TargetPopup'
+import { watchable, WatchPopup } from '../ui/WatchPopup'
 import { flagTitle, notify, useTitleReset } from '../notifications'
 import { GameCanvas, type GameCanvasHandle, type Placement } from '../game/GameCanvas'
 import { HandsCard } from '../ui/HandsCard'
-import { PRIEST_ID } from '../game/VillageWorld'
+import { GOVERNOR_ID, PRIEST_ID } from '../game/VillageWorld'
 import { useLiveVillage, useLocalNight, useMediaQuery, usePriest, useServerNow } from '../hooks'
 import { GameMenu } from '../ui/GameMenu'
 import type { MenuTab } from '../ui/menuTabs'
@@ -32,18 +35,50 @@ import { Guide } from '../ui/Guide'
 import { QuestTracker } from '../ui/QuestPanel'
 import { SubtitleDialog } from '../ui/SubtitleDialog'
 import { PollPanel, PollSetup } from '../ui/PollPanel'
+import { ServerClock } from '../ui/ServerClock'
+import { LoginPanel } from '../ui/LoginPanel'
+import { CreateCharacterForm } from '../ui/CreateCharacterForm'
 
 type Panel = 'none' | 'menu' | 'inventory' | 'done'
 
 const ZOOM_STEP = 1.25
 /** Results of a closed vote pop up for players who come within this time. */
 const POLL_RESULTS_MS = 10 * 60 * 1000
+const POLL_CLOCK_MS = 15_000
 const seenPollKey = (slug: string) => `desertod.poll-seen.${slug}`
 
+/** Villages are for signed-in players only: visitors sign in before the map loads. */
 export function GamePage() {
+  const { t } = useI18n()
+  const [me, setMe] = useState<Me | null | undefined>(undefined)
+  const loadMe = useCallback(async () => setMe(await api.me()), [])
+
+  useEffect(() => {
+    api.me().then(setMe)
+  }, [])
+
+  if (me === undefined) return <div className="splash">{t('loading')}</div>
+  if (!me) {
+    return (
+      <div className="menu-screen">
+        <LoginPanel onLoggedIn={loadMe} />
+        <Link to="/">{t('toHome')}</Link>
+      </div>
+    )
+  }
+  if (!me.character) {
+    return (
+      <div className="menu-screen">
+        <CreateCharacterForm suggestedName={me.displayName} onCreated={setMe} />
+      </div>
+    )
+  }
+  return <VillageView key={me.id} me={me} onAccountChanged={loadMe} />
+}
+
+function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () => void }) {
   const { slug = '' } = useParams()
   const i18n = useI18n()
-  const [me, setMe] = useState<Me | null | undefined>(undefined)
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [ownCitizen, setCitizen] = useState<Citizen | null | undefined>(undefined)
   const [placing, setPlacing] = useState<{ definition: BuildingDefinition } | null>(null)
@@ -69,11 +104,9 @@ export function GamePage() {
   const [nightOverride, setNightOverride] = useState<boolean | null>(null)
   const night = nightOverride ?? localNight
   const phone = useMediaQuery('(max-width: 720px)')
-  const now = useServerNow(serverOffset)
+  const pollClock = useServerNow(serverOffset, POLL_CLOCK_MS)
   const canvas = useRef<GameCanvasHandle>(null)
   const citizenId = useRef<string | null>(null)
-  const governorRef = useRef(false)
-
   const applyCitizen = useCallback((next: Citizen | null) => {
     setCitizen(next)
     if (next) setServerOffset(Date.parse(next.serverNow) - Date.now())
@@ -81,22 +114,12 @@ export function GamePage() {
 
   const loadCitizen = useCallback(async () => applyCitizen(await api.myCitizen(slug)), [slug, applyCitizen])
 
-  const applyAccount = useCallback(
-    async (account: Me | null) => {
-      setMe(account)
-      if (account) await loadCitizen()
-      else setCitizen(null)
-    },
-    [loadCitizen],
-  )
-  const loadMe = useCallback(async () => applyAccount(await api.me()), [applyAccount])
-
   useEffect(() => {
-    api.me().then(applyAccount)
+    api.myCitizen(slug).then(applyCitizen)
     api.catalog().then(setCatalog)
-  }, [applyAccount])
+  }, [slug, applyCitizen])
 
-  const titleRef = useRef('Desertod')
+  const titleRef = useRef('Desertovia')
   const catalogRef = useRef<Catalog | null>(null)
 
   const live = useLiveVillage(slug, {
@@ -104,7 +127,7 @@ export function GamePage() {
       if (summary.id === citizenId.current) void loadCitizen()
     },
     onCycleCompleted: (finished) => {
-      canvas.current?.say(finished.citizenId, i18n.speechFor(finished, governorRef.current))
+      canvas.current?.say(finished.citizenId, i18n.speechFor(finished))
       if (finished.buildingCompleted) {
         const building = i18n.building(finished.buildingCompleted).name
         notify(i18n.t('notify.builtTitle', { building }), i18n.t('notify.builtBody'), `built-${finished.siteId ?? building}`)
@@ -161,16 +184,47 @@ export function GamePage() {
 
   usePriest(canvas, live.state)
 
-  // The village owner is the Governor: plans and builds, never works, and sees no storage numbers.
+  // The village owner is the Governor: plans and builds, never works.
   const governor = live.isOwner
   const citizen = governor ? null : ownCitizen
+
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState<string | null>(null)
+  const join = useCallback(
+    async (inviteCode: string | null) => {
+      setJoining(true)
+      setJoinError(null)
+      try {
+        applyCitizen(await api.joinVillage(slug, inviteCode))
+      } catch (exception) {
+        // The session may belong to another account than the one this tab loaded.
+        if (exception instanceof ApiError && exception.code === 'character.missing') {
+          onAccountChanged()
+          return
+        }
+        setJoinError(i18n.error(exception))
+      } finally {
+        setJoining(false)
+      }
+    },
+    [slug, applyCitizen, i18n, onAccountChanged],
+  )
+  // The account's character settles in on the first visit; a private village waits for the invite code.
+  const triedJoin = useRef(false)
+  const isPrivate = live.state?.isPrivate
+  const linkInvite = new URLSearchParams(window.location.search).get(INVITE_PARAMETER)
+  useEffect(() => {
+    if (triedJoin.current || ownCitizen !== null || isPrivate === undefined || governor) return
+    if (isPrivate && !linkInvite) return
+    triedJoin.current = true
+    void join(isPrivate ? linkInvite : null)
+  }, [ownCitizen, isPrivate, governor, linkInvite, join])
   const placingRef = useRef(placing)
   const subtitleForRef = useRef(subtitleFor)
   const pickedRef = useRef(picked)
   /** Closes the vote screen when it is shown. */
   const closePollRef = useRef<(() => void) | null>(null)
   useEffect(() => {
-    governorRef.current = governor
     citizenId.current = citizen?.id ?? null
     placingRef.current = placing
     subtitleForRef.current = subtitleFor
@@ -285,7 +339,7 @@ export function GamePage() {
     const felled =
       task.workplace === 'forest' &&
       inForestArea(x, y) &&
-      (!state?.trees.some((tree) => tree.x === x && tree.y === y) || (catalog !== null && state !== null && tileBuiltOver(catalog, state, x, y)))
+      (!state?.trees.some((tree) => tree.x === x && tree.y === y) || (state !== null && tileBuiltOver(state, x, y)))
     return felled ? null : spot
   }
 
@@ -307,12 +361,24 @@ export function GamePage() {
     }
   }
 
+  const drink = async () => {
+    setPending(true)
+    try {
+      applyCitizen(await api.drink(slug))
+    } catch (exception) {
+      setNotice(i18n.error(exception))
+      window.setTimeout(() => setNotice(null), 5000)
+    } finally {
+      setPending(false)
+    }
+  }
+
   /** Keeps the storage view open, so the player sees the goods move into their hands. */
-  const takeFromStorage = async (plotId: string, resource: string) => {
+  const takeFromStorage = async (plotId: string, resource: string, amount: number) => {
     setPending(true)
     setError(null)
     try {
-      applyCitizen(await api.takeFromStorage(slug, plotId, resource))
+      applyCitizen(await api.takeFromStorage(slug, plotId, resource, amount))
     } catch (exception) {
       setError(i18n.error(exception))
     } finally {
@@ -371,7 +437,7 @@ export function GamePage() {
       poll.winner !== null &&
       seenPoll !== poll.id &&
       poll.closedAt !== null &&
-      now - Date.parse(poll.closedAt) < POLL_RESULTS_MS
+      pollClock - Date.parse(poll.closedAt) < POLL_RESULTS_MS
   const canCallPoll = governor && !pollOpen && (live.state?.technologies.some((state) => state.available) ?? false)
 
   const showPoll = () => {
@@ -409,28 +475,54 @@ export function GamePage() {
     <HandsCard citizen={owner} village={live.state!} catalog={catalog!} pending={pending} onCarry={carry} onDrop={drop} />
   )
 
+  const villageRef = useRef(live.state)
+  useEffect(() => {
+    villageRef.current = live.state
+  })
   const citizens = useMemo(() => [...live.citizens.values()], [live.citizens])
   const pickCitizen = useMemo(() => (governor ? (id: string) => setSubtitleFor(id) : null), [governor])
-  // Only a citizen can be sent to work; the Governor and visitors just look around.
+  // Only a citizen can be sent to work; the Governor watches and walks around, players without a character just look.
   const canWork = !governor && !!citizen
   const working = citizen?.state === 'Working'
-  const pickWorld = useMemo(
-    () =>
-      canWork
-        ? (target: WorldTarget | null, screen: { x: number; y: number }, point: TilePoint) => {
-            setError(null)
-            setPicked(target ? { target, screen } : null)
-            // Empty ground: "come here". A citizen busy with a task stays at work.
-            if (target || working) return
-            api.goTo(slug, point).then(applyCitizen, (exception) => {
-              setNotice(i18n.error(exception))
-              window.setTimeout(() => setNotice(null), 5000)
-            })
-          }
-        : null,
-    [canWork, working, slug, applyCitizen, i18n],
+  const ownId = citizen?.id
+  const pickWorld = useMemo(() => {
+    /** Water stops walkers; says so instead of asking the server. */
+    const blocked = (walkerId: string, point: TilePoint) => {
+      const block = canvas.current?.wayBlock(walkerId, point)
+      if (!block) return false
+      setNotice(i18n.t(block === 'water' ? 'walk.water' : 'walk.river'))
+      window.setTimeout(() => setNotice(null), 5000)
+      return true
+    }
+    if (governor) {
+      return (target: WorldTarget | null, screen: { x: number; y: number }, point: TilePoint) => {
+        const watched = target !== null && villageRef.current !== null && watchable(target, villageRef.current)
+        setPicked(watched ? { target, screen } : null)
+        if (watched || blocked(GOVERNOR_ID, point)) return
+        api.governorGoTo(slug, point).then(setVillageState, (exception) => {
+          setNotice(i18n.error(exception))
+          window.setTimeout(() => setNotice(null), 5000)
+        })
+      }
+    }
+    if (!canWork || !ownId) return null
+    return (target: WorldTarget | null, screen: { x: number; y: number }, point: TilePoint) => {
+      setError(null)
+      setPicked(target ? { target, screen } : null)
+      // Empty ground: "come here". A citizen busy with a task stays at work.
+      if (target || working || blocked(ownId, point)) return
+      api.goTo(slug, point).then(applyCitizen, (exception) => {
+        setNotice(i18n.error(exception))
+        window.setTimeout(() => setNotice(null), 5000)
+      })
+    }
+  }, [governor, canWork, working, ownId, slug, applyCitizen, setVillageState, i18n])
+  const worldPickable = useMemo(
+    () => (governor ? (target: WorldTarget) => villageRef.current !== null && watchable(target, villageRef.current) : null),
+    [governor],
   )
   const showPicked = picked !== null && canWork && panel === 'none'
+  const showWatched = picked !== null && governor && panel === 'none' && live.state !== null && watchable(picked.target, live.state)
   const subtitleCitizen = subtitleFor ? live.citizens.get(subtitleFor) : undefined
 
   if (live.error) {
@@ -442,7 +534,8 @@ export function GamePage() {
     )
   }
 
-  if (!live.state || !catalog || me === undefined) return <div className="splash">{i18n.t('loading')}</div>
+  if (!live.state || !catalog) return <div className="splash">{i18n.t('loading')}</div>
+  const village = live.state
 
   return (
     <div className="game-root">
@@ -456,33 +549,62 @@ export function GamePage() {
         placement={placement}
         onCitizenPick={pickCitizen}
         onWorldPick={pickWorld}
-        selection={showPicked ? picked.target.area : null}
+        worldPickable={worldPickable}
+        selection={showPicked || showWatched ? picked.target.area : null}
       />
 
+      {showWatched && (
+        <ServerClock offsetMs={serverOffset}>
+          {(now) => (
+            <WatchPopup
+              target={picked.target}
+              screen={picked.screen}
+              phone={phone}
+              village={village}
+              catalog={catalog}
+              citizens={citizens}
+              now={now}
+              onClose={() => setPicked(null)}
+            />
+          )}
+        </ServerClock>
+      )}
+
       {showPicked && citizen && (
-        <TargetPopup
-          key={`${picked.screen.x},${picked.screen.y}`}
-          target={picked.target}
-          screen={picked.screen}
-          phone={phone}
-          village={live.state}
-          catalog={catalog}
-          citizen={citizen}
-          now={now}
-          pending={pending}
-          error={error}
-          onStart={start}
-          onStartJob={startJob}
-          onTake={takeFromStorage}
-          onClose={() => setPicked(null)}
-        />
+        <ServerClock key={`${picked.screen.x},${picked.screen.y}`} offsetMs={serverOffset}>
+          {(now) => (
+            <TargetPopup
+              target={picked.target}
+              screen={picked.screen}
+              phone={phone}
+              village={village}
+              catalog={catalog}
+              citizen={citizen}
+              now={now}
+              pending={pending}
+              error={error}
+              onStart={start}
+              onStartJob={startJob}
+              onTake={takeFromStorage}
+              onClose={() => setPicked(null)}
+            />
+          )}
+        </ServerClock>
       )}
 
       <div className="hud">
-        <TopBar village={live.state} governor={governor} night={night} onNight={() => setNightOverride(!night)} />
+        <TopBar
+          village={live.state}
+          governor={governor}
+          night={night}
+          onNight={() => setNightOverride(!night)}
+          citizen={citizen}
+          citizens={live.citizens}
+          onForecast={async (rain) => setVillageState(await api.forecast(slug, rain))}
+        />
         <div className="hud-side">
-          <QuestTracker village={live.state} governor={governor} onOpen={() => openMenu('village')} />
-          {me !== undefined && (citizen !== undefined || governor) && (
+          <QuestTracker village={live.state} governor={governor} phone={phone} onOpen={() => openMenu('village')} />
+          {(citizen !== undefined || governor) && (
             <Guide
               key={governor ? 'governor' : 'citizen'}
               slug={slug}
@@ -497,14 +619,16 @@ export function GamePage() {
           )}
         </div>
         {!phone && <MiniFeed feed={live.feed} />}
-        <div className="zoom-controls">
-          <button onClick={() => canvas.current?.zoom(ZOOM_STEP)} title={`${i18n.t('hud.zoomIn')} (+)`} aria-label={i18n.t('hud.zoomIn')}>
-            +
-          </button>
-          <button onClick={() => canvas.current?.zoom(1 / ZOOM_STEP)} title={`${i18n.t('hud.zoomOut')} (−)`} aria-label={i18n.t('hud.zoomOut')}>
-            −
-          </button>
-        </div>
+        {!phone && (
+          <div className="zoom-controls">
+            <button onClick={() => canvas.current?.zoom(ZOOM_STEP)} title={`${i18n.t('hud.zoomIn')} (+)`} aria-label={i18n.t('hud.zoomIn')}>
+              +
+            </button>
+            <button onClick={() => canvas.current?.zoom(1 / ZOOM_STEP)} title={`${i18n.t('hud.zoomOut')} (−)`} aria-label={i18n.t('hud.zoomOut')}>
+              −
+            </button>
+          </div>
+        )}
         {(placing || notice) && (
           <div className="placement-banner">
             {placing ? (
@@ -517,79 +641,93 @@ export function GamePage() {
             )}
           </div>
         )}
-        <BottomBar
-          citizen={citizen}
-          catalog={catalog}
-          now={now}
-          phone={phone}
-          governor={governor}
-          hasResult={report !== null}
-          poll={
-            pollOpen && !pollShown
-              ? { label: i18n.t('poll.open'), onClick: showPoll }
-              : canCallPoll && !pollSetup
-                ? { label: i18n.t('poll.call'), onClick: showPoll }
-                : null
-          }
-          onMenu={openMenu}
-          onInventory={() => setPanel((current) => (current === 'inventory' ? 'none' : 'inventory'))}
-          onShowResult={() => setPanel('done')}
-          pending={pending}
-          onCancelTask={cancelTask}
-        />
+        <ServerClock offsetMs={serverOffset}>
+          {(now) => (
+            <BottomBar
+              citizen={citizen}
+              catalog={catalog}
+              now={now}
+              phone={phone}
+              governor={governor}
+              hasResult={report !== null}
+              poll={
+                pollOpen && !pollShown
+                  ? { label: i18n.t('poll.open'), onClick: showPoll }
+                  : canCallPoll && !pollSetup
+                    ? { label: i18n.t('poll.call'), onClick: showPoll }
+                    : null
+              }
+              onMenu={openMenu}
+              onInventory={() => setPanel((current) => (current === 'inventory' ? 'none' : 'inventory'))}
+              onShowResult={() => setPanel('done')}
+              pending={pending}
+              onCancelTask={cancelTask}
+              drinks={
+                (village.resources.find((r) => r.kind === 'VigorDrink')?.amount ?? 0) +
+                (citizen?.load.find((good) => good.resource === 'VigorDrink')?.amount ?? 0)
+              }
+              onDrink={drink}
+            />
+          )}
+        </ServerClock>
       </div>
 
       {panel === 'menu' && (
-        <GameMenu
-          slug={slug}
-          tab={tab}
-          onTab={setTab}
-          onClose={() => setPanel('none')}
-          village={live.state}
-          isOwner={governor}
-          inviteCode={live.inviteCode}
-          onToggleLive={async () => live.setState(await api.setLive(slug, !live.state!.isLive))}
-          onNewInviteCode={async () => live.setInviteCode((await api.newInviteCode(slug)).inviteCode)}
-          onPlace={(definition) => {
-            setPlacing({ definition })
-            setNotice(null)
-            setPanel('none')
-          }}
-          onWithdraw={withdraw}
-          catalog={catalog}
-          me={me}
-          citizen={citizen}
-          now={now}
-          pending={pending}
-          error={error}
-          onStart={start}
-          onStartJob={startJob}
-          onCancelTask={cancelTask}
-          onPoll={showPoll}
-          onResearch={research}
-          onLoggedIn={loadMe}
-          onCreated={(created) => {
-            applyCitizen(created)
-            setTab('tasks')
-          }}
-          feed={live.feed}
-        />
+        <ServerClock offsetMs={serverOffset}>
+          {(now) => (
+            <GameMenu
+              slug={slug}
+              tab={tab}
+              onTab={setTab}
+              onClose={() => setPanel('none')}
+              village={village}
+              isOwner={governor}
+              inviteCode={live.inviteCode}
+              onNewInviteCode={async () => live.setInviteCode((await api.newInviteCode(slug)).inviteCode)}
+              onPlace={(definition) => {
+                setPlacing({ definition })
+                setNotice(null)
+                setPanel('none')
+              }}
+              onWithdraw={withdraw}
+              catalog={catalog}
+              me={me}
+              citizen={citizen}
+              now={now}
+              pending={pending}
+              error={error}
+              onStart={start}
+              onStartJob={startJob}
+              onCancelTask={cancelTask}
+              onPoll={showPoll}
+              onResearch={research}
+              onAccountChanged={onAccountChanged}
+              onJoin={join}
+              joining={joining}
+              joinError={joinError}
+              feed={live.feed}
+            />
+          )}
+        </ServerClock>
       )}
 
       {panel === 'inventory' && (
-        <InventoryPanel
-          village={live.state}
-          citizen={citizen}
-          catalog={catalog}
-          governor={governor}
-          now={now}
-          pending={pending}
-          error={error}
-          onCarry={carry}
-          onDrop={drop}
-          onTake={takeFromStorage}
-          onClose={() => setPanel('none')}
-        />
+        <ServerClock offsetMs={serverOffset}>
+          {(now) => (
+            <InventoryPanel
+              village={village}
+              citizen={citizen}
+              catalog={catalog}
+              now={now}
+              pending={pending}
+              error={error}
+              onCarry={carry}
+              onDrop={drop}
+              onTake={takeFromStorage}
+              onClose={() => setPanel('none')}
+            />
+          )}
+        </ServerClock>
       )}
 
       {governor && pollSetup && !pollOpen ? (
@@ -629,18 +767,22 @@ export function GamePage() {
       )}
 
       {panel === 'done' && report && citizen && (
-        <TaskDonePanel
-          hands={hands(citizen)}
-          report={report}
-          citizen={citizen}
-          catalog={catalog}
-          now={now}
-          pending={pending}
-          error={error}
-          onRenew={() => renew(report)}
-          onChoose={() => openMenu('tasks')}
-          onHide={() => setPanel('none')}
-        />
+        <ServerClock offsetMs={serverOffset}>
+          {(now) => (
+            <TaskDonePanel
+              hands={hands(citizen)}
+              report={report}
+              citizen={citizen}
+              catalog={catalog}
+              now={now}
+              pending={pending}
+              error={error}
+              onRenew={() => renew(report)}
+              onChoose={() => openMenu('tasks')}
+              onHide={() => setPanel('none')}
+            />
+          )}
+        </ServerClock>
       )}
     </div>
   )

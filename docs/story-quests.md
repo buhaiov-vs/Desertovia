@@ -5,7 +5,7 @@ This document extends [cooperative-building.md](cooperative-building.md). The tr
 ## 1. Rules shared by every story quest
 
 - **One story quest at a time.** The next one opens when the previous one is completed. Need quests keep running beside it.
-- **Village-wide.** Every citizen works towards the same quest. The Governor sees the goal and the map changing, never the numbers (as with need quests).
+- **Village-wide.** Every citizen works towards the same quest. The Governor sees the goal and its progress numbers (as with need quests).
 - **Objectives are read from the village**, not ticked by hand: a building exists, a project is finished, food is in storage. Counted objectives (for example "tend the fire 5 times") count the cycles of every citizen together.
 - **Credit and reward** work like need quests: every useful cycle while the quest is open is recorded, and on completion the Renown pool is split by those cycles. The village gets morale.
 - **Monument quests start a project.** Opening the quest places the monument's project on the map; the existing project rules apply (material delivery, labor, the 20% personal contribution cap, project Renown on completion). Projects no longer start one after another by themselves: only a quest starts one, so at most one project runs at a time.

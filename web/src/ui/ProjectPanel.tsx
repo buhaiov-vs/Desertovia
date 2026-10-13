@@ -28,16 +28,7 @@ export function ProjectBanner({ village }: { village: VillageState }) {
   )
 }
 
-/** `governor`: overall progress only, so material shortages are not revealed. */
-export function ProjectPanel({
-  project,
-  completed,
-  governor = false,
-}: {
-  project: Project | null
-  completed: string[]
-  governor?: boolean
-}) {
+export function ProjectPanel({ project, completed }: { project: Project | null; completed: string[] }) {
   const i18n = useI18n()
   const { t } = i18n
 
@@ -58,7 +49,7 @@ export function ProjectPanel({
       </h3>
       <p className="muted small">{names.description}</p>
       <Bar value={project.progress} maximum={1} tone="gold" />
-      {!governor && <ProjectDetails project={project} />}
+      <ProjectDetails project={project} />
     </section>
   )
 }

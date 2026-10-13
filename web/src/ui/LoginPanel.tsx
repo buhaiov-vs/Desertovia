@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { api, type LoginProviders } from '../api'
+import {
+  api,
+  DISPLAY_NAME_MAXIMUM,
+  EMAIL_MAXIMUM,
+  PASSWORD_MAXIMUM,
+  PASSWORD_MINIMUM,
+  type LoginProviders,
+} from '../api'
 import { useI18n } from '../i18n'
 import type { UiKey } from '../i18n/en'
 
@@ -28,6 +35,97 @@ function TelegramLoginButton({ botUsername, returnUrl, language }: { botUsername
   return <div ref={container} />
 }
 
+function PasswordForm({ onLoggedIn }: { onLoggedIn: () => void }) {
+  const i18n = useI18n()
+  const { t } = i18n
+  const [registering, setRegistering] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [name, setName] = useState('')
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const valid =
+    email.trim().length > 0 &&
+    password.length >= (registering ? PASSWORD_MINIMUM : 1) &&
+    (!registering || name.trim().length > 0)
+
+  return (
+    <form
+      className="password-login"
+      onSubmit={async (event) => {
+        event.preventDefault()
+        setPending(true)
+        setError(null)
+        try {
+          if (registering) await api.passwordRegister(email, password, name)
+          else await api.passwordLogin(email, password)
+          onLoggedIn()
+        } catch (exception) {
+          setError(i18n.error(exception))
+        } finally {
+          setPending(false)
+        }
+      }}
+    >
+      <label className="field">
+        <span className="small">{t('login.email')}</span>
+        <input
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          maxLength={EMAIL_MAXIMUM}
+          required
+        />
+      </label>
+      <label className="field">
+        <span className="small">{t('login.password')}</span>
+        <input
+          type="password"
+          autoComplete={registering ? 'new-password' : 'current-password'}
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          minLength={registering ? PASSWORD_MINIMUM : undefined}
+          maxLength={PASSWORD_MAXIMUM}
+          required
+        />
+        {registering && (
+          <span className="muted small">{t('login.passwordHint', { minimum: PASSWORD_MINIMUM })}</span>
+        )}
+      </label>
+      {registering && (
+        <label className="field">
+          <span className="small">{t('login.displayName')}</span>
+          <input
+            autoComplete="nickname"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={DISPLAY_NAME_MAXIMUM}
+            required
+          />
+        </label>
+      )}
+      <div className="row">
+        <button type="submit" className="primary" disabled={!valid || pending}>
+          {t(registering ? 'login.register' : 'login.submit')}
+        </button>
+        <button
+          type="button"
+          className="link-button"
+          onClick={() => {
+            setRegistering(!registering)
+            setError(null)
+          }}
+        >
+          {t(registering ? 'login.haveAccount' : 'login.noAccount')}
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
+    </form>
+  )
+}
+
 export function LoginPanel({ onLoggedIn, title = 'login.title' }: { onLoggedIn: () => void; title?: UiKey }) {
   const i18n = useI18n()
   const { t } = i18n
@@ -44,7 +142,11 @@ export function LoginPanel({ onLoggedIn, title = 'login.title' }: { onLoggedIn: 
 
   const loginUrl = (provider: string) => `/auth/login/${provider}?returnUrl=${encodeURIComponent(returnUrl)}`
   const nothingConfigured =
-    !providers.twitch && !providers.google && !providers.telegramBotUsername && !providers.developmentLogin
+    !providers.twitch &&
+    !providers.google &&
+    !providers.telegramBotUsername &&
+    !providers.password &&
+    !providers.developmentLogin
 
   return (
     <section className="card login">
@@ -64,6 +166,8 @@ export function LoginPanel({ onLoggedIn, title = 'login.title' }: { onLoggedIn: 
           <TelegramLoginButton botUsername={providers.telegramBotUsername} returnUrl={returnUrl} language={i18n.language} />
         )}
       </div>
+
+      {providers.password && <PasswordForm onLoggedIn={onLoggedIn} />}
 
       {providers.developmentLogin && (
         <form

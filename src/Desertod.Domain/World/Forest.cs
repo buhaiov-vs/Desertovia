@@ -1,4 +1,5 @@
 using Desertod.Domain.Entities;
+using Desertod.Domain.Weather;
 
 namespace Desertod.Domain.World;
 
@@ -12,7 +13,7 @@ public sealed class Tree
     public int Y { get; set; }
 
     /// <summary>Wood already taken from the standing tree.</summary>
-    public double Chopped { get; set; }
+    public int Chopped { get; set; }
 
     /// <summary>When the tree fell; null while it stands.</summary>
     public DateTimeOffset? FelledAt { get; set; }
@@ -26,7 +27,7 @@ public sealed class Tree
 /// </summary>
 public static class Forest
 {
-    public const double WoodPerTree = 15;
+    public const int WoodPerTree = 15;
 
     /// <summary>The workplace whose wood comes from these trees.</summary>
     public const string Workplace = "forest";
@@ -46,7 +47,7 @@ public static class Forest
         (new TileArea(17, 21, 13, 5), 0.3),
     ];
 
-    /// <summary>Ground that never grows trees: the clearing, the trail to the gate, stones, berry bushes and reeds.</summary>
+    /// <summary>Ground that never grows trees: the clearing and the bare plot east of it, the trail to the gate, stones, berry bushes and reeds.</summary>
     private static readonly TileArea[] Bare =
     [
         new(12, 10, 7, 7),
@@ -94,7 +95,24 @@ public static class Forest
 
     /// <summary>A felled tree stands again once its stump had time to grow, unless a building covers it.</summary>
     public static bool Stands(Village village, Tree tree, DateTimeOffset now) =>
-        tree.FelledAt is not { } felledAt || (now >= felledAt + RegrowTime && !village.AreaTaken(tree.Tile));
+        tree.FelledAt is not { } felledAt || (Regrown(village, felledAt, now) && !village.AreaTaken(tree.Tile));
+
+    /// <summary>Rain makes stumps grow back faster.</summary>
+    private static bool Regrown(Village village, DateTimeOffset felledAt, DateTimeOffset now)
+    {
+        if (now >= felledAt + RegrowTime)
+        {
+            return true;
+        }
+
+        if (now <= felledAt)
+        {
+            return false;
+        }
+
+        var grown = (now - felledAt).TotalHours + WeatherRules.RainHours(village, felledAt, now) * (WeatherRules.ForestRegrowth - 1);
+        return grown >= RegrowTime.TotalHours;
+    }
 
     /// <summary>Trees standing in the open: the ones drawn on the map and chopped by citizens.</summary>
     public static IEnumerable<Tree> Visible(Village village, DateTimeOffset now) =>
@@ -130,12 +148,12 @@ public static class Forest
     /// Builders fell the trees on a construction site's area, taking up to <paramref name="wood"/> from them.
     /// Returns the wood taken; it is less when the trees had been chopped before the site was planned.
     /// </summary>
-    public static double Fell(Village village, TileArea area, double wood, DateTimeOffset now)
+    public static int Fell(Village village, TileArea area, int wood, DateTimeOffset now)
     {
-        var taken = 0.0;
+        var taken = 0;
         foreach (var tree in Standing(village, area, now).OrderBy(tree => tree.Y).ThenBy(tree => tree.X).ToList())
         {
-            if (wood - taken <= 1e-6)
+            if (wood - taken <= 0)
             {
                 break;
             }
@@ -143,7 +161,7 @@ public static class Forest
             var share = Math.Min(wood - taken, WoodPerTree - tree.Chopped);
             tree.Chopped += share;
             taken += share;
-            if (tree.Chopped >= WoodPerTree - 1e-6)
+            if (tree.Chopped >= WoodPerTree)
             {
                 tree.FelledAt = now;
                 tree.Chopped = 0;
@@ -157,7 +175,7 @@ public static class Forest
     /// Takes the gathered wood from the trees nearest the spot the citizen picked (the forest workplace by default),
     /// felling every tree that runs out. Wood from the wild beyond the camp land, or from bare camp land, fells no tree.
     /// </summary>
-    public static void Chop(Village village, double wood, DateTimeOffset now, TilePoint? spot = null)
+    public static void Chop(Village village, int wood, DateTimeOffset now, TilePoint? spot = null)
     {
         if (spot is { } wild && !Area.Contains(wild.ToTile()))
         {
@@ -171,7 +189,7 @@ public static class Forest
             .ThenBy(tree => tree.X);
         foreach (var tree in nearest)
         {
-            if (wood <= 1e-6)
+            if (wood <= 0)
             {
                 break;
             }
@@ -185,7 +203,7 @@ public static class Forest
             var taken = Math.Min(wood, WoodPerTree - tree.Chopped);
             tree.Chopped += taken;
             wood -= taken;
-            if (tree.Chopped >= WoodPerTree - 1e-6)
+            if (tree.Chopped >= WoodPerTree)
             {
                 tree.FelledAt = now;
                 tree.Chopped = 0;

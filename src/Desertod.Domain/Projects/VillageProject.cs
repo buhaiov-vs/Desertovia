@@ -26,8 +26,8 @@ public sealed class VillageProject
     public ProjectStatus Status { get; set; } = ProjectStatus.Active;
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
-    public double SurveyProgress { get; set; }
-    public double BuildProgress { get; set; }
+    public int SurveyProgress { get; set; }
+    public int BuildProgress { get; set; }
     public List<ProjectMaterial> Materials { get; set; } = [];
     public List<ProjectContribution> Contributions { get; set; } = [];
 
@@ -45,11 +45,11 @@ public sealed class VillageProject
         return project;
     }
 
-    public bool SurveyDone => SurveyProgress >= Definition.SurveyCycles - ProjectRules.Epsilon;
+    public bool SurveyDone => SurveyProgress >= Definition.SurveyCycles;
 
-    public bool MaterialsDone => MaterialsFraction >= 1 - ProjectRules.Epsilon;
+    public bool MaterialsDone => Definition.Materials.All(m => Delivered(m.Resource) >= m.Amount);
 
-    public bool BuildDone => BuildProgress >= Definition.BuildCycles - ProjectRules.Epsilon;
+    public bool BuildDone => BuildProgress >= Definition.BuildCycles;
 
     public bool IsComplete => SurveyDone && MaterialsDone && BuildDone;
 
@@ -57,43 +57,45 @@ public sealed class VillageProject
         : SurveyDone ? ProjectPhase.Construction
         : ProjectPhase.Survey;
 
-    public double Delivered(ResourceKind kind) => Materials.SingleOrDefault(m => m.Kind == kind)?.Delivered ?? 0;
+    public int Delivered(ResourceKind kind) => Materials.SingleOrDefault(m => m.Kind == kind)?.Delivered ?? 0;
 
     public double MaterialsFraction => Definition.Materials.Count == 0
         ? 1
-        : Definition.Materials.Average(m => Math.Min(1, Delivered(m.Resource) / m.Amount));
+        : Definition.Materials.Average(m => Math.Min(1, (double)Delivered(m.Resource) / m.Amount));
 
     /// <summary>Construction cannot run ahead of the delivered materials.</summary>
-    public double BuildLimit => MaterialsFraction * Definition.BuildCycles;
+    public int BuildLimit => MaterialsDone
+        ? Definition.BuildCycles
+        : (int)Math.Floor(MaterialsFraction * Definition.BuildCycles);
 
     public double Progress =>
-        ProjectRules.SurveyWeight * (Definition.SurveyCycles == 0 ? 1 : Math.Min(1, SurveyProgress / Definition.SurveyCycles))
+        ProjectRules.SurveyWeight * (Definition.SurveyCycles == 0 ? 1 : Math.Min(1, (double)SurveyProgress / Definition.SurveyCycles))
         + ProjectRules.MaterialsWeight * MaterialsFraction
-        + ProjectRules.BuildWeight * Math.Min(1, BuildProgress / Definition.BuildCycles);
+        + ProjectRules.BuildWeight * Math.Min(1, (double)BuildProgress / Definition.BuildCycles);
 
-    public double Required(string key) => key switch
+    public int Required(string key) => key switch
     {
         SurveyKey => Definition.SurveyCycles,
         BuildKey => Definition.BuildCycles,
         _ => Definition.Materials.SingleOrDefault(m => m.Resource.ToString() == key)?.Amount ?? 0,
     };
 
-    public double Done(string key) => key switch
+    public int Done(string key) => key switch
     {
         SurveyKey => SurveyProgress,
         BuildKey => BuildProgress,
         _ => Enum.TryParse<ResourceKind>(key, out var kind) ? Delivered(kind) : 0,
     };
 
-    public double Remaining(string key) => Math.Max(0, Required(key) - Done(key));
+    public int Remaining(string key) => Math.Max(0, Required(key) - Done(key));
 
-    public double Contributed(Guid citizenId, string key) =>
+    public int Contributed(Guid citizenId, string key) =>
         Contributions.SingleOrDefault(c => c.CitizenId == citizenId && c.Key == key)?.Amount ?? 0;
 
-    public double ContributionRoom(Guid citizenId, string key, int activeCitizens) =>
+    public int ContributionRoom(Guid citizenId, string key, int activeCitizens) =>
         Math.Max(0, ProjectRules.ContributionCap(Required(key), activeCitizens) - Contributed(citizenId, key));
 
-    public void Record(Guid citizenId, string key, double amount)
+    public void Record(Guid citizenId, string key, int amount)
     {
         switch (key)
         {
@@ -118,7 +120,7 @@ public sealed class VillageProject
     public double ShareOf(Guid citizenId)
     {
         var keys = Definition.Materials.Select(m => m.Resource.ToString()).Append(SurveyKey).Append(BuildKey).ToList();
-        return keys.Average(key => Required(key) <= 0 ? 0 : Contributed(citizenId, key) / Required(key));
+        return keys.Average(key => Required(key) <= 0 ? 0 : (double)Contributed(citizenId, key) / Required(key));
     }
 }
 
@@ -126,7 +128,7 @@ public sealed class ProjectMaterial
 {
     public Guid VillageProjectId { get; set; }
     public ResourceKind Kind { get; set; }
-    public double Delivered { get; set; }
+    public int Delivered { get; set; }
 }
 
 public sealed class ProjectContribution
@@ -134,5 +136,5 @@ public sealed class ProjectContribution
     public Guid VillageProjectId { get; set; }
     public Guid CitizenId { get; set; }
     public required string Key { get; set; }
-    public double Amount { get; set; }
+    public int Amount { get; set; }
 }

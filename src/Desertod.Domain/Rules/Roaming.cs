@@ -11,8 +11,8 @@ public static class Roaming
     public static IReadOnlyList<LootEntry> Table { get; } =
     [
         new(ResourceKind.Wood, 2, 30),
-        new(ResourceKind.Stone, 1.5, 25),
-        new(ResourceKind.Food, 1.5, 25),
+        new(ResourceKind.Stone, 1, 25),
+        new(ResourceKind.Food, 2, 25),
         new(ResourceKind.Reeds, 2, 20),
     ];
 

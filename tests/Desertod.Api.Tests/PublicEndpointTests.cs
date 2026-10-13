@@ -5,20 +5,18 @@ using Desertod.Api.Game;
 
 namespace Desertod.Api.Tests;
 
-/// <summary>Everything an anonymous visitor or the stream overlay can reach.</summary>
+/// <summary>What a visitor can reach before and right after signing in. The game itself needs an account.</summary>
 [Collection(ApiCollection.Name)]
 public sealed class PublicEndpointTests(DesertodApiFactory factory)
 {
     private readonly HttpClient client = factory.CreateClient();
 
-    [Fact]
-    public async Task Catalog_lists_tasks_roles_and_rules()
+    private async Task<HttpClient> SignedInClientAsync()
     {
-        var catalog = await client.GetFromJsonAsync<JsonElement>("/api/catalog");
-
-        Assert.NotEmpty(catalog.GetProperty("tasks").EnumerateArray());
-        Assert.NotEmpty(catalog.GetProperty("roles").EnumerateArray());
-        Assert.Equal(JsonValueKind.Object, catalog.GetProperty("rules").ValueKind);
+        var signedIn = factory.CreateClient();
+        var login = await signedIn.PostAsJsonAsync("/auth/dev-login", new { name = $"visitor-{Guid.NewGuid():N}"[..24] });
+        Assert.Equal(HttpStatusCode.NoContent, login.StatusCode);
+        return signedIn;
     }
 
     [Fact]
@@ -30,9 +28,19 @@ public sealed class PublicEndpointTests(DesertodApiFactory factory)
     }
 
     [Fact]
+    public async Task Catalog_lists_tasks_roles_and_rules()
+    {
+        var catalog = await (await SignedInClientAsync()).GetFromJsonAsync<JsonElement>("/api/catalog");
+
+        Assert.NotEmpty(catalog.GetProperty("tasks").EnumerateArray());
+        Assert.NotEmpty(catalog.GetProperty("roles").EnumerateArray());
+        Assert.Equal(JsonValueKind.Object, catalog.GetProperty("rules").ValueKind);
+    }
+
+    [Fact]
     public async Task Open_villages_include_the_demo_village()
     {
-        var villages = await client.GetFromJsonAsync<JsonElement>("/api/villages/public");
+        var villages = await (await SignedInClientAsync()).GetFromJsonAsync<JsonElement>("/api/villages/public");
 
         Assert.Contains(villages.EnumerateArray(), village => village.GetProperty("slug").GetString() == DemoVillage.Slug);
     }
@@ -40,7 +48,7 @@ public sealed class PublicEndpointTests(DesertodApiFactory factory)
     [Fact]
     public async Task Demo_village_state_loads_with_citizens()
     {
-        var village = await client.GetFromJsonAsync<JsonElement>($"/api/villages/{DemoVillage.Slug}");
+        var village = await (await SignedInClientAsync()).GetFromJsonAsync<JsonElement>($"/api/villages/{DemoVillage.Slug}");
 
         Assert.Equal(DemoVillage.Slug, village.GetProperty("state").GetProperty("slug").GetString());
         Assert.NotEmpty(village.GetProperty("citizens").EnumerateArray());
@@ -49,16 +57,19 @@ public sealed class PublicEndpointTests(DesertodApiFactory factory)
     [Fact]
     public async Task Unknown_village_is_not_found()
     {
-        var response = await client.GetAsync("/api/villages/no-such-village");
+        var response = await (await SignedInClientAsync()).GetAsync("/api/villages/no-such-village");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Theory]
     [InlineData("/api/me")]
+    [InlineData("/api/catalog")]
     [InlineData("/api/villages")]
+    [InlineData("/api/villages/public")]
+    [InlineData($"/api/villages/{DemoVillage.Slug}")]
     [InlineData($"/api/villages/{DemoVillage.Slug}/me")]
-    public async Task Player_endpoints_need_a_login(string path)
+    public async Task Game_endpoints_need_a_login(string path)
     {
         var response = await client.GetAsync(path);
 
@@ -69,7 +80,6 @@ public sealed class PublicEndpointTests(DesertodApiFactory factory)
     [InlineData("/")]
     [InlineData("/new")]
     [InlineData($"/v/{DemoVillage.Slug}")]
-    [InlineData($"/v/{DemoVillage.Slug}/overlay")]
     public async Task Client_routes_do_not_fail_on_the_server(string path)
     {
         var response = await client.GetAsync(path);

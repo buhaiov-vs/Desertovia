@@ -1,3 +1,4 @@
+using Desertod.Api.Auth;
 using Desertod.Domain;
 using Microsoft.AspNetCore.Diagnostics;
 
@@ -7,7 +8,8 @@ namespace Desertod.Api.Game;
 /// Turns game exceptions into problem details. The <c>code</c> and <c>arguments</c> extensions let the client
 /// show the message in the player's language; <c>detail</c> is the English fallback.
 /// </summary>
-public sealed class GameExceptionHandler(IProblemDetailsService problemDetails) : IExceptionHandler
+public sealed class GameExceptionHandler(IProblemDetailsService problemDetails, ILogger<GameExceptionHandler> logger)
+    : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext http, Exception exception, CancellationToken cancellationToken)
     {
@@ -24,6 +26,8 @@ public sealed class GameExceptionHandler(IProblemDetailsService problemDetails) 
             return false;
         }
 
+        // Runs outside the account log scope: the exception has already left it.
+        logger.RequestRejected(http.Request.Method, http.Request.Path, http.User.GetAccountId(), status, code ?? "", exception.Message);
         http.Response.StatusCode = status;
         var context = new ProblemDetailsContext
         {

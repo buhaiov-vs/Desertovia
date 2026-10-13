@@ -2,30 +2,36 @@ using Desertod.Domain.Stats;
 
 namespace Desertod.Domain.Rules;
 
-public readonly record struct ExperienceResult(int LevelsGained, double RenownGained);
+public readonly record struct ExperienceResult(int LevelsGained, int RenownGained);
 
 public static class Progression
 {
-    public static double ExperienceToNext(int level)
+    public static int ExperienceToNext(int level)
     {
         if (level < GameRules.StatMinimum || level >= GameRules.StatMaximum)
         {
             return 0;
         }
 
+        return Curve(level);
+    }
+
+    /// <summary>Experience from <paramref name="level"/> to the next one, shared by stats and skills.</summary>
+    public static int Curve(int level)
+    {
         if (level == 0)
         {
             return GameRules.FirstLevelExperience;
         }
 
-        return Math.Round(GameRules.ExperienceCurveBase * Math.Pow(level, GameRules.ExperienceCurveExponent));
+        return (int)Math.Round(GameRules.ExperienceCurveBase * Math.Pow(level, GameRules.ExperienceCurveExponent));
     }
 
     /// <summary>
     /// Adds experience to a stat. Experience that cannot raise power (stat maxed or talent cap reached)
     /// is converted into Renown.
     /// </summary>
-    public static ExperienceResult AddExperience(StatBlock stats, Stat stat, double experience)
+    public static ExperienceResult AddExperience(StatBlock stats, Stat stat, int experience)
     {
         if (experience <= 0)
         {
@@ -51,7 +57,7 @@ public static class Progression
             stats.Set(stat, level);
         }
 
-        double renown = 0;
+        var renown = 0;
         if (level >= GameRules.StatMaximum || stats.Total >= GameRules.TalentCap)
         {
             renown = pool;

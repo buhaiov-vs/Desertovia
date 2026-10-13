@@ -11,10 +11,10 @@ public class CancelTaskTests
     {
         var village = NewVillage();
         var citizen = NewCitizen(village);
-        var energy = citizen.CurrentEnergy(Now);
+        var energy = citizen.CurrentEnergy(Now, village);
         CycleEngine.Start(citizen, Task("chop-wood"), WorkContext.For(village), Now);
         var later = Now.AddSeconds(10);
-        var spent = citizen.CurrentEnergy(later);
+        var spent = citizen.CurrentEnergy(later, village);
 
         CycleEngine.Cancel(citizen, later);
 
@@ -22,7 +22,7 @@ public class CancelTaskTests
         Assert.True(citizen.CycleSettled);
         Assert.Null(citizen.CurrentTaskId);
         Assert.Null(CycleEngine.Settle(citizen, WorkContext.For(village), later.AddHours(1)));
-        Assert.Equal(spent, citizen.CurrentEnergy(later));
+        Assert.Equal(spent, citizen.CurrentEnergy(later, village));
         Assert.True(spent < energy);
         CycleEngine.Start(citizen, Task("chop-wood"), WorkContext.For(village), later);
     }

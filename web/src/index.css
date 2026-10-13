@@ -144,11 +144,6 @@ kbd {
   margin-left: 0.4rem;
 }
 
-.badge.live {
-  background: var(--red);
-  color: white;
-}
-
 .tile-icon {
   vertical-align: middle;
 }
@@ -235,8 +230,7 @@ kbd {
 .resource-chip,
 .project-banner,
 .mini-feed,
-.hud-status,
-.overlay-join {
+.hud-status {
   background: rgba(43, 29, 14, 0.82);
   color: #fff3d6;
   border: 2px solid #1b1206;
@@ -259,6 +253,14 @@ kbd {
   color: var(--gold);
   letter-spacing: 0.04em;
   text-shadow: 0 2px 0 #000;
+}
+
+a.brand {
+  text-decoration: none;
+}
+
+a.brand:hover {
+  text-decoration: underline;
 }
 
 .village-name {
@@ -312,6 +314,91 @@ kbd {
   font-weight: 700;
 }
 
+.weather {
+  position: relative;
+  display: inline-flex;
+}
+
+button.weather-chip {
+  cursor: pointer;
+}
+
+.weather-icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffd24a;
+  box-shadow: 0 0 0 2px #e0a92f;
+}
+
+.weather-chip.raining .weather-icon {
+  border-radius: 50% 50% 4px 4px;
+  background: #9fb3c8;
+  box-shadow: 0 0 0 2px #5b6f86;
+}
+
+.weather-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 5;
+  width: min(320px, 90vw);
+  padding: 0.6rem 0.75rem;
+  background: rgba(43, 29, 14, 0.94);
+  color: #fff3d6;
+  border: 2px solid #1b1206;
+  border-radius: 8px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+  text-align: left;
+}
+
+.weather-panel p {
+  margin: 0.35rem 0;
+}
+
+.weather-panel .muted {
+  color: #cdb991;
+}
+
+.weather-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.weather-effects-title {
+  font-weight: 700;
+}
+
+.weather-effects {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.weather-effects .good {
+  color: #b8e986;
+}
+
+.weather-effects .bad {
+  color: #ffb347;
+}
+
+.weather-synoptic {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 243, 214, 0.25);
+}
+
+.weather-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.weather-buttons button {
+  flex: 1;
+}
+
 .mini-feed {
   align-self: flex-start;
   list-style: none;
@@ -354,18 +441,65 @@ kbd {
 }
 
 .quest-tracker {
-  display: block;
-  text-align: left;
   border-color: var(--red);
-  cursor: pointer;
 }
 
-.quest-tracker:hover {
-  background: rgba(70, 46, 22, 0.9);
+.hud-card-head,
+.quest-tracker-body {
+  display: flex;
+  width: 100%;
+  padding: 0;
+  font-weight: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  box-shadow: none;
 }
 
-.quest-tracker strong {
+.hud-card-head {
+  align-items: baseline;
+  gap: 0.6rem;
   color: var(--gold);
+}
+
+.hud-card-head .small {
+  margin-left: auto;
+}
+
+.hud-card-fold {
+  margin-left: auto;
+  font-size: 0.9em;
+}
+
+.hud-card-head .small + .hud-card-fold {
+  margin-left: 0;
+}
+
+.hud-card-count {
+  min-width: 1.3rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--red);
+  color: #fff3d6;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.quest-tracker-body {
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 4px;
+}
+
+.quest-tracker-body:hover {
+  background: rgba(255, 243, 214, 0.08);
+}
+
+button.hud-card-head:active,
+button.quest-tracker-body:active {
+  box-shadow: none;
 }
 
 .quest-tracker ul {
@@ -394,14 +528,6 @@ kbd {
 
 .guide p {
   margin: 0.3rem 0 0.45rem;
-}
-
-.guide-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 0.6rem;
-  color: var(--gold);
 }
 
 .guide .link-button {
@@ -457,6 +583,53 @@ kbd {
   align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
+}
+
+.hud-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hud-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hud-needs .resource-chip {
+  font-size: 0.85rem;
+  cursor: help;
+}
+
+.hud-needs .needs-warning {
+  color: #ffb347;
+  border-color: #a85a00;
+}
+
+.drink-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem 0.15rem 0.3rem;
+  font-size: 0.85rem;
+}
+
+.sleep-icon {
+  display: inline-flex;
+  align-items: baseline;
+  width: 24px;
+  justify-content: center;
+  font-weight: 800;
+  color: #8fd0ff;
+  line-height: 1;
+}
+
+.sleep-icon small {
+  font-size: 0.7em;
+  transform: translateY(-0.35em);
 }
 
 .hud-status {
@@ -835,6 +1008,28 @@ button.big {
   color: var(--red);
 }
 
+.watch-stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.watch-stages li.current > .small {
+  font-weight: bold;
+}
+
+.target-popup .project-row {
+  grid-template-columns: 7.5rem 1fr 4.5rem;
+  font-size: 0.85rem;
+}
+
+.target-popup .project-rows {
+  margin: 0.3rem 0;
+}
+
 .pixel-question {
   flex: none;
   fill: #3a2a1a;
@@ -996,6 +1191,16 @@ input[aria-invalid='true'] {
   margin-bottom: 0.6rem;
 }
 
+.password-login {
+  max-width: 22rem;
+  margin-bottom: 0.6rem;
+}
+
+.password-login .row {
+  gap: 0.75rem;
+  align-items: center;
+}
+
 .button.twitch {
   background: #9146ff;
   color: white;
@@ -1071,24 +1276,6 @@ input[aria-invalid='true'] {
   gap: 0.4rem;
   padding: 0.6rem 0.9rem 0.8rem;
   flex-wrap: wrap;
-}
-
-/* Stream overlay */
-.overlay .hud {
-  padding: 18px;
-}
-
-.overlay-top {
-  display: flex;
-  justify-content: center;
-}
-
-.overlay .project-banner {
-  min-width: 520px;
-}
-
-.overlay .project-banner-title {
-  font-size: 1.6rem;
 }
 
 /* What to do at the place clicked on the map. */
@@ -1188,8 +1375,9 @@ input[aria-invalid='true'] {
   margin: 0.25rem 0 0;
 }
 
-.storage-take li button {
+.storage-take li .take-amount {
   margin-left: auto;
+  width: 4rem;
 }
 
 .cost {
@@ -1309,24 +1497,17 @@ input[aria-invalid='true'] {
   margin-top: 0.15rem;
 }
 
-.overlay-join {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  padding: 0.4rem 0.8rem;
-}
-
 /* Home and splash */
 .menu-screen,
 .splash {
-  --menu-background: url('/assets/bgs/meadow-campfire.png');
+  --menu-background: url('/assets/bgs/meadow-campfire.webp');
   position: relative;
   isolation: isolate;
   min-height: 100%;
 }
 
 .menu-screen.pond {
-  --menu-background: url('/assets/bgs/meadow-pond.png');
+  --menu-background: url('/assets/bgs/meadow-pond.webp');
 }
 
 /* A fixed layer instead of background-attachment: fixed, which mobile Safari ignores */
@@ -1554,9 +1735,10 @@ textarea {
     font-size: 0.95rem;
   }
 
+  /* Left-aligned, so the wrapped second row of chips keeps clear of the minimap at the right edge. */
   .hud-resources {
     justify-self: stretch;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 0;
   }
 
@@ -1573,6 +1755,7 @@ textarea {
 
   .hud-side {
     flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
     margin: 6px 0 auto;
   }
@@ -1581,11 +1764,23 @@ textarea {
   .guide {
     max-width: none;
     width: 100%;
+    margin-left: 0;
     font-size: 0.8rem;
+  }
+
+  /* Folded cards shrink to a one-line pill so the map stays visible. */
+  .quest-tracker.collapsed,
+  .guide.collapsed {
+    width: auto;
+    padding: 0.3rem 0.6rem;
   }
 
   .hud-status {
     min-width: 0;
+  }
+
+  .hud-left {
+    align-items: stretch;
   }
 
   .hud-buttons {

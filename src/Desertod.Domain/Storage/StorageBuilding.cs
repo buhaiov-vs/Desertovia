@@ -8,8 +8,6 @@ namespace Desertod.Domain.Storage;
 /// </summary>
 public sealed class StorageBuilding
 {
-    private const double Epsilon = 1e-6;
-
     public StorageKind Kind { get; set; }
 
     /// <summary>Unique within a village; identifies the building.</summary>
@@ -23,11 +21,11 @@ public sealed class StorageBuilding
     public static StorageBuilding Create(StorageKind kind, string plotId, DateTimeOffset now) =>
         new() { Kind = kind, PlotId = plotId, BuiltAt = now };
 
-    public double Amount(ResourceKind kind) => Goods.SingleOrDefault(g => g.Kind == kind)?.Amount ?? 0;
+    public int Amount(ResourceKind kind) => Goods.SingleOrDefault(g => g.Kind == kind)?.Amount ?? 0;
 
-    public int SlotsUsed(double amount) => (int)Math.Ceiling(amount / Definition.SlotSize - Epsilon);
+    public int SlotsUsed(int amount) => (amount + Definition.SlotSize - 1) / Definition.SlotSize;
 
-    public double FreeSpace(ResourceKind kind)
+    public int FreeSpace(ResourceKind kind)
     {
         if (!Definition.AcceptsGood(kind))
         {
@@ -39,10 +37,10 @@ public sealed class StorageBuilding
     }
 
     /// <summary>Stores as much as fits and returns the stored amount.</summary>
-    public double Put(ResourceKind kind, double amount)
+    public int Put(ResourceKind kind, int amount)
     {
         var stored = Math.Min(amount, FreeSpace(kind));
-        if (stored <= Epsilon)
+        if (stored <= 0)
         {
             return 0;
         }
@@ -59,7 +57,7 @@ public sealed class StorageBuilding
     }
 
     /// <summary>Takes up to <paramref name="amount"/> and returns the amount taken.</summary>
-    public double Take(ResourceKind kind, double amount)
+    public int Take(ResourceKind kind, int amount)
     {
         var good = Goods.SingleOrDefault(g => g.Kind == kind);
         if (good is null)
@@ -69,7 +67,7 @@ public sealed class StorageBuilding
 
         var taken = Math.Min(amount, good.Amount);
         good.Amount -= taken;
-        if (good.Amount <= Epsilon)
+        if (good.Amount <= 0)
         {
             Goods.Remove(good);
         }
@@ -84,10 +82,10 @@ public sealed class StorageBuilding
         foreach (var good in Goods.OrderBy(g => g.Kind))
         {
             var remaining = good.Amount;
-            while (remaining > Epsilon)
+            while (remaining > 0)
             {
                 var fill = Math.Min(size, remaining);
-                yield return (good.Kind, fill / size);
+                yield return (good.Kind, (double)fill / size);
                 remaining -= fill;
             }
         }
@@ -97,5 +95,5 @@ public sealed class StorageBuilding
 public sealed class StoredGood
 {
     public ResourceKind Kind { get; set; }
-    public double Amount { get; set; }
+    public int Amount { get; set; }
 }

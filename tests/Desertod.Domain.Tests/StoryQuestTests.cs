@@ -4,6 +4,7 @@ using Desertod.Domain.Entities;
 using Desertod.Domain.Projects;
 using Desertod.Domain.Quests;
 using Desertod.Domain.Rules;
+using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using static Desertod.Domain.Tests.TestWorld;
 
@@ -69,7 +70,7 @@ public class StoryQuestTests
         Assert.Equal(1, quest.Contributions.Sum(c => c.Amount));
 
         village.Sites.Clear();
-        village.Structures.Add(new Structure { Kind = BuildingKind.LeanTo, PlotId = "plot-5", BuiltAt = now });
+        village.Structures.Add(new Structure { Kind = BuildingKind.LeanTo, PlotId = "9,11", BuiltAt = now });
         Assert.True(QuestRules.IsComplete(quest, village, 1));
     }
 
@@ -97,7 +98,7 @@ public class StoryQuestTests
         var quest = OpenAfter(village, QuestKind.FirstHouse);
         Assert.False(QuestRules.IsComplete(quest, village, 1));
 
-        village.Structures.Add(new Structure { Kind = BuildingKind.Hut, PlotId = "plot-5", BuiltAt = Now });
+        village.Structures.Add(new Structure { Kind = BuildingKind.Hut, PlotId = "9,11", BuiltAt = Now });
         Assert.True(QuestRules.IsComplete(quest, village, 1));
     }
 
@@ -212,13 +213,13 @@ public class StoryQuestTests
         var now = Now;
         var report = Work(digger, GoldVein.DigTask, afterBridge, ref now);
         Assert.Equal(ResourceKind.Gold, Assert.Single(report.Produced).Resource);
-        Assert.Equal(report.Produced[0].Amount, village.GoldVeinMined, 6);
+        Assert.Equal(report.Produced[0].Amount, village.GoldVeinMined);
         QuestRules.Credit(village, [quest], report);
         Assert.Single(quest.Contributions);
 
-        village.GoldVeinMined = GoldVein.Size - 0.25;
+        village.GoldVeinMined = GoldVein.Size - 1;
         var last = Work(digger, GoldVein.DigTask, afterBridge, ref now);
-        Assert.Equal(0.25, last.Produced.Sum(p => p.Amount), 6);
+        Assert.Equal(1, last.Produced.Sum(p => p.Amount));
         Assert.True(GoldVein.IsEmpty(village));
 
         var empty = Assert.Throws<GameRuleException>(() => CycleEngine.Start(digger, Task(GoldVein.DigTask), afterBridge, now));
@@ -263,7 +264,7 @@ public class StoryQuestTests
 
     private static CycleReport Report(string taskId, bool overflowed) =>
         new(Guid.NewGuid(), "Test", taskId, [], [], 0, 0, false,
-            Stat.Intelligence, 10, Stat.Charisma, 3, 0, 0, false, overflowed);
+            Stat.Intelligence, 10, Stat.Charisma, 3, Skill.Scholarship, 10, 0, 0, 0, false, overflowed);
 
     [Fact]
     public void Fire_CountsTendFireCycles_AndRewardsTheKeepers()
@@ -285,9 +286,9 @@ public class StoryQuestTests
         QuestRules.Credit(village, [quest], Work(keeper, StoryQuests.TendFire, context, ref now));
         Assert.True(QuestRules.IsComplete(quest, village, 2));
 
-        var morale = village.Morale;
+        var morale = village.MoraleAt(now);
         var completion = QuestRules.Complete(quest, village, new Dictionary<Guid, Citizen> { [keeper.Id] = keeper, [chopper.Id] = chopper }, now);
-        Assert.Equal(QuestRules.Rewards[QuestKind.Fire].RenownPool, completion.RenownByCitizen[keeper.Id], 6);
+        Assert.Equal(QuestRules.Rewards[QuestKind.Fire].RenownPool, completion.RenownByCitizen[keeper.Id]);
         Assert.False(completion.RenownByCitizen.ContainsKey(chopper.Id));
         Assert.Equal(Math.Min(GameRules.MoraleMaximum, morale + QuestRules.Rewards[QuestKind.Fire].Morale), village.Morale, 6);
     }

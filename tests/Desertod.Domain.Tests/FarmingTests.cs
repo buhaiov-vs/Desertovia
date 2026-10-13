@@ -72,10 +72,10 @@ public class FarmingTests
 
         var later = Now.AddHours(turnip.GrowHours / 2);
 
-        Assert.Equal(0.5, FarmRules.GrowthOf(wet, later), 6);
-        Assert.Equal(0.5 * FarmCatalog.DryGrowthRate, FarmRules.GrowthOf(dry, later), 6);
-        Assert.True(FarmRules.IsRipe(wet, Now.AddHours(turnip.GrowHours)));
-        Assert.False(FarmRules.IsRipe(dry, Now.AddHours(turnip.GrowHours)));
+        Assert.Equal(0.5, FarmRules.GrowthOf(village, wet, later), 6);
+        Assert.Equal(0.5 * FarmCatalog.DryGrowthRate, FarmRules.GrowthOf(village, dry, later), 6);
+        Assert.True(FarmRules.IsRipe(village, wet, Now.AddHours(turnip.GrowHours)));
+        Assert.False(FarmRules.IsRipe(village, dry, Now.AddHours(turnip.GrowHours)));
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class FarmingTests
         Assert.Equal(end + FarmCatalog.WaterDuration, village.Fields[0].WateredUntil);
         Assert.Equal(end + FarmCatalog.WaterDuration, village.Fields[1].WateredUntil);
         Assert.Null(village.Fields[2].WateredUntil);
-        Assert.False(FarmRules.IsThirsty(village.Fields[0], end));
+        Assert.False(FarmRules.IsThirsty(village, village.Fields[0], end));
     }
 
     [Fact]

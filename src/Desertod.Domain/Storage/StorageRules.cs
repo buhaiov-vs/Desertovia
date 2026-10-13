@@ -6,9 +6,7 @@ namespace Desertod.Domain.Storage;
 public static class StorageRules
 {
     /// <summary>Most of one good a citizen may hold after taking it out of storage.</summary>
-    public const double TakeLimit = 10;
-
-    private const double Epsilon = 1e-6;
+    public const int TakeLimit = 10;
 
     /// <summary>Puts as much of the citizen's load into storage as fits. Returns what was unloaded.</summary>
     public static IReadOnlyList<ResourceAmount> Unload(Citizen citizen, Village village)
@@ -28,11 +26,16 @@ public static class StorageRules
     }
 
     /// <summary>
-    /// An idle citizen takes a good out of one storage building into their hands, up to <see cref="TakeLimit"/> held.
-    /// Returns the amount taken.
+    /// An idle citizen takes up to <paramref name="amount"/> of a good out of one storage building into their hands,
+    /// holding at most <see cref="TakeLimit"/>. Returns the amount taken.
     /// </summary>
-    public static double Take(Citizen citizen, Village village, string plotId, ResourceKind kind, DateTimeOffset now)
+    public static int Take(Citizen citizen, Village village, string plotId, ResourceKind kind, int amount, DateTimeOffset now)
     {
+        if (amount < 1)
+        {
+            throw new GameRuleException("take.amount", "Take at least one.");
+        }
+
         if (citizen.Status != CitizenStatus.Active)
         {
             throw new GameRuleException("citizen.dormant", "Dormant citizens cannot work.");
@@ -47,13 +50,13 @@ public static class StorageRules
                        ?? throw new GameRuleException("take.noStorage", "There is no storage building here.");
 
         var room = TakeLimit - citizen.Carried(kind);
-        if (room <= Epsilon)
+        if (room <= 0)
         {
             throw new GameRuleException("take.handsFull", $"You cannot carry more {ResourceNames.Of(kind)}.", Resource(kind));
         }
 
-        var taken = building.Take(kind, room);
-        if (taken <= Epsilon)
+        var taken = building.Take(kind, Math.Min(amount, room));
+        if (taken <= 0)
         {
             throw new GameRuleException("take.nothing", $"There is no {ResourceNames.Of(kind)} here.", Resource(kind));
         }
@@ -73,7 +76,7 @@ public static class StorageRules
             throw new GameRuleException("hands.empty", "Your hands are empty.");
         }
 
-        var unwanted = citizen.Load.Where(g => village.FreeSpace(g.Kind) <= Epsilon).ToList();
+        var unwanted = citizen.Load.Where(g => village.FreeSpace(g.Kind) <= 0).ToList();
         if (unwanted.Count == 0)
         {
             throw new GameRuleException("drop.roomInStorage", "Storage has room for what you carry. Carry it there instead.");

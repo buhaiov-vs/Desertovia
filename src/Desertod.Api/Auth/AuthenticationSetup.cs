@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Threading.RateLimiting;
 using AspNet.Security.OAuth.Twitch;
 using Desertod.Infrastructure.Accounts;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -7,14 +8,16 @@ using Microsoft.AspNetCore.Authentication.OAuth;
 
 namespace Desertod.Api.Auth;
 
-public sealed record LoginProviders(bool Twitch, bool Google, string? TelegramBotUsername, bool DevelopmentLogin);
+public sealed record LoginProviders(bool Twitch, bool Google, string? TelegramBotUsername, bool Password, bool DevelopmentLogin);
 
 public static class AuthenticationSetup
 {
     public const string TwitchProvider = "twitch";
     public const string GoogleProvider = "google";
     public const string TelegramProvider = "telegram";
+    public const string PasswordProvider = "email";
     public const string DevelopmentProvider = "dev";
+    public const string PasswordRateLimit = "password";
 
     public static IServiceCollection AddDesertodAuthentication(
         this IServiceCollection services,
@@ -29,12 +32,44 @@ public static class AuthenticationSetup
         var twitchConfigured = !string.IsNullOrWhiteSpace(twitch["ClientId"]) && !string.IsNullOrWhiteSpace(twitch["ClientSecret"]);
         var googleConfigured = !string.IsNullOrWhiteSpace(google["ClientId"]) && !string.IsNullOrWhiteSpace(google["ClientSecret"]);
         var telegramOptions = telegram.Get<TelegramOptions>() ?? new TelegramOptions();
+        var password = configuration.GetSection("Authentication:Password");
+        services.Configure<PasswordLoginOptions>(password);
+        var passwordOptions = password.Get<PasswordLoginOptions>() ?? new PasswordLoginOptions();
 
         services.AddSingleton(new LoginProviders(
             twitchConfigured,
             googleConfigured,
             telegramOptions.IsConfigured ? telegramOptions.BotUsername : null,
+            passwordOptions.Enabled,
             environment.IsDevelopment()));
+
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy(PasswordRateLimit, http => RateLimitPartition.GetFixedWindowLimiter(
+                ClientAddress.Of(http) ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = Math.Max(1, passwordOptions.AttemptsPerMinute),
+                    Window = TimeSpan.FromMinutes(1),
+                }));
+            options.OnRejected = async (context, cancellationToken) =>
+            {
+                var problems = context.HttpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
+                var problem = new ProblemDetailsContext
+                {
+                    HttpContext = context.HttpContext,
+                    ProblemDetails =
+                    {
+                        Status = StatusCodes.Status429TooManyRequests,
+                        Detail = "Too many attempts. Wait a minute and try again.",
+                    },
+                };
+                problem.ProblemDetails.Extensions["code"] = "auth.tooManyAttempts";
+                problem.ProblemDetails.Extensions["arguments"] = new Dictionary<string, object>();
+                await problems.TryWriteAsync(problem);
+            };
+        });
 
         var authentication = services
             .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)

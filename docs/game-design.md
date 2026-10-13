@@ -5,9 +5,9 @@ Status: draft v0.1. All numbers are tuning parameters, collected in [Tuning para
 ## 1. Concept recap
 
 - A **streamer** hosts a **Village**. Any streamer on the platform can host one.
-- **Citizens** are the streamer's subscribers. Each person has one **Account** and one **Citizen** per Village; stats are per Citizen.
+- **Citizens** are the streamer's subscribers. Each person has one **Account** with one **Character** (name and look), created right after signing up. Opening a Village settles the Character there as a **Citizen**; stats, skills and renown are per Citizen, so every Village starts from scratch.
 - Citizens work in a browser page (clicker style): pick a task, it runs for **90 seconds**, then must be renewed or changed.
-- The village is rendered as a 2D overlay on stream.
+- The village is rendered as a 2D map in the browser.
 
 ## 2. Stats
 
@@ -148,13 +148,12 @@ Each task has:
 ### 5.1 Experience gain per cycle
 
 ```text
-XP_primary   = 10 × Challenge × Fatigue × Overflow × LiveBonus
+XP_primary   = 10 × Challenge × Fatigue × Overflow
 XP_secondary = 0.3 × XP_primary
 ```
 
 - **Every task gives the same base experience (10).** Higher-tier tasks give better *yield*, not more experience. This removes the "find the single best experience task and spam it" exploit.
-- `LiveBonus` = **1.25** while the streamer is live, otherwise 1.0. Rewards watching the stream.
-- The other multipliers are anti-abuse rules (sections 5.4–5.6).
+- The multipliers are anti-abuse rules (sections 5.4–5.6).
 
 ### 5.2 Experience curve
 
@@ -167,7 +166,7 @@ Experience is tracked per stat. At level 10 the stat is maxed and further experi
 
 **Pacing rule:** every technology (a role tier, a story project) should be reachable in a few hours of play, about two in four hours. Citizens start with every stat at 0.
 
-### 5.3 Pacing (calculated, primary stat only, without live bonus)
+### 5.3 Pacing (calculated, primary stat only)
 
 One active hour = 40 cycles = 400 experience at full efficiency.
 
@@ -227,6 +226,34 @@ Overflow = 1.0   otherwise
 
 When storage is full, yield is wasted and experience is halved. This pushes Citizens toward whatever the village actually needs instead of mindless grinding, and stops resource inflation.
 
+### 5.7 Skills: getting better at a craft
+
+Besides stats, every task, construction job and research trains one **skill** (a craft). Baking bread at the Bakery trains Baking; chopping wood and felling trees on a site train Woodcutting.
+
+| Skill | Trained by |
+|---|---|
+| Woodcutting | Gather wood, Fell the trees |
+| Quarrying | Gather stones |
+| Gathering | Forage berries, Cut reeds, Study plants |
+| Hunting | Hunt rabbits, deer and birds |
+| Fishing | Fish from the pier |
+| Farming | Tend, sow, water and harvest the fields, Plough the field |
+| Mining | Dig for gold, Mine coal, iron ore and gold, Dig the shaft |
+| Smithing | Smelt iron, Forge chains |
+| Carpentry | Saw planks, Build mechanisms |
+| Baking | Bake bread |
+| Scholarship | Measure the river, Read the chronicles, Research, Brew remedies, researching a technology |
+| Building | Build, Survey, Supervise, Draft plans, Lead a crew, construction labor |
+| Hauling | Carry to storage, Deliver goods, Bring materials to a site |
+| Entertaining | Tend the fire, Chat at the tavern, Tell stories, Play the gusli |
+| Exploring | Expeditions, Roam the land, Explore the land |
+| Trading | Trade, Negotiate (not available yet) |
+| Guarding | Patrol, Command (not available yet) |
+
+- A skill gets the same experience as the task's primary stat, on the same curve (section 5.2), up to level 10. Skills do **not** count toward the talent cap; experience past level 10 is lost (no Renown).
+- **Gate:** master tasks need level 3 in their skill, so a citizen must have done the journeyman work of the craft first (Mine gold needs Mining 3).
+- **Bonus:** every skill level above what the task needs gives +5% yield and −4% work time (walking is not shortened), for up to 5 levels: +25% yield and −20% work time at most. Experience per cycle stays the same, so a skilled citizen also levels faster per hour.
+
 ## 6. Yield math
 
 ### 6.1 Yield per cycle
@@ -266,7 +293,7 @@ Smiths forge tools that are placed in the village tool shed (shared, not persona
 RareChance = 1% + 0.5% × Dexterity            per cycle
 ```
 
-Rolled on the server only. The rare find is announced on the stream overlay.
+Rolled on the server only. The rare find is announced in the village.
 
 ## 7. Projects (co-operative goals)
 
@@ -310,6 +337,15 @@ Applied to the yield of everyone working on the same project.
 - This stops one dedicated player (or bot) from soloing projects and keeps the "we need more people" pressure.
 - Project completion rewards (Renown, title, name on the bridge) are split by contribution share.
 
+### 7.5 Weather and the Synoptic
+
+- The village has one sky per **weather day** (3 hours). Each day rains with a chance rolled between **5% and 10%**, derived from the village id and the day index, so every read agrees without a worker.
+- **Synoptic** is a Journeyman role (Intelligence 4, Endurance 2) unlocked by the tech **Weather lore** (Village era, Granary, after Agriculture). Its skill is **Weatherlore**, trained by the laborer task "Read the sky".
+- A rested Synoptic (idle past the grace window after sleeping) may forecast the **next** weather day. The first forecast of a day wins. The forecast comes out the other way round with a probability of 60% at Weatherlore 0, rising to 95% at the cap; otherwise the sky does what it would have done anyway.
+- Forecasts are kept for 7 days, so past weather never changes.
+- Rain effects: beds count as watered (the Water task is refused); fishing ×1.25; research and tavern work ×1.15; felled forest regrows twice as fast; outdoor tasks cost ×1.5 energy; sleeping under the trees regenerates at half speed; "Tend the fire" gives half morale; building, hauling and surveying ×0.75 (mud); hunting and roaming ×0.8.
+- The weather of a cycle is the weather at the moment the cycle started.
+
 ## 8. Anti-abuse summary
 
 | Abuse | Countermeasure |
@@ -329,7 +365,7 @@ Applied to the yield of everyone working on the same project.
 
 | Event | Effect |
 |---|---|
-| New subscriber | Citizen creation unlocked; arrival shown on overlay |
+| New subscriber | Citizen creation unlocked; arrival shown in the village |
 | Subscription lapses | Citizen becomes **Dormant**: no tasks, stats and items frozen (no decay) |
 | Resubscribe | Citizen wakes up, keeps everything |
 | Tier upgrades | Cosmetics, house upgrades, extra title slots. **Never stats, experience or energy.** |
@@ -345,12 +381,15 @@ Applied to the yield of everyone working on the same project.
 | Base experience per cycle | 10 |
 | Secondary experience share | 0.3 |
 | Experience curve | 50 for the first level, then 60 × L^1.5 |
+| Skill maximum level | 10 (same curve as stats, no talent cap) |
+| Skill bonus per level above the task's need | +5% yield, −4% work time, up to 5 levels |
+| Skill needed by master tasks | 3 |
 | Challenge threshold / penalty | requirement + 3 / × 0.25 |
 | Energy max | 60 + 8 × Endurance |
 | Energy full regeneration time | 20 hours |
+| Vigor drink (tavern, "Vigor drinks" tech) | +20 energy, once per 2 hours; brewed from 2 grain + 1 food |
 | Tired experience / yield | × 0 / × 0.25 |
 | Overflow experience | × 0.5 |
-| Live bonus (experience) | × 1.25 |
 | Stat factor | 0.4 + 0.12 × EffectiveStat |
 | Streak | +1% per renewal, max +20% |
 | Morale range | 0.8–1.2 |

@@ -21,6 +21,13 @@ public sealed class PlayerFlowTests(DesertodApiFactory factory)
         return client;
     }
 
+    private static async Task CreateCharacterAsync(HttpClient client, string name)
+    {
+        var appearance = new { gender = "Female", style = 0, skinTone = 0, hairColor = 0, outfitColor = 0 };
+        var created = await client.PostAsJsonAsync("/api/me/character", new { name, appearance });
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+    }
+
     [Fact]
     public async Task Development_login_signs_in_and_out()
     {
@@ -36,7 +43,7 @@ public sealed class PlayerFlowTests(DesertodApiFactory factory)
     }
 
     [Fact]
-    public async Task Governor_founds_a_village_and_controls_the_stream()
+    public async Task Governor_founds_a_private_village()
     {
         var client = await SignedInClientAsync(UniqueName("governor"));
 
@@ -51,9 +58,6 @@ public sealed class PlayerFlowTests(DesertodApiFactory factory)
         Assert.True(village.GetProperty("isOwner").GetBoolean());
         Assert.False(string.IsNullOrEmpty(village.GetProperty("inviteCode").GetString()));
 
-        var live = await client.PostAsJsonAsync($"/api/villages/{slug}/live", new { isLive = true });
-        Assert.True((await live.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("isLive").GetBoolean());
-
         var invite = await client.PostAsync($"/api/villages/{slug}/invite", null);
         Assert.Equal(HttpStatusCode.OK, invite.StatusCode);
     }
@@ -65,8 +69,15 @@ public sealed class PlayerFlowTests(DesertodApiFactory factory)
         var path = $"/api/villages/{DemoVillage.Slug}";
 
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"{path}/me")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync($"{path}/citizens", new { })).StatusCode);
 
-        var created = await client.PostAsJsonAsync($"{path}/citizens", new { name = "Smoky" });
+        await CreateCharacterAsync(client, "Smoky");
+        var me = await client.GetFromJsonAsync<JsonElement>("/api/me");
+        Assert.Equal("Smoky", me.GetProperty("character").GetProperty("name").GetString());
+        var again = await client.PostAsJsonAsync("/api/me/character", new { name = "Other", appearance = new { gender = "Male" } });
+        Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
+
+        var created = await client.PostAsJsonAsync($"{path}/citizens", new { });
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
 
         var citizen = await client.GetFromJsonAsync<JsonElement>($"{path}/me");
@@ -83,30 +94,55 @@ public sealed class PlayerFlowTests(DesertodApiFactory factory)
         const int crowd = 12;
         var path = $"/api/villages/{DemoVillage.Slug}";
         var clients = await Task.WhenAll(Enumerable.Range(0, crowd).Select(_ => SignedInClientAsync(UniqueName("crowd"))));
+        await Task.WhenAll(clients.Select((client, index) => CreateCharacterAsync(client, $"Crowd {index}")));
 
-        var joined = await Task.WhenAll(clients.Select((client, index) =>
-            client.PostAsJsonAsync($"{path}/citizens", new { name = $"Crowd {index}" })));
+        var joined = await Task.WhenAll(clients.Select(client => client.PostAsJsonAsync($"{path}/citizens", new { })));
         Assert.All(joined, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
 
         var started = await Task.WhenAll(clients.Select(client => client.PostAsJsonAsync($"{path}/me/task", new { taskId = "chop-wood" })));
         Assert.All(started, response => Assert.Equal(HttpStatusCode.OK, response.StatusCode));
     }
 
-    [Fact]
-    public async Task Village_hub_accepts_anonymous_viewers()
+    /// <summary>The sign-in cookie as a <c>Cookie</c> header; the test server's handler keeps no cookies for SignalR.</summary>
+    private async Task<string> SignInCookieAsync(string name)
     {
-        await using var connection = new HubConnectionBuilder()
-            .WithUrl(new Uri(factory.Server.BaseAddress, "hubs/village"), options =>
+        using var client = factory.Server.CreateClient();
+        var login = await client.PostAsJsonAsync("/auth/dev-login", new { name });
+        Assert.Equal(HttpStatusCode.NoContent, login.StatusCode);
+        return string.Join("; ", login.Headers.GetValues("Set-Cookie").Select(cookie => cookie.Split(';')[0]));
+    }
+
+    private HubConnection VillageHubConnection(string? cookie) => new HubConnectionBuilder()
+        .WithUrl(new Uri(factory.Server.BaseAddress, "hubs/village"), options =>
+        {
+            options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
+            options.Transports = HttpTransportType.LongPolling;
+            if (cookie is not null)
             {
-                options.HttpMessageHandlerFactory = _ => factory.Server.CreateHandler();
-                options.Transports = HttpTransportType.LongPolling;
-            })
-            .Build();
+                options.Headers["Cookie"] = cookie;
+            }
+        })
+        .Build();
+
+    [Fact]
+    public async Task Village_hub_accepts_signed_in_players()
+    {
+        await using var connection = VillageHubConnection(await SignInCookieAsync(UniqueName("viewer")));
 
         await connection.StartAsync();
         await connection.InvokeAsync("JoinVillage", DemoVillage.Slug);
         await connection.InvokeAsync("LeaveVillage", DemoVillage.Slug);
 
         Assert.Equal(HubConnectionState.Connected, connection.State);
+    }
+
+    [Fact]
+    public async Task Village_hub_refuses_anonymous_visitors()
+    {
+        await using var connection = VillageHubConnection(null);
+
+        var refused = await Assert.ThrowsAsync<HttpRequestException>(() => connection.StartAsync());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
     }
 }

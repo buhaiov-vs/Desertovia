@@ -1,13 +1,12 @@
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Entities;
+using Desertod.Domain.Rules;
 using Desertod.Domain.World;
 
 namespace Desertod.Domain.Technologies;
 
 public static class TechnologyRules
 {
-    private const double Epsilon = 1e-6;
-
     public static bool Knows(Village village, string? technologyId) =>
         technologyId is null || village.Research.Any(r => r.TechnologyId == technologyId && r.ResearchedAt is not null);
 
@@ -177,7 +176,7 @@ public static class TechnologyRules
         }
 
         var progress = ProgressOf(village, technology.Id);
-        if (progress is not null && Remaining(technology, progress) <= Epsilon && progress.HasHand(citizen.Id))
+        if (progress is not null && Remaining(technology, progress) == 0 && progress.HasHand(citizen.Id))
         {
             throw new GameRuleException("research.needOthers",
                 "The research is done, but more minds are needed. Someone who has not studied it yet must help.",
@@ -191,7 +190,7 @@ public static class TechnologyRules
     /// Adds a cycle of research. A technology is discovered when its work is done and enough different citizens took part.
     /// Returns the work added and whether this cycle discovered it.
     /// </summary>
-    public static (double Amount, bool Discovered) Research(
+    public static (int Amount, bool Discovered) Research(
         Village village,
         Citizen citizen,
         TechnologyDefinition technology,
@@ -212,16 +211,16 @@ public static class TechnologyRules
         }
 
         var newHand = !progress.HasHand(citizen.Id);
-        var amount = Math.Min(factor, Remaining(technology, progress));
-        if (amount <= Epsilon && !newHand)
+        var amount = Math.Min(YieldMath.Whole(factor), Remaining(technology, progress));
+        if (amount == 0 && !newHand)
         {
             return (0, false);
         }
 
-        progress.Done += Math.Max(0, amount);
+        progress.Done += amount;
         progress.AddHand(citizen.Id);
 
-        var discovered = Remaining(technology, progress) <= Epsilon && progress.Hands.Count >= CrewNeeded(technology, recentCitizens);
+        var discovered = Remaining(technology, progress) == 0 && progress.Hands.Count >= CrewNeeded(technology, recentCitizens);
         if (discovered)
         {
             progress.ResearchedAt = now;
@@ -231,7 +230,7 @@ public static class TechnologyRules
         return (Math.Max(amount, newHand ? 1 : 0), discovered);
     }
 
-    public static double Remaining(TechnologyDefinition technology, TechnologyProgress progress) =>
+    public static int Remaining(TechnologyDefinition technology, TechnologyProgress progress) =>
         Math.Max(0, technology.Cycles - progress.Done);
 
     /// <summary>Scaled down for small streams, like the crew of a construction stage.</summary>

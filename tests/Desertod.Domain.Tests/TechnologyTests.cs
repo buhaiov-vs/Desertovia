@@ -212,7 +212,8 @@ public class TechnologyTests
         var before = Finish(withoutTools, WorkContext.For(plain)).Produced.Single().Amount;
         var after = Finish(withTools, WorkContext.For(skilled)).Produced.Single().Amount;
 
-        Assert.Equal(before * 1.25, after, 6);
+        Assert.True(after > before);
+        Assert.InRange(after, before * 1.25 - 0.5, before * 1.25 + 0.5);
         Assert.Equal(1, TechnologyRules.YieldMultiplier(skilled, "forage"));
     }
 

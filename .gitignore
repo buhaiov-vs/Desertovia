@@ -6,3 +6,6 @@ node_modules/
 web/dist/
 src/Desertod.Api/wwwroot/
 TestResults/
+tests/Desertod.LoadTests/reports/
+deploy/.env
+deploy/backups/

@@ -7,5 +7,9 @@
   <Folder Name="/tests/">
     <Project Path="tests/Desertod.Api.Tests/Desertod.Api.Tests.csproj" />
     <Project Path="tests/Desertod.Domain.Tests/Desertod.Domain.Tests.csproj" />
+    <Project Path="tests/Desertod.LoadTests/Desertod.LoadTests.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/Desertod.Bots/Desertod.Bots.csproj" />
   </Folder>
 </Solution>

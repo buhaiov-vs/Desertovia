@@ -1,6 +1,6 @@
 # Desertod — Roadmap
 
-Status as of 2026-10-12. Design documents: [game-design.md](game-design.md), [streamer-mode.md](streamer-mode.md), [cooperative-building.md](cooperative-building.md).
+Status as of 2026-10-13, 01:50 (production readiness check: both builds and both Docker images build, 216 domain tests and 31 integration tests pass; deployed to the Hetzner server on 2026-10-13). Design documents: [game-design.md](game-design.md), [streamer-mode.md](streamer-mode.md), [cooperative-building.md](cooperative-building.md).
 
 ## How to use this file
 
@@ -13,15 +13,15 @@ Status as of 2026-10-12. Design documents: [game-design.md](game-design.md), [st
 
 - Game rules (`Desertod.Domain`): stats, roles, experience curve, energy, challenge multiplier, streak, morale, hunger, shelter, expeditions and rare finds, storage buildings with slots, carried goods. Covered by domain tests.
 - Cooperative building: blueprints placed anywhere on free camp land, sequential stages with parallel haul and labor jobs, crew requirement with "Lend a hand", repeat cost × 1.15, walking time by distance.
-- Wild start: campfire and Heap, stats at 0, name-only character creation, seven starting tasks.
+- Wild start: a campfire and no storage (the Heap is built first), stats at 0, name-only character creation, seven starting tasks.
 - Buildable buildings: Heap, Lean-to, Wood pile, Stone pile, Drying rack, Hut, Woodyard, Stone yard, Granary.
 - Tribe needs (quests): hunger, cold, storage room; Renown split among contributors.
 - Discoveries (technologies): 16 discoveries in Camp, Village and Town eras; the Governor calls a vote and citizens choose, qualified citizens research at the discovery's building with a crew requirement; discoveries unlock Farm, Bakery, Workshop, Mine, Smithy, Library, Tavern, Stage and Storehouse, roles and yield bonuses. New early tasks: Tell stories, Study plants, Explore the land. See [cooperative-building.md](cooperative-building.md), section 5.
 - Wildlife: rabbit, deer and bird herds per village that shrink when hunted and grow back over time; Hunt rabbits, Hunt birds (feathers), Hunt deer (Hunter). See [cooperative-building.md](cooperative-building.md), section 8.
 - Farming: 3 beds per Farm; sow turnips, carrots, cabbage, flax or rye (better seeds need more Endurance), water the beds (anyone), harvest; Farmer title. Bakery (Baking discovery): Bakers bake grain into food. See [cooperative-building.md](cooperative-building.md), Farming.
 - Backend: ASP.NET Core, PostgreSQL, SignalR live updates, background cycle settlement, concurrency retries, translatable error codes.
-- Login: Twitch, Google (YouTube), Telegram, name-only login in Development.
-- Frontend: React + PixiJS village view, minimap, task list, build panel, sites, needs, inventory, character sheet, first-steps guide, notifications, stream overlay without login.
+- Login: Twitch, Google (YouTube), Telegram, email and password (rate limited, PBKDF2 hashing, accounts per address limit), name-only login in Development.
+- Frontend: React + PixiJS village view, minimap, task list, build panel, sites, needs, inventory, character sheet, first-steps guide, notifications.
 - Public and private villages with invite codes, public village list.
 - English and Russian, typed dictionaries.
 - Server bootstrap: hardened `deploy/cloud-init.yml`.
@@ -30,23 +30,25 @@ Status as of 2026-10-12. Design documents: [game-design.md](game-design.md), [st
 
 Goal: a buildable, deployable application.
 
-- [ ] Initialize git and push to a remote repository.
-- [ ] Fix the frontend build (`npm run build` in `web`):
-  - [ ] `web/src/i18n/ru.ts`: 29 missing Russian keys (`home.foundHint`, `home.open`, `home.noOpen`, `home.citizens`, …).
-  - [ ] `web/src/pages/HomePage.tsx`: `api.createVillage` is called with a name; it now expects a `CreateVillageRequest`.
-  - [ ] `web/src/ui/CreateCitizenForm.tsx`: the call is missing the invite code argument.
-  - [ ] Finish the public/private village user interface (create form, invite code entry).
-- [ ] `Dockerfile` for the application (frontend build into `wwwroot`, then the .NET publish).
-- [ ] Production `docker-compose` with the application, PostgreSQL and a reverse proxy with automatic HTTPS (for example Caddy).
-- [ ] Forwarded headers, so Twitch and Google login build `https://` redirect addresses behind the proxy.
-- [ ] Persist data protection keys (database or volume), so login cookies survive restarts.
-- [ ] Apply database migrations in production (at startup or as a separate deployment step; today only in Development).
-- [ ] Health check endpoint.
-- [ ] Register the Twitch, Google and Telegram login applications with the production domain.
-- [ ] Nightly database backups stored off the server.
-- [ ] Rate limiting on authentication, task start, job start and village creation endpoints, and on hub connections.
+- [ ] Initialize git and push to a remote repository. Git is initialized with one commit; no remote yet, and most of the work since (about 190 changed files) is not committed.
+- [x] Fix the frontend build (`npm run build` in `web`).
+  - [x] `web/src/i18n/ru.ts`: missing Russian keys.
+  - [x] `web/src/pages/HomePage.tsx`: `api.createVillage` takes a `CreateVillageRequest`.
+  - [x] `web/src/ui/CreateCitizenForm.tsx`: invite code argument.
+  - [ ] Verify the public/private village user interface in a browser (create form, invite code entry).
+- [x] `Dockerfile` for the application (frontend build into `wwwroot`, then the .NET publish). Also builds a migration bundle image. Both images build.
+- [x] Production `docker-compose` with the application, PostgreSQL and a reverse proxy with automatic HTTPS (`deploy/docker-compose.yml`, `deploy/Caddyfile`). Running on the server since 2026-10-13 at https://91-98-8-14.sslip.io, deployed by copying the working folder into `/opt/desertod`.
+- [x] Forwarded headers (`ASPNETCORE_FORWARDEDHEADERS_ENABLED`; the application is reachable only through Caddy).
+- [x] Persist data protection keys: derived from `DATA_PROTECTION_KEY`; production refuses to start without it.
+- [x] Apply database migrations in production. The application runs `MigrateAsync` at startup.
+- [x] Health check endpoint (`/healthz`, includes the database, reachable only as `localhost`), and a Docker health check for the `api` service (`dotnet Desertod.Api.dll --health-check`). Docker Compose only marks the container unhealthy; it does not restart it.
+- [ ] Register the Twitch, Google and Telegram login applications with the production domain. Until then only email and password login is available.
+- [ ] Password reset (email and password accounts have no way to recover a forgotten password).
+- [ ] Nightly database backups stored off the server. Nightly dumps on the server disk (`postgres-backup` service, kept 30 days) are done and are included in the Hetzner server backups; a copy outside Hetzner is not.
+- [ ] Rate limiting on task start, job start, village creation and hub connections. Done for the password endpoints only.
 - [ ] Privacy policy and terms page.
 - [ ] Continuous integration: `dotnet test` and `npm run build` on every push.
+- [x] Confirm `DESERTOD_ENVIRONMENT=Production` in the server's `deploy/.env` (Development enables name-only login as anyone).
 
 ## Phase 1 — Closed beta
 
@@ -57,7 +59,7 @@ Goal: one or two friendly streamers playing for real.
 - [x] Make Farm buildable. Needs the Agriculture discovery.
 - [ ] Start a first monument in every village (today new villages never get an active project), with materials adjusted to the wild start.
 - [ ] Error tracking and structured log collection.
-- [ ] Application programming interface integration tests (start task, settle, build, quests) against a real PostgreSQL.
+- [x] Application programming interface integration tests against a real PostgreSQL (`tests/Desertod.Api.Tests`, Testcontainers).
 - [ ] Play-test stream with 5–10 people; record balance findings here.
 - [ ] Tune crew sizes, hunger, energy and job amounts from the play-test.
 
@@ -80,8 +82,6 @@ Goal: more for the Governor to do on stream. See [streamer-mode.md](streamer-mod
 - [ ] Construction site priority order.
 - [ ] Storage orders (accept, refuse, empty).
 - [ ] Cancel a started site with its materials left as a pile.
-- [ ] More overlay moments: celebrations, rare finds, arrivals.
-
 ## Phase 4 — Deeper cooperation
 
 Goal: "we need more people". See [cooperative-building.md](cooperative-building.md), sections 3 and 4.

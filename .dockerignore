@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.vs/
+**/*.user
+**/TestResults/
+.git/
+.cursor/
+web/dist/
+src/Desertod.Api/wwwroot/
+tests/
+docs/
+deploy/.env
+deploy/backups/

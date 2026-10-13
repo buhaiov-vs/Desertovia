@@ -1,6 +1,7 @@
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Catalog;
 using Desertod.Domain.Entities;
+using Desertod.Domain.Weather;
 using Desertod.Domain.World;
 
 namespace Desertod.Domain.Farming;
@@ -34,7 +35,8 @@ public static class FarmRules
         return added;
     }
 
-    public static double GrowthOf(FieldBed bed, DateTimeOffset now)
+    /// <summary>Rain waters every bed while it falls.</summary>
+    public static double GrowthOf(Village village, FieldBed bed, DateTimeOffset now)
     {
         if (bed.Crop is not { } crop)
         {
@@ -42,26 +44,27 @@ public static class FarmRules
         }
 
         var hours = Math.Max(0, (now - bed.UpdatedAt).TotalHours);
-        var wetHours = bed.WateredUntil is { } until ? Math.Clamp((until - bed.UpdatedAt).TotalHours, 0, hours) : 0;
+        var wetHours = Math.Min(hours, WeatherRules.WetHours(village, bed.UpdatedAt, now, bed.WateredUntil));
         var grown = (wetHours + (hours - wetHours) * FarmCatalog.DryGrowthRate) / FarmCatalog.Get(crop).GrowHours;
         return Math.Min(1, bed.Growth + grown);
     }
 
-    public static bool IsRipe(FieldBed bed, DateTimeOffset now) => bed.Crop is not null && GrowthOf(bed, now) >= 1 - Epsilon;
+    public static bool IsRipe(Village village, FieldBed bed, DateTimeOffset now) => bed.Crop is not null && GrowthOf(village, bed, now) >= 1 - Epsilon;
 
     public static bool IsWet(FieldBed bed, DateTimeOffset now) => bed.WateredUntil > now;
 
-    /// <summary>A growing bed that dries out soon. Empty and ripe beds need no water.</summary>
-    public static bool IsThirsty(FieldBed bed, DateTimeOffset now) =>
-        bed.Crop is not null && !IsRipe(bed, now) && (bed.WateredUntil ?? DateTimeOffset.MinValue) - now < FarmCatalog.ThirstyBelow;
+    /// <summary>A growing bed that dries out soon. Empty and ripe beds need no water, and none do in the rain.</summary>
+    public static bool IsThirsty(Village village, FieldBed bed, DateTimeOffset now) =>
+        bed.Crop is not null && !IsRipe(village, bed, now) && (bed.WateredUntil ?? DateTimeOffset.MinValue) - now < FarmCatalog.ThirstyBelow
+        && !WeatherRules.IsRaining(village, now);
 
     public static FieldBed? EmptyBed(Village village) => Beds(village).FirstOrDefault(b => b.Crop is null);
 
-    public static FieldBed? RipeBed(Village village, DateTimeOffset now) => Beds(village).FirstOrDefault(b => IsRipe(b, now));
+    public static FieldBed? RipeBed(Village village, DateTimeOffset now) => Beds(village).FirstOrDefault(b => IsRipe(village, b, now));
 
     /// <summary>Thirsty beds, driest first.</summary>
     public static IEnumerable<FieldBed> ThirstyBeds(Village village, DateTimeOffset now) =>
-        Beds(village).Where(b => IsThirsty(b, now)).OrderBy(b => b.WateredUntil ?? DateTimeOffset.MinValue);
+        Beds(village).Where(b => IsThirsty(village, b, now)).OrderBy(b => b.WateredUntil ?? DateTimeOffset.MinValue);
 
     /// <summary>Checks that the work has a bed to do it on. Throws a rule error explaining why not.</summary>
     public static void Check(Village village, TaskDefinition task, DateTimeOffset now)
@@ -71,6 +74,8 @@ public static class FarmRules
         {
             case TaskEffect.Sow when EmptyBed(village) is null:
                 throw new GameRuleException("farm.noEmptyBed", "Every bed is sown. Harvest a ripe one first.");
+            case TaskEffect.Water when WeatherRules.IsRaining(village, now):
+                throw new GameRuleException("farm.raining", "It is raining: the rain waters the beds.");
             case TaskEffect.Water when !ThirstyBeds(village, now).Any():
                 throw new GameRuleException("farm.nothingToWater", "No bed needs water now.");
             case TaskEffect.Harvest when RipeBed(village, now) is null:
@@ -100,7 +105,7 @@ public static class FarmRules
         var watered = ThirstyBeds(village, now).Take(FarmCatalog.BedsPerWatering).ToList();
         foreach (var bed in watered)
         {
-            bed.Growth = GrowthOf(bed, now);
+            bed.Growth = GrowthOf(village, bed, now);
             bed.UpdatedAt = now;
             bed.WateredUntil = now + FarmCatalog.WaterDuration;
         }

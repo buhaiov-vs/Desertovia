@@ -8,8 +8,6 @@ namespace Desertod.Domain.Buildings;
 
 public static class ConstructionRules
 {
-    private const double Epsilon = 1e-6;
-
     /// <summary>
     /// The Governor places a blueprint with its top-left corner on tile (<paramref name="x"/>, <paramref name="y"/>).
     /// It costs nothing: citizens bring every piece of it, and first fell any trees growing there.
@@ -119,7 +117,7 @@ public static class ConstructionRules
             throw new GameRuleException("site.unknownJob", $"Unknown job \"{jobId}\".", new Dictionary<string, object> { ["jobId"] = jobId });
         }
 
-        if (site.Remaining(stage, jobId) <= Epsilon)
+        if (site.Remaining(stage, jobId) == 0)
         {
             throw new GameRuleException("site.jobDone", "This job is already done.");
         }
@@ -127,7 +125,7 @@ public static class ConstructionRules
         if (job.Kind == JobKind.Haul)
         {
             var resource = job.Resource!.Value;
-            if (citizen.Carried(resource) + village.Stock(resource) < Math.Min(0.5, site.Remaining(stage, jobId)))
+            if (citizen.Carried(resource) + village.Stock(resource) < 1)
             {
                 throw new GameRuleException("site.noMaterial", $"There is no {Catalog.ResourceNames.Of(resource)} to carry. Gather some first.",
                     new Dictionary<string, object> { ["resource"] = resource.ToString() });
@@ -142,7 +140,7 @@ public static class ConstructionRules
                 new Dictionary<string, object> { ["stage"] = stages[site.Stage].Id });
         }
 
-        if (site.LaborRoom(stage, jobId) <= Epsilon)
+        if (site.LaborRoom(stage, jobId) == 0)
         {
             throw new GameRuleException("site.waitingMaterial", "Waiting for material: bring it to the site first.");
         }

@@ -4,6 +4,7 @@ import { api, VILLAGE_DESCRIPTION_MAXIMUM, VILLAGE_NAME_MAXIMUM, VILLAGE_NAME_MI
 import { LanguageSwitcher, useI18n } from '../i18n'
 import type { UiKey } from '../i18n/en'
 import { LoginPanel } from '../ui/LoginPanel'
+import { CreateCharacterForm } from '../ui/CreateCharacterForm'
 
 const ACCESS: { isPrivate: boolean; label: UiKey; hint: UiKey }[] = [
   { isPrivate: false, label: 'newVillage.public', hint: 'newVillage.publicHint' },
@@ -45,6 +46,8 @@ export function CreateVillagePage() {
 
       {!me ? (
         <LoginPanel onLoggedIn={async () => setMe(await api.me())} title="login.titleHome" />
+      ) : !me.character ? (
+        <CreateCharacterForm suggestedName={me.displayName} onCreated={setMe} />
       ) : (
         <form
           className="card new-village"

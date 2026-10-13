@@ -5,15 +5,17 @@ using Desertod.Domain.Farming;
 using Desertod.Domain.Projects;
 using Desertod.Domain.Quests;
 using Desertod.Domain.Rules;
+using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using Desertod.Domain.Storage;
 using Desertod.Domain.Technologies;
+using Desertod.Domain.Weather;
 using Desertod.Domain.World;
 
 namespace Desertod.Api.Game;
 
 /// <param name="Capacity">Amount plus free room in all storage that accepts the good; null when unlimited.</param>
-public sealed record ResourceDto(ResourceKind Kind, double Amount, double? Capacity);
+public sealed record ResourceDto(ResourceKind Kind, int Amount, int? Capacity);
 
 /// <param name="Fill">0 to 1; drawn as stacks on the building, the only storage hint the Governor gets.</param>
 public sealed record StorageSlotDto(ResourceKind Kind, double Fill);
@@ -23,7 +25,7 @@ public sealed record StorageDto(StorageKind Kind, string PlotId, IReadOnlyList<R
 public sealed record StructureDto(BuildingKind Kind, string PlotId);
 
 /// <param name="Room">Work a labor job can take right now; it cannot run ahead of the delivered material.</param>
-public sealed record SiteJobDto(string JobId, double Done, double Required, double Room);
+public sealed record SiteJobDto(string JobId, int Done, int Required, int Room);
 
 /// <param name="CrewNeeded">Different citizens the stage needs, scaled down for small streams.</param>
 /// <param name="Hands">Different citizens who already worked on the stage.</param>
@@ -32,7 +34,7 @@ public sealed record SiteStageDto(string Id, int CrewNeeded, int Hands, IReadOnl
 public sealed record SiteDto(BuildingKind Kind, string PlotId, int Stage, double Progress, IReadOnlyList<SiteStageDto> Stages);
 
 /// <param name="Count">Animals now; the map shows a share of them, the Governor never sees the number.</param>
-public sealed record HerdDto(AnimalKind Kind, double Count, double Capacity, string Habitat);
+public sealed record HerdDto(AnimalKind Kind, int Count, int Capacity, string Habitat);
 
 public sealed record TreeDto(int X, int Y);
 
@@ -47,8 +49,8 @@ public sealed record TechnologyStateDto(
     string Id,
     bool Discovered,
     bool Available,
-    double Done,
-    double Required,
+    int Done,
+    int Required,
     int Hands,
     int CrewNeeded);
 
@@ -69,6 +71,15 @@ public sealed record TechnologyPollDto(
     DateTimeOffset? ClosedAt,
     string? Winner);
 
+/// <param name="SaysRain">What the Synoptic announced; the weather it brought stays secret until the day comes.</param>
+public sealed record ForecastDto(Guid CitizenId, bool SaysRain, DateTimeOffset MadeAt);
+
+/// <param name="Raining">Weather of the current weather day.</param>
+/// <param name="DayEndsAt">When the current weather day ends and the next one's weather comes.</param>
+/// <param name="Today">The forecast that was made for the current day, if any.</param>
+/// <param name="Tomorrow">The forecast for the next day; null until a Synoptic makes one.</param>
+public sealed record WeatherDto(bool Raining, DateTimeOffset DayEndsAt, ForecastDto? Today, ForecastDto? Tomorrow);
+
 /// <param name="Trees">
 /// Standing trees on the camp land, those waiting to be felled on construction sites included;
 /// the client draws the wild beyond it by itself.
@@ -76,13 +87,13 @@ public sealed record TechnologyPollDto(
 /// <param name="CurrentResearch">The technology the last vote chose; null until a vote chooses an undiscovered one.</param>
 /// <param name="Poll">The open vote on the next discovery, or the last closed one.</param>
 /// <param name="Fields">Beds of every farm.</param>
+/// <param name="Governor">The village owner's figure on the map.</param>
 public sealed record VillageStateDto(
     Guid Id,
     string Slug,
     string Name,
     string? Description,
     bool IsPrivate,
-    bool IsLive,
     double Morale,
     IReadOnlyList<ResourceDto> Resources,
     IReadOnlyList<StorageDto> Storages,
@@ -97,13 +108,19 @@ public sealed record VillageStateDto(
     string? CurrentResearch,
     IReadOnlyList<TechnologyStateDto> Technologies,
     TechnologyPollDto? Poll,
-    double GoldVeinRemaining,
-    IReadOnlyList<FieldBedDto> Fields);
+    int GoldVeinRemaining,
+    IReadOnlyList<FieldBedDto> Fields,
+    WeatherDto Weather,
+    GovernorDto Governor);
 
-/// <param name="Objectives">Governor objectives carry no numbers; the client hides citizen numbers from the Governor.</param>
+/// <param name="Appearance">Null until the owner creates their character.</param>
+/// <param name="Spot">Where the Governor walked to; null while they stand at the campfire.</param>
+public sealed record GovernorDto(string Name, Appearance? Appearance, TilePoint? Spot);
+
+/// <param name="Objectives">Governor objectives (planning) carry no numbers; citizen objectives carry progress.</param>
 public sealed record QuestDto(Guid Id, QuestKind Kind, ResourceKind? Resource, DateTimeOffset StartedAt, IReadOnlyList<QuestObjective> Objectives);
 
-public sealed record ProjectMaterialDto(ResourceKind Kind, double Delivered, double Required);
+public sealed record ProjectMaterialDto(ResourceKind Kind, int Delivered, int Required);
 
 public sealed record ProjectDto(
     Guid Id,
@@ -112,11 +129,11 @@ public sealed record ProjectDto(
     string Description,
     ProjectPhase Phase,
     double Progress,
-    double SurveyDone,
-    double SurveyRequired,
-    double BuildDone,
-    double BuildLimit,
-    double BuildRequired,
+    int SurveyDone,
+    int SurveyRequired,
+    int BuildDone,
+    int BuildLimit,
+    int BuildRequired,
     IReadOnlyList<ProjectMaterialDto> Materials,
     int ActiveCitizens,
     int SupervisionCapacity,
@@ -146,17 +163,25 @@ public sealed record CitizenSummaryDto(
 /// <param name="InviteCode">Only sent to the owner of a private village.</param>
 public sealed record VillageDto(VillageStateDto State, bool IsOwner, string? InviteCode, IReadOnlyList<CitizenSummaryDto> Citizens);
 
-public sealed record VillageListItemDto(string Slug, string Name, bool IsOwner, bool IsLive);
+public sealed record VillageListItemDto(string Slug, string Name, bool IsOwner);
 
-public sealed record PublicVillageDto(string Slug, string Name, string? Description, bool IsLive, int Citizens);
+public sealed record PublicVillageDto(string Slug, string Name, string? Description, int Citizens);
 
 public sealed record InviteDto(string InviteCode);
 
-public sealed record StatDto(Stat Stat, int Level, double Experience, double ExperienceToNext);
+public sealed record StatDto(Stat Stat, int Level, int Experience, int ExperienceToNext);
+
+/// <param name="ExperienceToNext">0 at the maximum level.</param>
+public sealed record SkillDto(Skill Skill, int Level, int Experience, int ExperienceToNext);
 
 /// <param name="SiteId">Plot of the construction site the citizen works on.</param>
 /// <param name="Spot">Spot on the map the last task gathered at, picked by the player.</param>
 /// <param name="TechnologyId">Technology the current cycle researches.</param>
+/// <param name="Skills">Only the crafts the citizen has trained; any other is at level 0.</param>
+/// <param name="RegenerationMultiplier">Shelter quality, halved while hungry and again in the rain under the trees.</param>
+/// <param name="EnergyPerHour">Energy regained per hour at the current shelter, hunger and weather.</param>
+/// <param name="ForecastReliability">Chance the weather turns out opposite to this citizen's forecast; null if not a Synoptic.</param>
+/// <param name="DrinkReadyAt">When the next vigor drink may be drunk; null if never drunk.</param>
 public sealed record CitizenDto(
     Guid Id,
     string Name,
@@ -165,7 +190,8 @@ public sealed record CitizenDto(
     CitizenStatus Status,
     IReadOnlyList<StatDto> Stats,
     int StatTotal,
-    double Renown,
+    IReadOnlyList<SkillDto> Skills,
+    int Renown,
     double Energy,
     double MaximumEnergy,
     int Streak,
@@ -181,8 +207,13 @@ public sealed record CitizenDto(
     IReadOnlyList<ResourceAmount> Load,
     double ShelterQuality,
     bool IsHungry,
+    int CyclesSinceMeal,
+    double RegenerationMultiplier,
+    double EnergyPerHour,
     DateTimeOffset ServerNow,
-    string? TechnologyId);
+    string? TechnologyId,
+    double? ForecastReliability,
+    DateTimeOffset? DrinkReadyAt);
 
 public sealed record RulesDto(
     int CycleSeconds,
@@ -191,8 +222,14 @@ public sealed record RulesDto(
     int TalentCap,
     double SecondsPerTile,
     int MaximumOpenSites,
-    double FoodPerCycle,
-    double TakeLimit);
+    int CyclesPerMeal,
+    int TakeLimit,
+    double RepeatCostGrowth,
+    int SkillMaximum,
+    int SkillBonusLevels,
+    double SkillYieldPerLevel,
+    double SkillWorkTimePerLevel,
+    double VigorDrinkEnergy);
 
 public sealed record CatalogDto(
     IReadOnlyList<RoleDefinition> Roles,
@@ -201,7 +238,6 @@ public sealed record CatalogDto(
     IReadOnlyList<StorageDefinition> Storages,
     IReadOnlyList<BuildingDefinition> Buildings,
     IReadOnlyList<JobDefinition> Jobs,
-    IReadOnlyDictionary<string, TilePoint> Plots,
     TileArea BuildArea,
     IReadOnlyList<TileArea> ReservedAreas,
     IReadOnlyDictionary<string, TilePoint> Places,
@@ -212,9 +248,8 @@ public sealed record CatalogDto(
 
 public sealed record CreateVillageRequest(string Name, string? Description = null, bool IsPrivate = false);
 
-public sealed record SetLiveRequest(bool IsLive);
-
-public sealed record CreateCitizenRequest(string Name, Appearance? Appearance, string? InviteCode = null);
+/// <param name="InviteCode">Needed only for private villages.</param>
+public sealed record JoinVillageRequest(string? InviteCode = null);
 
 /// <param name="Spot">Where on the map to gather, for tasks that allow it; null works at the task's workplace.</param>
 public sealed record StartTaskRequest(string TaskId, TilePoint? Spot = null);
@@ -223,7 +258,8 @@ public sealed record StartTaskRequest(string TaskId, TilePoint? Spot = null);
 public sealed record GoToRequest(TilePoint Spot);
 
 /// <param name="PlotId">The storage building to take from.</param>
-public sealed record TakeRequest(string PlotId, ResourceKind Resource);
+/// <param name="Amount">How much to take; less is taken when the building has less or the hands are nearly full.</param>
+public sealed record TakeRequest(string PlotId, ResourceKind Resource, int Amount = StorageRules.TakeLimit);
 
 public sealed record StartJobRequest(string PlotId, int Stage, string JobId);
 
@@ -238,6 +274,9 @@ public sealed record VoteRequest(string TechnologyId);
 /// <param name="Subtitle">Null or blank removes the subtitle.</param>
 public sealed record SetSubtitleRequest(string? Subtitle);
 
+/// <param name="Rain">The Synoptic announces rain for the next weather day; false announces sun.</param>
+public sealed record ForecastRequest(bool Rain);
+
 public static class DtoMapper
 {
     public static VillageStateDto ToStateDto(
@@ -245,14 +284,14 @@ public static class DtoMapper
         WorkContext context,
         IReadOnlyList<string> completedProjects,
         IReadOnlyList<VillageQuest> quests,
+        GovernorDto governor,
         DateTimeOffset now) => new(
         village.Id,
         village.Slug,
         village.Name,
         village.Description,
         village.IsPrivate,
-        village.IsLive,
-        village.Morale,
+        village.MoraleAt(now),
         Enum.GetValues<ResourceKind>()
             .Select(kind => new ResourceDto(
                 kind,
@@ -299,8 +338,22 @@ public static class DtoMapper
         village.Fields
             .OrderBy(b => b.PlotId)
             .ThenBy(b => b.Index)
-            .Select(b => new FieldBedDto(b.PlotId, b.Index, b.Crop, FarmRules.GrowthOf(b, now), b.WateredUntil, FarmRules.IsThirsty(b, now)))
-            .ToList());
+            .Select(b => new FieldBedDto(b.PlotId, b.Index, b.Crop, FarmRules.GrowthOf(village, b, now), b.WateredUntil, FarmRules.IsThirsty(village, b, now)))
+            .ToList(),
+        village.ToWeatherDto(now),
+        governor);
+
+    public static WeatherDto ToWeatherDto(this Village village, DateTimeOffset now)
+    {
+        var day = WeatherRules.DayOf(now);
+        return new WeatherDto(
+            WeatherRules.IsRaining(village, day),
+            WeatherRules.DayStart(day + 1),
+            WeatherRules.ForecastFor(village, day)?.ToDto(),
+            WeatherRules.ForecastFor(village, day + 1)?.ToDto());
+    }
+
+    private static ForecastDto ToDto(this WeatherForecast forecast) => new(forecast.CitizenId, forecast.SaysRain, forecast.MadeAt);
 
     public static TechnologyPollDto ToDto(this TechnologyPoll poll, int activeCitizens)
     {
@@ -383,7 +436,7 @@ public static class DtoMapper
             citizen.Load.Select(g => g.Kind).ToList());
     }
 
-    public static CitizenDto ToDto(this Citizen citizen, DateTimeOffset now) => new(
+    public static CitizenDto ToDto(this Citizen citizen, Village village, DateTimeOffset now) => new(
         citizen.Id,
         citizen.Name,
         citizen.Appearance,
@@ -397,8 +450,12 @@ public static class DtoMapper
                 Progression.ExperienceToNext(citizen.Stats.Get(stat))))
             .ToList(),
         citizen.Stats.Total,
+        citizen.Skills
+            .OrderBy(s => s.Kind)
+            .Select(s => new SkillDto(s.Kind, s.Level, s.Experience, SkillRules.ExperienceToNext(s.Level)))
+            .ToList(),
         citizen.Renown,
-        citizen.CurrentEnergy(now),
+        citizen.CurrentEnergy(now, village),
         citizen.MaximumEnergy,
         citizen.Streak,
         citizen.CurrentTaskId,
@@ -413,8 +470,13 @@ public static class DtoMapper
         citizen.Load.Select(g => new ResourceAmount(g.Kind, g.Amount)).ToList(),
         citizen.ShelterQuality,
         citizen.IsHungry,
+        citizen.CyclesSinceMeal,
+        citizen.RegenerationAt(village, now),
+        Energy.RegenerationPerHour(citizen.Stats.Endurance) * citizen.RegenerationAt(village, now),
         now,
-        citizen.CurrentTechnologyId);
+        citizen.CurrentTechnologyId,
+        WeatherRules.IsSynoptic(village, citizen) ? WeatherRules.Reliability(citizen.SkillLevel(Skill.Weatherlore)) : null,
+        VigorDrinks.ReadyAt(citizen));
 
     public static CatalogDto Catalog { get; } = new(
         GameCatalog.Roles,
@@ -423,7 +485,6 @@ public static class DtoMapper
         StorageCatalog.Storages,
         BuildingCatalog.Buildings,
         BuildingCatalog.Jobs,
-        WorldMap.Plots,
         WorldMap.BuildArea,
         WorldMap.ReservedAreas,
         WorldMap.Places,
@@ -435,8 +496,14 @@ public static class DtoMapper
             GameRules.TalentCap,
             WorldMap.SecondsPerTile,
             BuildingCatalog.MaximumOpenSites,
-            GameRules.FoodPerCycle,
-            StorageRules.TakeLimit),
+            GameRules.CyclesPerMeal,
+            StorageRules.TakeLimit,
+            BuildingCatalog.RepeatCostGrowth,
+            GameRules.SkillMaximum,
+            GameRules.SkillBonusLevels,
+            GameRules.SkillYieldPerLevel,
+            GameRules.SkillWorkTimePerLevel,
+            GameRules.VigorDrinkEnergy),
         TechnologyCatalog.Technologies,
         FarmCatalog.Crops);
 }

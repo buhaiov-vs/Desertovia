@@ -12,7 +12,7 @@ const SHEETS: Record<SheetName, { url: string; columns: number; rows: number }> 
   farm: { url: '/assets/kenney/tiny-farm.png', columns: 12, rows: 11 },
   factory: { url: '/assets/kenney/tiny-factory.png', columns: 12, rows: 11 },
   rogue: { url: '/assets/kenney/roguelike-rpg.png', columns: 57, rows: 31 },
-  extras: { url: '/assets/extras.png', columns: 2, rows: 1 },
+  extras: { url: '/assets/extras.png', columns: 3, rows: 1 },
 }
 
 export interface TileRef {
@@ -29,7 +29,7 @@ export const rogue = (index: number): TileRef => ({ sheet: 'rogue', index })
 const extras = (index: number): TileRef => ({ sheet: 'extras', index })
 
 /** Tiles of `extras.png`, made for this game in the style of the Kenney sheets. */
-export const EXTRAS = { coal: extras(0), campfire: extras(1) }
+export const EXTRAS = { coal: extras(0), campfire: extras(1), feather: extras(2) }
 
 export class TileSet {
   private readonly sources: Record<SheetName, TextureSource>

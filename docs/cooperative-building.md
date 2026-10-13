@@ -55,7 +55,7 @@ Rules:
 
 ## 4. The wild start
 
-- **New tribe:** a campfire, a **Heap** (storage for any good, 4 slots × 10), trees, loose stones, a river, berry bushes, game animals. No Town Hall, no houses.
+- **New tribe:** a campfire, trees, loose stones, a river, berry bushes, game animals. No storage, no Town Hall, no houses. The first storage is usually a **Heap** (storage for any good, 4 slots × 10, needs 4 sticks), built from goods in hand.
 - **Characters:** no point allocation. Every stat starts at 0 and grows only by doing work. Character creation becomes just "choose your name".
 - **First jobs** (no requirements):
 
@@ -122,7 +122,7 @@ Camp and Village discoveries ask for stats 2–4 because laborer tasks give full
 | Area | Today | With this design |
 |---|---|---|
 | Storage build | Instant, paid from storage | Blueprint → construction site with stages and jobs |
-| Start | Town Hall village, stats 1 + 8 points | Campfire and a Heap, all stats 0, name only |
+| Start | Town Hall village, stats 1 + 8 points | Campfire only, all stats 0, name only |
 | "Build" task | One task per project | Many jobs per stage; crew and heavy-job rules |
 | Carried goods | Unloaded by a 10-second timer | Unloaded only when that citizen acts (start, settle, or a "Carry to storage" job) |
 | Projects | Fixed chain of monuments | Monuments are the last stage of the building list |
@@ -131,7 +131,7 @@ Camp and Village discoveries ask for stats 2–4 because laborer tasks give full
 Suggested order of implementation:
 
 1. Construction sites with stages, jobs, job places, crew and personal cap; replace instant storage builds and the old "Build" and "Deliver" tasks.
-2. Wild start: stats at 0, name-only creation, campfire and Heap, first jobs, shelter and energy.
+2. Wild start: stats at 0, name-only creation, a campfire and no storage, first jobs, shelter and energy.
 3. Heavy jobs and group hunting (overlapping-cycle cooperation).
 4. Ages and the full building list, repeats, wall segments.
 5. Eating and hunger.
@@ -170,7 +170,7 @@ Suggested order of implementation:
 
 **Finished buildings.** Storage kinds join the storage list (the Heap, Wood pile, Stone pile, Drying rack, Woodyard, Stone yard, Granary). Others become structures. Shelters assign beds, oldest citizens first: under the trees ×0.5 regeneration, Lean-to (2 beds) ×0.75, Hut (4 beds) ×1.
 
-**Wild start.** New villages get a campfire and a Heap. Stats start at 0 and level 0 → 1 needs 100 experience. Creation is name only. First tasks: Gather wood, Gather stones, Forage berries, Cut reeds, Hunt rabbits (food and hides), Hunt birds (food and feathers), Tend the fire, Carry to storage. Tasks of later buildings (fields, mines, smithy, library, …) are locked with "Needs: building".
+**Wild start.** New villages get a campfire and no storage: gathered goods stay in hands (half experience, and the Storage quest opens) until the tribe builds its first storage, usually a Heap, from what it holds. Stats start at 0 and level 0 → 1 needs 100 experience. Creation is name only. First tasks: Gather wood, Gather stones, Forage berries, Cut reeds, Hunt rabbits (food and hides), Hunt birds (food and feathers), Tend the fire, Carry to storage. Tasks of later buildings (fields, mines, smithy, library, …) are locked with "Needs: building".
 
 **Hunger.** Every settled cycle except carrying eats 0.2 food, from the citizen's hands first (a hunter whose catch did not fit in storage eats it), then from storage. A hungry citizen gets half experience and half energy regeneration. The Governor sees no hunger hints.
 
@@ -191,7 +191,7 @@ The walk from the hunting ground to storage is added to the hunting time. The Hu
 - Abundance = animals ÷ (half of capacity), at most 1. Animals caught = animals per cycle × yield factor × abundance, never more than are left. The outputs scale by animals caught ÷ animals per cycle.
 - A hunt cannot start when less than 1 animal is left. A cycle that catches nothing counts as overflow (half experience).
 - Villages created before wildlife get full herds once.
-- The Governor sees the animals on the map (fewer when hunted out), never numbers. Citizens see the count on the task card.
+- The Governor sees the animals on the map (fewer when hunted out) and the herd size when clicking an animal. Citizens see the count on the task card.
 - On the map, animals live all over the wild land (not in the camp, the monastery or water); deer keep to the woods, rabbits to the meadows. The hunting grounds in the table only set the walking time.
 - A hunter on duty chases one animal of the kind for the prey's hunting time and always reaches it at the end, then carries it home for the rest of the cycle. Animals run from hunters on duty from 4 tiles away (from other citizens only at 1.5 tiles), circle back toward their home spot, and tire in the last 20 seconds of a chase. This is drawing only; the catch is decided by the server.
 - Feathers go to the Storehouse. Nothing uses them yet (arrows are a later step).
@@ -221,7 +221,7 @@ The walk from the hunting ground to storage is added to the hunting time. The Hu
 
 A **need** opens by itself when the village has a problem and closes when the problem is solved. Both roles see it, split by what each one does:
 
-| Need | Opens when | Governor (no numbers) | Citizens (with numbers) | Reward |
+| Need | Opens when | Governor | Citizens | Reward |
 |---|---|---|---|---|
 | The tribe is hungry | a cycle found no food in storage | Plan food storage (Drying rack or Granary) | Build it; store food: 3 per citizen, 10 to 40 | 15 Renown, morale +3% |
 | The tribe sleeps in the cold | fewer beds than active citizens | Plan shelter (Lean-to or Hut) | Build beds for everyone | 20 Renown, morale +3% |
@@ -229,7 +229,7 @@ A **need** opens by itself when the village has a problem and closes when the pr
 
 - At most one open need per kind (and per good for storage). Needs are stored; Renown is split between the citizens who did useful cycles while the need was open (one share per cycle).
 - Useful cycles: hunger — food that went into storage, or work on a food storage site; cold — work on a shelter site; storage — carrying that good to storage or to a site, or work on a site of storage that takes it.
-- This loosens "the Governor has no ledger": the Governor learns *what* troubles the tribe, never *how much*. The stream overlay shows no needs.
+- The Governor sees the citizens' objectives too, worded as the citizens' work with the progress numbers after them ("Citizens fill it with food (12 / 30)").
 - Citizens get a "Tell the Governor" chat line while the Governor's part is not done.
 
-**First steps guide.** A short step-by-step card per role, detected from play and remembered in the browser: citizens — join, first task, renew in time, look at the needs, help build; Governor — first blueprint, copy the invite link, go live, look at the needs. It can be skipped.
+**First steps guide.** A short step-by-step card per role, detected from play and remembered in the browser: citizens — join, first task, renew in time, look at the needs, help build; Governor — first blueprint, copy the invite link, look at the needs. It can be skipped.

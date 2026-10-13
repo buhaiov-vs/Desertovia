@@ -88,6 +88,20 @@ function spotFor(target: WorldTarget, task: Task): TilePoint | null {
   return target.spot
 }
 
+/** Opens below the click in the top half of the screen and above it in the bottom half; phones get a bottom sheet. */
+export function popupStyle(screen: { x: number; y: number }, phone: boolean) {
+  if (phone) return undefined
+  const below = screen.y < window.innerHeight / 2
+  const gap = 18
+  const margin = 8
+  return {
+    left: Math.max(margin, Math.min(screen.x - 170, window.innerWidth - 348)),
+    ...(below
+      ? { top: screen.y + gap, maxHeight: window.innerHeight - screen.y - gap - margin }
+      : { bottom: window.innerHeight - screen.y + gap, maxHeight: screen.y - gap - margin }),
+  }
+}
+
 /** What the player can send their citizen to do at the place they clicked on the map. */
 export function TargetPopup({
   target,
@@ -116,7 +130,7 @@ export function TargetPopup({
   error: string | null
   onStart: (task: Task, spot: TilePoint | null) => void
   onStartJob: (choice: JobChoice) => void
-  onTake: (plotId: string, resource: string) => void
+  onTake: (plotId: string, resource: string, amount: number) => void
   onClose: () => void
 }) {
   const i18n = useI18n()
@@ -132,21 +146,8 @@ export function TargetPopup({
   const wildWood =
     target.kind === 'tree' && !inForestArea(Math.floor(target.spot.x), Math.floor(target.spot.y))
 
-  // Opens below the click in the top half of the screen and above it in the bottom half; phones get a bottom sheet.
-  const below = screen.y < window.innerHeight / 2
-  const gap = 18
-  const margin = 8
-  const style = phone
-    ? undefined
-    : {
-        left: Math.max(margin, Math.min(screen.x - 170, window.innerWidth - 348)),
-        ...(below
-          ? { top: screen.y + gap, maxHeight: window.innerHeight - screen.y - gap - margin }
-          : { bottom: window.innerHeight - screen.y + gap, maxHeight: screen.y - gap - margin }),
-      }
-
   return (
-    <div className={`target-popup ${phone ? 'sheet' : ''}`} style={style} role="dialog" aria-label={titleOf(target, catalog, citizen, i18n)}>
+    <div className={`target-popup ${phone ? 'sheet' : ''}`} style={popupStyle(screen, phone)} role="dialog" aria-label={titleOf(target, catalog, citizen, i18n)}>
       <header className="target-popup-header">
         <strong>{titleOf(target, catalog, citizen, i18n)}</strong>
         <button className="close" onClick={onClose} title={`${t('close')} (Esc)`}>
@@ -160,12 +161,12 @@ export function TargetPopup({
         {site && (
           <SiteCard site={site} catalog={catalog} village={village} citizen={citizen} disabled={disabled} onStartJob={onStartJob} />
         )}
-        {beds.length > 0 && <FieldsCard beds={beds} now={now} />}
+        {beds.length > 0 && <FieldsCard beds={beds} now={now} raining={village.weather.raining} />}
         {storage && (
           <StorageCard
             storage={storage}
             catalog={catalog}
-            take={{ citizen, disabled, onTake: (resource) => onTake(storage.plotId, resource) }}
+            take={{ citizen, disabled, onTake: (resource, amount) => onTake(storage.plotId, resource, amount) }}
           />
         )}
         {tasks.length > 0 && (

@@ -6,6 +6,7 @@ using Desertod.Domain.Farming;
 using Desertod.Domain.Rules;
 using Desertod.Domain.Storage;
 using Desertod.Domain.Technologies;
+using Desertod.Domain.Weather;
 using Desertod.Domain.World;
 
 namespace Desertod.Domain.Entities;
@@ -30,15 +31,18 @@ public sealed class Village
 
     public string? InviteCode { get; set; }
     public Guid OwnerAccountId { get; set; }
-    public bool IsLive { get; set; }
+
+    /// <summary>Morale at <see cref="MoraleChangedAt"/>; it drifts since then, so read it with <see cref="MoraleAt"/>.</summary>
     public double Morale { get; set; } = 1.0;
+
+    public DateTimeOffset MoraleChangedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     /// <summary>Research points. Not a physical good, so it has no storage limit.</summary>
-    public double Knowledge { get; set; }
+    public int Knowledge { get; set; }
 
     /// <summary>Gold dug from the vein on the far bank; the vein is empty at <see cref="Rules.GoldVein.Size"/>.</summary>
-    public double GoldVeinMined { get; set; }
+    public int GoldVeinMined { get; set; }
 
     public List<StorageBuilding> Storages { get; set; } = [];
 
@@ -65,10 +69,28 @@ public sealed class Village
     /// <summary>Technology the last vote chose; researched until it is discovered.</summary>
     public string? ChosenTechnology { get; set; }
 
-    /// <summary>A new tribe has a campfire, a heap of goods next to it, woods and wild animals around. Everything else is built by hand.</summary>
+    /// <summary>Synoptics' forecasts of the last days and the next one; other days have the weather the sky draws.</summary>
+    public List<WeatherForecast> Forecasts { get; set; } = [];
+
+    /// <summary>Where the Governor walked to on the map; null while they stand at the campfire.</summary>
+    public double? GovernorSpotX { get; set; }
+
+    public double? GovernorSpotY { get; set; }
+
+    public TilePoint? GovernorSpot
+    {
+        get => GovernorSpotX is { } x && GovernorSpotY is { } y ? new TilePoint(x, y) : null;
+        set
+        {
+            GovernorSpotX = value?.X;
+            GovernorSpotY = value?.Y;
+        }
+    }
+
+    /// <summary>A new tribe has a campfire, woods and wild animals around. Everything else, storage too, is built by hand.</summary>
     public static Village Create(string slug, string name, Guid ownerAccountId, DateTimeOffset now)
     {
-        var village = new Village { Slug = slug, Name = name, OwnerAccountId = ownerAccountId, CreatedAt = now };
+        var village = new Village { Slug = slug, Name = name, OwnerAccountId = ownerAccountId, CreatedAt = now, MoraleChangedAt = now };
         village.EnsureCamp(now);
         return village;
     }
@@ -132,18 +154,12 @@ public sealed class Village
     }
 
     /// <summary>
-    /// Gives a village what a new tribe starts with, also villages created before it existed, and beds to farms built
-    /// before beds existed. Returns true if anything was added.
+    /// Gives a village the wild land a new tribe starts with, also villages created before it existed, and beds to farms
+    /// built before beds existed. Returns true if anything was added.
     /// </summary>
     public bool EnsureCamp(DateTimeOffset now)
     {
         var added = false;
-        if (Storages.Count == 0)
-        {
-            Storages.Add(StorageBuilding.Create(StorageKind.Heap, WorldMap.HeapPlot, now));
-            added = true;
-        }
-
         foreach (var animal in WildlifeCatalog.Animals.Where(a => Wildlife.All(h => h.Kind != a.Kind)))
         {
             Wildlife.Add(Herd.Full(animal.Kind, now));
@@ -157,6 +173,17 @@ public sealed class Village
         }
 
         return FarmRules.EnsureBeds(this) || added;
+    }
+
+    /// <summary>The Governor walks to a spot on the land and stays there.</summary>
+    public void GovernorGoTo(TilePoint spot)
+    {
+        if (!WorldMap.Land.Contains(spot.ToTile()))
+        {
+            throw new GameRuleException("spot.outsideLand", "This spot is beyond the land.");
+        }
+
+        GovernorSpot = spot;
     }
 
     public Herd HerdOf(AnimalKind kind) => Wildlife.Single(h => h.Kind == kind);
@@ -186,14 +213,14 @@ public sealed class Village
     private static bool Covers(IEnumerable<string> plotIds, TileArea area) =>
         plotIds.Any(plotId => WorldMap.Footprint(plotId) is { } taken && taken.Overlaps(area));
 
-    public double Stock(ResourceKind kind) =>
+    public int Stock(ResourceKind kind) =>
         StorageCatalog.IsGood(kind) ? Storages.Sum(s => s.Amount(kind)) : Knowledge;
 
-    public double FreeSpace(ResourceKind kind) =>
-        StorageCatalog.IsGood(kind) ? Storages.Sum(s => s.FreeSpace(kind)) : double.PositiveInfinity;
+    public int FreeSpace(ResourceKind kind) =>
+        StorageCatalog.IsGood(kind) ? Storages.Sum(s => s.FreeSpace(kind)) : int.MaxValue;
 
     /// <summary>Stores as much as fits, specialised buildings first, and returns the stored amount.</summary>
-    public double Store(ResourceKind kind, double amount)
+    public int Store(ResourceKind kind, int amount)
     {
         if (!StorageCatalog.IsGood(kind))
         {
@@ -201,7 +228,7 @@ public sealed class Village
             return amount;
         }
 
-        var stored = 0.0;
+        var stored = 0;
         var order = Storages
             .OrderBy(s => s.Definition.IsGeneral)
             .ThenByDescending(s => s.Amount(kind) > 0);
@@ -219,7 +246,7 @@ public sealed class Village
     }
 
     /// <summary>Takes up to <paramref name="amount"/>, general storage first to keep its slots free.</summary>
-    public double Take(ResourceKind kind, double amount)
+    public int Take(ResourceKind kind, int amount)
     {
         if (!StorageCatalog.IsGood(kind))
         {
@@ -228,7 +255,7 @@ public sealed class Village
             return fromKnowledge;
         }
 
-        var taken = 0.0;
+        var taken = 0;
         foreach (var building in Storages.OrderBy(s => !s.Definition.IsGeneral))
         {
             if (amount - taken <= 0)
@@ -258,6 +285,16 @@ public sealed class Village
         return target is null ? WorldMap.Places[WorldMap.Camp] : WorldMap.Yard(target.PlotId);
     }
 
-    public void AddMorale(double delta) =>
-        Morale = Math.Clamp(Morale + delta, GameRules.MoraleMinimum, GameRules.MoraleMaximum);
+    /// <summary>Every minute morale moves <see cref="GameRules.MoraleDriftPerMinute"/> of the way back to 1.0.</summary>
+    public double MoraleAt(DateTimeOffset now)
+    {
+        var minutes = Math.Max(0, (now - MoraleChangedAt).TotalMinutes);
+        return 1.0 - (1.0 - Morale) * Math.Pow(1.0 - GameRules.MoraleDriftPerMinute, minutes);
+    }
+
+    public void AddMorale(double delta, DateTimeOffset now)
+    {
+        Morale = Math.Clamp(MoraleAt(now) + delta, GameRules.MoraleMinimum, GameRules.MoraleMaximum);
+        MoraleChangedAt = now;
+    }
 }

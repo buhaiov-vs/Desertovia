@@ -1,4 +1,6 @@
 import {
+  buildingCount,
+  buildingMaterials,
   builtKinds,
   discoveredTechnologies,
   siteHasWork,
@@ -10,7 +12,7 @@ import { useI18n } from '../i18n'
 import { TileIcon } from './TileIcon'
 import { BUILDING_SIGNS, taskIcon } from '../game/worldMap'
 
-/** The Governor's plans. Blueprints are free; the panel shows what a building takes, never what storage holds. */
+/** The Governor's plans. Blueprints are free; citizens bring what a building takes, repeats a little more each. */
 export function BuildPanel({
   catalog,
   village,
@@ -39,6 +41,15 @@ export function BuildPanel({
         ? t('build.holdsAll')
         : t('build.holds', { goods: storage.accepts.map((r) => i18n.resource(r).toLowerCase()).join(', ') })
     return `${holds} · ${t('build.slots', { slots: storage.slots, size: storage.slotSize })}`
+  }
+
+  const describeMaterials = (definition: BuildingDefinition) => {
+    const scale = Math.pow(catalog.rules.repeatCostGrowth, buildingCount(village, catalog, definition.kind))
+    const materials = buildingMaterials(catalog, definition, scale)
+    if (materials.length === 0) return null
+    return t('build.materials', {
+      goods: materials.map((m) => `${i18n.resource(m.resource).toLowerCase()} ${i18n.amount(m.amount)}`).join(', '),
+    })
   }
 
   return (
@@ -93,6 +104,7 @@ export function BuildPanel({
             const missing = definition.requires.filter((kind) => !built.has(kind))
             const undiscovered = definition.technology && !discovered.has(definition.technology) ? definition.technology : null
             const storage = describeStorage(definition)
+            const materials = describeMaterials(definition)
             return (
               <button
                 key={definition.kind}
@@ -106,6 +118,7 @@ export function BuildPanel({
                   <span className="task-meta">{i18n.building(definition.kind).description}</span>
                   {storage && <span className="task-meta">{storage}</span>}
                   {definition.shelter > 0 && <span className="task-meta">{t('build.shelter', { beds: definition.shelter })}</span>}
+                  {materials && <span className="task-meta">{materials}</span>}
                   <span className="task-meta">
                     {t('build.stages', { stages: definition.stages.map((s) => i18n.stage(s.id).toLowerCase()).join(' → ') })}
                   </span>

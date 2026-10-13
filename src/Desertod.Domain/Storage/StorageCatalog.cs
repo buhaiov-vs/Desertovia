@@ -23,7 +23,7 @@ public sealed record StorageDefinition(
     string Name,
     IReadOnlyList<ResourceKind> Accepts,
     int Slots,
-    double SlotSize)
+    int SlotSize)
 {
     public bool AcceptsGood(ResourceKind kind) =>
         StorageCatalog.IsGood(kind) && (Accepts.Count == 0 || Accepts.Contains(kind));
@@ -44,7 +44,7 @@ public static class StorageCatalog
         new(StorageKind.StoneYard, "Stone yard", [ResourceKind.Stone, ResourceKind.IronOre, ResourceKind.Coal], 4, 40),
         new(StorageKind.Granary, "Granary", [ResourceKind.Food, ResourceKind.Grain], 4, 60),
         new(StorageKind.Storehouse, "Storehouse",
-            [ResourceKind.IronIngot, ResourceKind.Leather, ResourceKind.Feathers, ResourceKind.Flax, ResourceKind.Chain, ResourceKind.Mechanism, ResourceKind.Remedy], 8, 15),
+            [ResourceKind.IronIngot, ResourceKind.Leather, ResourceKind.Feathers, ResourceKind.Flax, ResourceKind.Chain, ResourceKind.Mechanism, ResourceKind.Remedy, ResourceKind.VigorDrink], 8, 15),
         new(StorageKind.Treasury, "Treasury", [ResourceKind.Gold], 2, 50),
         new(StorageKind.GreatGranary, "Great Granary", [ResourceKind.Food, ResourceKind.Grain, ResourceKind.Wood, ResourceKind.Stone], 6, 100),
     ];

@@ -1,6 +1,8 @@
 using Desertod.Domain.Catalog;
 using Desertod.Domain.Rules;
+using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
+using Desertod.Domain.Weather;
 using Desertod.Domain.World;
 
 namespace Desertod.Domain.Entities;
@@ -35,11 +37,18 @@ public sealed class Citizen
 
     public CitizenStatus Status { get; set; } = CitizenStatus.Active;
     public StatBlock Stats { get; set; } = new();
-    public double Renown { get; set; }
+
+    /// <summary>Crafts the citizen has trained; a skill never trained is not listed and counts as level 0.</summary>
+    public List<SkillProgress> Skills { get; set; } = [];
+
+    public int Renown { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 
     public double StoredEnergy { get; set; }
     public DateTimeOffset EnergyUpdatedAt { get; set; }
+
+    /// <summary>Last vigor drink; the next one waits for <see cref="GameRules.VigorDrinkCooldown"/>.</summary>
+    public DateTimeOffset? LastDrinkAt { get; set; }
 
     public string? CurrentTaskId { get; set; }
     public DateTimeOffset? CycleStartedAt { get; set; }
@@ -89,8 +98,11 @@ public sealed class Citizen
     /// <summary>Energy regeneration multiplier of where the citizen sleeps (under the trees by default).</summary>
     public double ShelterQuality { get; set; } = GameRules.UnderTreesRegeneration;
 
-    /// <summary>The last finished cycle found no food in storage.</summary>
+    /// <summary>The last meal found no food in storage.</summary>
     public bool IsHungry { get; set; }
+
+    /// <summary>Cycles finished since the last meal; see <see cref="GameRules.CyclesPerMeal"/>.</summary>
+    public int CyclesSinceMeal { get; set; }
 
     /// <summary>Goods that did not fit in storage. They stay in the citizen's hands until there is room.</summary>
     public List<CarriedGood> Load { get; set; } = [];
@@ -98,9 +110,11 @@ public sealed class Citizen
     /// <summary>Mirrors <c>Load.Count &gt; 0</c> so the server can find waiting carriers with a simple query.</summary>
     public bool IsCarrying { get; set; }
 
-    public double Carried(ResourceKind kind) => Load.SingleOrDefault(g => g.Kind == kind)?.Amount ?? 0;
+    public int SkillLevel(Skill skill) => Skills.SingleOrDefault(s => s.Kind == skill)?.Level ?? 0;
 
-    public void Carry(ResourceKind kind, double amount)
+    public int Carried(ResourceKind kind) => Load.SingleOrDefault(g => g.Kind == kind)?.Amount ?? 0;
+
+    public void Carry(ResourceKind kind, int amount)
     {
         var good = Load.SingleOrDefault(g => g.Kind == kind);
         if (good is null)
@@ -113,7 +127,7 @@ public sealed class Citizen
         IsCarrying = true;
     }
 
-    public double TakeFromLoad(ResourceKind kind, double amount)
+    public int TakeFromLoad(ResourceKind kind, int amount)
     {
         var good = Load.SingleOrDefault(g => g.Kind == kind);
         if (good is null)
@@ -123,7 +137,7 @@ public sealed class Citizen
 
         var taken = Math.Min(amount, good.Amount);
         good.Amount -= taken;
-        if (good.Amount <= 1e-6)
+        if (good.Amount <= 0)
         {
             Load.Remove(good);
         }
@@ -172,13 +186,27 @@ public sealed class Citizen
     public double RegenerationMultiplier =>
         ShelterQuality * (IsHungry ? GameRules.HungryRegenerationMultiplier : 1);
 
-    public double CurrentEnergy(DateTimeOffset now) =>
-        Energy.Current(StoredEnergy, EnergyUpdatedAt, now, Stats.Endurance, RegenerationMultiplier);
+    public bool SleepsUnderTrees => ShelterQuality <= GameRules.UnderTreesRegeneration + 1e-9;
+
+    /// <summary><see cref="RegenerationMultiplier"/> with the rain, which chills those sleeping under the trees.</summary>
+    public double RegenerationAt(Village village, DateTimeOffset now) =>
+        RegenerationMultiplier * (SleepsUnderTrees && WeatherRules.IsRaining(village, now) ? WeatherRules.UnderTreesRegeneration : 1);
+
+    public double CurrentEnergy(DateTimeOffset now, Village village)
+    {
+        var hours = Math.Max(0, (now - EnergyUpdatedAt).TotalHours);
+        if (SleepsUnderTrees)
+        {
+            hours -= WeatherRules.RainHours(village, EnergyUpdatedAt, now) * (1 - WeatherRules.UnderTreesRegeneration);
+        }
+
+        return Energy.Regenerate(StoredEnergy, hours, Stats.Endurance, RegenerationMultiplier);
+    }
 
     /// <summary>Banks regenerated energy before anything that changes the regeneration rate.</summary>
-    public void FlushEnergy(DateTimeOffset now)
+    public void FlushEnergy(DateTimeOffset now, Village village)
     {
-        StoredEnergy = CurrentEnergy(now);
+        StoredEnergy = CurrentEnergy(now, village);
         EnergyUpdatedAt = now;
     }
 
@@ -205,5 +233,5 @@ public sealed class Citizen
 public sealed class CarriedGood
 {
     public ResourceKind Kind { get; set; }
-    public double Amount { get; set; }
+    public int Amount { get; set; }
 }

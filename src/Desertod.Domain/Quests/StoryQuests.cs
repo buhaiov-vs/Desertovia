@@ -12,11 +12,9 @@ namespace Desertod.Domain.Quests;
 /// </summary>
 public static class StoryQuests
 {
-    private const double Epsilon = 1e-6;
-
     public const string TendFire = "tend-fire";
-    public const double FireCycles = 5;
-    public const double StoresFood = 20;
+    public const int FireCycles = 5;
+    public const int StoresFood = 20;
 
     private static readonly string[] ShelterGathering = ["chop-wood", "cut-reeds"];
 
@@ -37,8 +35,8 @@ public static class StoryQuests
 
     public const string Fish = "fish";
     public const string Supervise = "supervise";
-    public const double FishCatches = 5;
-    public const double GoldDigs = 20;
+    public const int FishCatches = 5;
+    public const int GoldDigs = 20;
 
     public static bool IsStory(QuestKind kind) => Chain.Contains(kind);
 
@@ -87,7 +85,7 @@ public static class StoryQuests
         return next is { } kind ? VillageQuest.Open(village.Id, kind, null, Target(kind), now) : null;
     }
 
-    public static double Target(QuestKind kind) => kind switch
+    public static int Target(QuestKind kind) => kind switch
     {
         QuestKind.Fire => FireCycles,
         QuestKind.Stores => StoresFood,
@@ -121,7 +119,7 @@ public static class StoryQuests
         QuestKind.Shelter => Building("lean-to", BuildingKind.LeanTo, village),
         QuestKind.Stores =>
         [
-            new("store-food", QuestAudience.Citizens, village.Stock(ResourceKind.Food) >= quest.Target - Epsilon,
+            new("store-food", QuestAudience.Citizens, village.Stock(ResourceKind.Food) >= quest.Target,
                 village.Stock(ResourceKind.Food), quest.Target),
         ],
         QuestKind.FirstHouse => Building("hut", BuildingKind.Hut, village),
@@ -136,7 +134,7 @@ public static class StoryQuests
         {
             QuestKind.Fire => report.TaskId == TendFire,
             QuestKind.Shelter => building == BuildingKind.LeanTo || ShelterGathering.Contains(report.TaskId),
-            QuestKind.Stores => QuestRules.Stored(report, ResourceKind.Food) > Epsilon || building == BuildingKind.DryingRack,
+            QuestKind.Stores => QuestRules.Stored(report, ResourceKind.Food) > 0 || building == BuildingKind.DryingRack,
             QuestKind.FirstHouse => building == BuildingKind.Hut,
             QuestKind.Monument or QuestKind.Palisade => ProjectWork(report),
             QuestKind.TsarBridge or QuestKind.MonasteryBell or QuestKind.GreatGranary =>
@@ -148,7 +146,7 @@ public static class StoryQuests
         };
     }
 
-    private static bool ProjectWork(CycleReport report) => report.ProjectContribution > Epsilon && report.SiteId is null;
+    private static bool ProjectWork(CycleReport report) => report.ProjectContribution > 0 && report.SiteId is null;
 
     public static bool Built(Village village, BuildingKind kind) =>
         village.CountOf(kind) > village.Sites.Count(s => s.Kind == kind);

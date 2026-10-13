@@ -7,21 +7,27 @@ const backend = process.env.DESERTOD_BACKEND ?? 'http://localhost:5080'
 // changeOrigin stays false so the backend sees the Vite host; OAuth redirect URLs and cookies then use port 5190.
 const proxied = { target: backend, changeOrigin: false }
 
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 5190,
-    strictPort: true,
-    proxy: {
-      '/api': proxied,
-      '/auth': proxied,
-      '/signin-twitch': proxied,
-      '/signin-google': proxied,
-      '/hubs': { ...proxied, ws: true },
+export default defineConfig(({ command }) => {
+  // React ships its production code only when NODE_ENV is exactly "production", and Vite keeps any NODE_ENV it
+  // inherits, so a stray machine-wide value would otherwise put development React into the release bundle.
+  if (command === 'build') process.env.NODE_ENV = 'production'
+
+  return {
+    plugins: [react()],
+    server: {
+      port: 5190,
+      strictPort: true,
+      proxy: {
+        '/api': proxied,
+        '/auth': proxied,
+        '/signin-twitch': proxied,
+        '/signin-google': proxied,
+        '/hubs': { ...proxied, ws: true },
+      },
     },
-  },
-  build: {
-    outDir: '../src/Desertod.Api/wwwroot',
-    emptyOutDir: true,
-  },
+    build: {
+      outDir: '../src/Desertod.Api/wwwroot',
+      emptyOutDir: true,
+    },
+  }
 })

@@ -1,5 +1,6 @@
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Farming;
+using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using Desertod.Domain.World;
 
@@ -67,11 +68,11 @@ public sealed record RoleDefinition(
     public bool IsQualified(StatBlock stats) => Requirements.All(r => stats.Get(r.Stat) >= r.Minimum);
 }
 
-public sealed record ResourceAmount(ResourceKind Resource, double Amount);
+public sealed record ResourceAmount(ResourceKind Resource, int Amount);
 
 /// <param name="Animals">Animals caught per cycle at a stat factor of 1 while the herd is abundant; the task's outputs are for that catch.</param>
 /// <param name="Dexterity">Dexterity level needed to hunt this prey; Dexterity is the hunting skill.</param>
-public sealed record HuntDefinition(AnimalKind Prey, double Animals, int Dexterity = 0);
+public sealed record HuntDefinition(AnimalKind Prey, int Animals, int Dexterity = 0);
 
 /// <param name="RequiredBuilding">The task can be done only once the village has this building.</param>
 /// <param name="WorkSeconds">Time spent working; walking time is added on top.</param>
@@ -79,6 +80,8 @@ public sealed record HuntDefinition(AnimalKind Prey, double Animals, int Dexteri
 /// <param name="RequiredProject">The task can be done only once the village has finished this project.</param>
 /// <param name="RequiredTechnology">The task can be done only once the village has discovered this technology.</param>
 /// <param name="Crop">Set for sowing: the crop put in the bed. Its Endurance level is the farming skill needed.</param>
+/// <param name="Skill">Craft the task trains; levels above <paramref name="SkillLevel"/> make it yield more and take less time.</param>
+/// <param name="SkillLevel">Level of <paramref name="Skill"/> needed to do the task.</param>
 public sealed record TaskDefinition(
     string Id,
     string Name,
@@ -86,6 +89,7 @@ public sealed record TaskDefinition(
     int TierRequirement,
     Stat Primary,
     Stat Secondary,
+    Skill Skill,
     TaskEffect Effect,
     double BaseYield,
     IReadOnlyList<ResourceAmount> Outputs,
@@ -96,4 +100,5 @@ public sealed record TaskDefinition(
     HuntDefinition? Hunt = null,
     string? RequiredProject = null,
     string? RequiredTechnology = null,
-    CropKind? Crop = null);
+    CropKind? Crop = null,
+    int SkillLevel = 0);

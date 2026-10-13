@@ -42,8 +42,8 @@ public class ProjectTests
         var report = Run(citizen, "deliver-wood", context, ref now);
 
         Assert.True(report.ProjectContribution > 0);
-        Assert.Equal(100 - report.ProjectContribution, village.Stock(ResourceKind.Wood), 6);
-        Assert.Equal(report.ProjectContribution, project.Delivered(ResourceKind.Wood), 6);
+        Assert.Equal(100 - report.ProjectContribution, village.Stock(ResourceKind.Wood));
+        Assert.Equal(report.ProjectContribution, project.Delivered(ResourceKind.Wood));
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class ProjectTests
         var report = Run(citizen, "deliver-wood", context, ref now);
 
         Assert.False(citizen.IsCarrying);
-        Assert.Equal(stock - (report.ProjectContribution - 2), village.Stock(ResourceKind.Wood), 6);
+        Assert.Equal(stock - (report.ProjectContribution - 2), village.Stock(ResourceKind.Wood));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class ProjectTests
         var report = Run(citizen, "build", context, ref now);
 
         Assert.True(report.ProjectContribution > 0);
-        Assert.True(project.BuildProgress <= project.BuildLimit + ProjectRules.Epsilon);
+        Assert.True(project.BuildProgress <= project.BuildLimit);
     }
 
     [Fact]
@@ -139,15 +139,16 @@ public class ProjectTests
         var now = Now;
         var report = Run(engineer, "survey", context, ref now);
         Assert.True(project.SurveyProgress > 0);
-        Assert.Equal(report.ProjectContribution, project.SurveyProgress, 6);
+        Assert.Equal(report.ProjectContribution, project.SurveyProgress);
     }
 
     [Fact]
     public void ContributionCap_IsTwentyPercent_InBigVillages_AndEqualSplitInSmallOnes()
     {
-        Assert.Equal(60, ProjectRules.ContributionCap(300, 10), 6);
-        Assert.Equal(150, ProjectRules.ContributionCap(300, 2), 6);
-        Assert.Equal(300, ProjectRules.ContributionCap(300, 1), 6);
+        Assert.Equal(60, ProjectRules.ContributionCap(300, 10));
+        Assert.Equal(150, ProjectRules.ContributionCap(300, 2));
+        Assert.Equal(300, ProjectRules.ContributionCap(300, 1));
+        Assert.Equal(34, ProjectRules.ContributionCap(100, 3));
     }
 
     [Fact]
@@ -164,7 +165,7 @@ public class ProjectTests
             Run(citizen, "deliver-wood", context, ref now);
         }
 
-        Assert.Equal(ProjectRules.ContributionCap(project.Required("Wood"), 10), project.Contributed(citizen.Id, "Wood"), 6);
+        Assert.Equal(ProjectRules.ContributionCap(project.Required("Wood"), 10), project.Contributed(citizen.Id, "Wood"));
         Assert.Throws<GameRuleException>(() => CycleEngine.Start(citizen, Task("deliver-wood"), context, now));
     }
 
@@ -178,8 +179,8 @@ public class ProjectTests
         project.BuildProgress = project.Definition.BuildCycles;
         foreach (var material in project.Definition.Materials)
         {
-            project.Record(first.Id, material.Resource.ToString(), material.Amount * 0.75);
-            project.Record(second.Id, material.Resource.ToString(), material.Amount * 0.25);
+            project.Record(first.Id, material.Resource.ToString(), material.Amount * 3 / 4);
+            project.Record(second.Id, material.Resource.ToString(), material.Amount / 4);
         }
 
         Assert.True(project.IsComplete);
@@ -188,8 +189,8 @@ public class ProjectTests
             project, village, new Dictionary<Guid, Citizen> { [first.Id] = first, [second.Id] = second }, Now);
 
         Assert.Equal(ProjectStatus.Completed, project.Status);
-        Assert.Equal(375, completion.RenownByCitizen[first.Id], 1);
-        Assert.Equal(125, completion.RenownByCitizen[second.Id], 1);
+        Assert.Equal(375, completion.RenownByCitizen[first.Id]);
+        Assert.Equal(125, completion.RenownByCitizen[second.Id]);
         Assert.Equal(1.1, village.Morale, 6);
     }
 

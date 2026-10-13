@@ -43,9 +43,9 @@ public class WildlifeTests
 
         var caught = herd.Definition.Capacity - herd.Current(end);
         Assert.True(caught > 0);
-        var share = caught / Task("hunt").Hunt!.Animals;
-        Assert.Equal(5 * share, report.Produced.Single(p => p.Resource == ResourceKind.Food).Amount, 6);
-        Assert.Equal(1 * share, village.Stock(ResourceKind.Leather), 6);
+        var share = (double)caught / Task("hunt").Hunt!.Animals;
+        Assert.Equal(YieldMath.Whole(6 * share), report.Produced.Single(p => p.Resource == ResourceKind.Food).Amount);
+        Assert.Equal(YieldMath.Whole(1 * share), village.Stock(ResourceKind.Leather));
         Assert.False(report.Overflowed);
     }
 
@@ -87,7 +87,7 @@ public class WildlifeTests
     [Fact]
     public void HuntingExperience_FollowsTheHuntingTime()
     {
-        var experience = new Dictionary<string, double>();
+        var experience = new Dictionary<string, int>();
         foreach (var taskId in new[] { "hunt", "track-game", "hunt-birds" })
         {
             var village = NewVillage();
@@ -96,9 +96,9 @@ public class WildlifeTests
             experience[taskId] = Finish(citizen, WorkContext.For(village)).PrimaryExperience;
         }
 
-        Assert.Equal(GameRules.BaseExperiencePerCycle, experience["hunt"], 6);
-        Assert.Equal(GameRules.BaseExperiencePerCycle * 2, experience["track-game"], 6);
-        Assert.Equal(GameRules.BaseExperiencePerCycle / 2, experience["hunt-birds"], 6);
+        Assert.Equal(GameRules.BaseExperiencePerCycle, experience["hunt"]);
+        Assert.Equal(GameRules.BaseExperiencePerCycle * 2, experience["track-game"]);
+        Assert.Equal(GameRules.BaseExperiencePerCycle / 2, experience["hunt-birds"]);
     }
 
     [Fact]
@@ -107,16 +107,17 @@ public class WildlifeTests
         var abundant = NewVillage();
         var scarce = NewVillage();
         var rabbits = scarce.HerdOf(AnimalKind.Rabbit);
-        rabbits.Count = rabbits.Definition.Capacity * WildlifeCatalog.AbundantShare / 2;
+        rabbits.Count = (int)(rabbits.Definition.Capacity * WildlifeCatalog.AbundantShare / 2);
 
         var full = Food(Hunt(abundant));
-        var citizen = NewCitizen(scarce);
+        var citizen = NewCitizen(scarce, (Stat.Dexterity, GameRules.StatMaximum));
         CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(scarce), Now);
         var abundance = rabbits.Abundance(citizen.CycleEndsAt!.Value);
         var thin = Food(Finish(citizen, WorkContext.For(scarce)));
 
         Assert.InRange(abundance, 0.5, 0.6);
-        Assert.Equal(full * abundance, thin, 6);
+        Assert.InRange(thin, full * abundance - 2, full * abundance + 2);
+        Assert.True(thin < full);
     }
 
     [Fact]
@@ -132,7 +133,7 @@ public class WildlifeTests
         Assert.Equal("hunt.noAnimals", error.Code);
 
         var later = Now.AddHours(rabbits.Definition.RecoveryHalfLifeHours);
-        Assert.Equal(rabbits.Definition.Capacity / 2, rabbits.Current(later), 6);
+        Assert.Equal(rabbits.Definition.Capacity / 2, rabbits.Current(later));
         CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), later);
     }
 
@@ -151,15 +152,15 @@ public class WildlifeTests
 
         Assert.Empty(report.Produced);
         Assert.True(report.Overflowed);
-        Assert.Equal(GameRules.BaseExperiencePerCycle * GameRules.OverflowExperienceMultiplier, report.PrimaryExperience, 6);
+        Assert.Equal(YieldMath.Whole(GameRules.BaseExperiencePerCycle * GameRules.OverflowExperienceMultiplier), report.PrimaryExperience);
     }
 
     private static CycleReport Hunt(Entities.Village village)
     {
-        var citizen = NewCitizen(village);
+        var citizen = NewCitizen(village, (Stat.Dexterity, GameRules.StatMaximum));
         CycleEngine.Start(citizen, Task("hunt"), WorkContext.For(village), Now);
         return Finish(citizen, WorkContext.For(village));
     }
 
-    private static double Food(CycleReport report) => report.Produced.Single(p => p.Resource == ResourceKind.Food).Amount;
+    private static int Food(CycleReport report) => report.Produced.Single(p => p.Resource == ResourceKind.Food).Amount;
 }

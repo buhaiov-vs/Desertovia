@@ -59,11 +59,11 @@ public class QuestTests
         }
 
         Assert.True(QuestRules.IsComplete(quest, village, 2));
-        var morale = village.Morale;
+        var morale = village.MoraleAt(now);
         var completion = QuestRules.Complete(quest, village, new Dictionary<Guid, Citizen> { [builder.Id] = builder, [idler.Id] = idler }, now);
 
         Assert.Equal(QuestStatus.Completed, quest.Status);
-        Assert.Equal(QuestRules.Rewards[QuestKind.Cold].RenownPool, completion.RenownByCitizen[builder.Id], 6);
+        Assert.Equal(QuestRules.Rewards[QuestKind.Cold].RenownPool, completion.RenownByCitizen[builder.Id]);
         Assert.False(completion.RenownByCitizen.ContainsKey(idler.Id));
         Assert.Equal(morale + QuestRules.Rewards[QuestKind.Cold].Morale, village.Morale, 6);
     }
@@ -92,7 +92,7 @@ public class QuestTests
 
         Assert.True(QuestRules.IsComplete(quest, village, 1));
         var completion = QuestRules.Complete(quest, village, new Dictionary<Guid, Citizen> { [citizen.Id] = citizen }, now);
-        Assert.Equal(QuestRules.Rewards[QuestKind.Hunger].RenownPool, completion.RenownByCitizen[citizen.Id], 6);
+        Assert.Equal(QuestRules.Rewards[QuestKind.Hunger].RenownPool, completion.RenownByCitizen[citizen.Id]);
     }
 
     [Fact]

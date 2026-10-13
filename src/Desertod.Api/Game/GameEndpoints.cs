@@ -7,17 +7,15 @@ public static class GameEndpoints
 {
     public static void MapGameEndpoints(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup("/api");
+        var player = app.MapGroup("/api").RequireAuthorization();
 
-        api.MapGet("/catalog", () => DtoMapper.Catalog);
+        player.MapGet("/catalog", () => DtoMapper.Catalog);
 
-        api.MapGet("/villages/public", (GameService game, CancellationToken cancellationToken) =>
+        player.MapGet("/villages/public", (GameService game, CancellationToken cancellationToken) =>
             game.ListPublicVillagesAsync(cancellationToken));
 
-        api.MapGet("/villages/{slug}", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
-            game.GetVillageAsync(slug, user.GetAccountId(), cancellationToken));
-
-        var player = api.MapGroup("").RequireAuthorization();
+        player.MapGet("/villages/{slug}", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.GetVillageAsync(slug, user.RequireAccountId(), cancellationToken));
 
         player.MapGet("/villages", (ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.ListVillagesAsync(user.RequireAccountId(), cancellationToken));
@@ -28,16 +26,13 @@ public static class GameEndpoints
         player.MapPost("/villages/{slug}/invite", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.NewInviteCodeAsync(slug, user.RequireAccountId(), cancellationToken));
 
-        player.MapPost("/villages/{slug}/live", (string slug, SetLiveRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
-            game.SetLiveAsync(slug, user.RequireAccountId(), request.IsLive, cancellationToken));
-
         player.MapGet("/villages/{slug}/me", async (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             await game.GetCitizenAsync(slug, user.RequireAccountId(), cancellationToken) is { } citizen
                 ? Results.Ok(citizen)
                 : Results.NotFound());
 
-        player.MapPost("/villages/{slug}/citizens", (string slug, CreateCitizenRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
-            game.CreateCitizenAsync(slug, user.RequireAccountId(), request, cancellationToken));
+        player.MapPost("/villages/{slug}/citizens", (string slug, JoinVillageRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.JoinVillageAsync(slug, user.RequireAccountId(), request, cancellationToken));
 
         player.MapPut("/villages/{slug}/citizens/{citizenId:guid}/subtitle", (string slug, Guid citizenId, SetSubtitleRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.SetSubtitleAsync(slug, user.RequireAccountId(), citizenId, request.Subtitle, cancellationToken));
@@ -51,6 +46,9 @@ public static class GameEndpoints
         player.MapPost("/villages/{slug}/me/drop", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.DropLoadAsync(slug, user.RequireAccountId(), cancellationToken));
 
+        player.MapPost("/villages/{slug}/me/drink", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.DrinkAsync(slug, user.RequireAccountId(), cancellationToken));
+
         player.MapPost("/villages/{slug}/me/take", (string slug, TakeRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.TakeFromStorageAsync(slug, user.RequireAccountId(), request, cancellationToken));
 
@@ -63,6 +61,9 @@ public static class GameEndpoints
         player.MapPost("/villages/{slug}/me/research", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.StartResearchAsync(slug, user.RequireAccountId(), cancellationToken));
 
+        player.MapPost("/villages/{slug}/me/forecast", (string slug, ForecastRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.ForecastAsync(slug, user.RequireAccountId(), request.Rain, cancellationToken));
+
         player.MapPost("/villages/{slug}/me/vote", (string slug, VoteRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.VoteAsync(slug, user.RequireAccountId(), request.TechnologyId, cancellationToken));
 
@@ -71,6 +72,9 @@ public static class GameEndpoints
 
         player.MapDelete("/villages/{slug}/poll", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.CancelPollAsync(slug, user.RequireAccountId(), cancellationToken));
+
+        player.MapPost("/villages/{slug}/governor/goto", (string slug, GoToRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.GovernorGoToAsync(slug, user.RequireAccountId(), request, cancellationToken));
 
         player.MapPost("/villages/{slug}/blueprints", (string slug, PlaceBlueprintRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.PlaceBlueprintAsync(slug, user.RequireAccountId(), request, cancellationToken));

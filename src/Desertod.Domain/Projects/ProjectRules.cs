@@ -3,12 +3,10 @@ using Desertod.Domain.Storage;
 
 namespace Desertod.Domain.Projects;
 
-public sealed record ProjectCompletion(string ProjectId, string ProjectName, IReadOnlyDictionary<Guid, double> RenownByCitizen);
+public sealed record ProjectCompletion(string ProjectId, string ProjectName, IReadOnlyDictionary<Guid, int> RenownByCitizen);
 
 public static class ProjectRules
 {
-    public const double Epsilon = 1e-6;
-
     public const double SurveyWeight = 0.1;
     public const double MaterialsWeight = 0.5;
     public const double BuildWeight = 0.4;
@@ -17,8 +15,8 @@ public static class ProjectRules
     public const double ContributionCapShare = 0.2;
 
     /// <summary>...except in small villages, where the cap is relaxed to an equal split.</summary>
-    public static double ContributionCap(double required, int activeCitizens) =>
-        required * Math.Max(ContributionCapShare, 1.0 / Math.Max(1, activeCitizens));
+    public static int ContributionCap(int required, int activeCitizens) =>
+        (int)Math.Ceiling(required * Math.Max(ContributionCapShare, 1.0 / Math.Max(1, activeCitizens)) - 1e-9);
 
     public const int SupervisionBase = 3;
 
@@ -35,7 +33,7 @@ public static class ProjectRules
         project.Status = ProjectStatus.Completed;
         project.CompletedAt = now;
 
-        village.AddMorale(reward.Morale);
+        village.AddMorale(reward.Morale, now);
         if (reward.Storage is { } storage && village.Storages.All(s => s.PlotId != project.DefinitionId))
         {
             village.Storages.Add(StorageBuilding.Create(storage, project.DefinitionId, now));
@@ -43,10 +41,10 @@ public static class ProjectRules
 
         var shares = contributors.Keys.ToDictionary(id => id, project.ShareOf);
         var total = shares.Values.Sum();
-        var renown = new Dictionary<Guid, double>();
+        var renown = new Dictionary<Guid, int>();
         foreach (var (citizenId, share) in shares)
         {
-            var amount = total <= 0 ? 0 : Math.Round(reward.RenownPool * share / total, 1);
+            var amount = total <= 0 ? 0 : (int)Math.Round(reward.RenownPool * share / total, MidpointRounding.AwayFromZero);
             contributors[citizenId].Renown += amount;
             renown[citizenId] = amount;
         }

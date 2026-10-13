@@ -80,6 +80,9 @@ namespace Desertod.Infrastructure.Data.Migrations
                     b.Property<bool>("CycleTired")
                         .HasColumnType("boolean");
 
+                    b.Property<int>("CyclesSinceMeal")
+                        .HasColumnType("integer");
+
                     b.Property<DateTimeOffset>("EnergyUpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -95,13 +98,16 @@ namespace Desertod.Infrastructure.Data.Migrations
                     b.Property<bool>("IsHungry")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTimeOffset?>("LastDrinkAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<double>("Renown")
-                        .HasColumnType("double precision");
+                    b.Property<int>("Renown")
+                        .HasColumnType("integer");
 
                     b.Property<double>("ShelterQuality")
                         .HasColumnType("double precision");
@@ -177,6 +183,37 @@ namespace Desertod.Infrastructure.Data.Migrations
                     b.ToTable("ExternalLogins");
                 });
 
+            modelBuilder.Entity("Desertod.Domain.Entities.PasswordLogin", b =>
+                {
+                    b.Property<string>("Email")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)");
+
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset>("RegisteredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RegisteredFrom")
+                        .HasMaxLength(45)
+                        .HasColumnType("character varying(45)");
+
+                    b.HasKey("Email");
+
+                    b.HasIndex("AccountId")
+                        .IsUnique();
+
+                    b.HasIndex("RegisteredFrom", "RegisteredAt");
+
+                    b.ToTable("PasswordLogins");
+                });
+
             modelBuilder.Entity("Desertod.Domain.Entities.Village", b =>
                 {
                     b.Property<Guid>("Id")
@@ -194,24 +231,30 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasMaxLength(280)
                         .HasColumnType("character varying(280)");
 
-                    b.Property<double>("GoldVeinMined")
+                    b.Property<int>("GoldVeinMined")
+                        .HasColumnType("integer");
+
+                    b.Property<double?>("GovernorSpotX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("GovernorSpotY")
                         .HasColumnType("double precision");
 
                     b.Property<string>("InviteCode")
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
-                    b.Property<bool>("IsLive")
-                        .HasColumnType("boolean");
-
                     b.Property<bool>("IsPrivate")
                         .HasColumnType("boolean");
 
-                    b.Property<double>("Knowledge")
-                        .HasColumnType("double precision");
+                    b.Property<int>("Knowledge")
+                        .HasColumnType("integer");
 
                     b.Property<double>("Morale")
                         .HasColumnType("double precision");
+
+                    b.Property<DateTimeOffset>("MoraleChangedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -234,12 +277,12 @@ namespace Desertod.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("IsPrivate");
+
                     b.HasIndex("OwnerAccountId");
 
                     b.HasIndex("Slug")
                         .IsUnique();
-
-                    b.HasIndex("IsPrivate", "IsLive");
 
                     b.ToTable("Villages");
                 });
@@ -256,8 +299,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<double>("Amount")
-                        .HasColumnType("double precision");
+                    b.Property<int>("Amount")
+                        .HasColumnType("integer");
 
                     b.HasKey("VillageProjectId", "CitizenId", "Key");
 
@@ -275,8 +318,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<double>("Delivered")
-                        .HasColumnType("double precision");
+                    b.Property<int>("Delivered")
+                        .HasColumnType("integer");
 
                     b.HasKey("VillageProjectId", "Kind");
 
@@ -289,8 +332,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<double>("BuildProgress")
-                        .HasColumnType("double precision");
+                    b.Property<int>("BuildProgress")
+                        .HasColumnType("integer");
 
                     b.Property<DateTimeOffset?>("CompletedAt")
                         .HasColumnType("timestamp with time zone");
@@ -308,8 +351,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<double>("SurveyProgress")
-                        .HasColumnType("double precision");
+                    b.Property<int>("SurveyProgress")
+                        .HasColumnType("integer");
 
                     b.Property<uint>("Version")
                         .IsConcurrencyToken()
@@ -335,8 +378,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                     b.Property<Guid>("CitizenId")
                         .HasColumnType("uuid");
 
-                    b.Property<double>("Amount")
-                        .HasColumnType("double precision");
+                    b.Property<int>("Amount")
+                        .HasColumnType("integer");
 
                     b.HasKey("VillageQuestId", "CitizenId");
 
@@ -376,8 +419,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
-                    b.Property<double>("Target")
-                        .HasColumnType("double precision");
+                    b.Property<int>("Target")
+                        .HasColumnType("integer");
 
                     b.Property<uint>("Version")
                         .IsConcurrencyToken()
@@ -397,6 +440,56 @@ namespace Desertod.Infrastructure.Data.Migrations
                     b.ToTable("VillageQuests");
                 });
 
+            modelBuilder.Entity("Desertod.Domain.Entities.Account", b =>
+                {
+                    b.OwnsOne("Desertod.Domain.Entities.Character", "Character", b1 =>
+                        {
+                            b1.Property<Guid>("AccountId");
+
+                            b1.Property<string>("Name")
+                                .IsRequired();
+
+                            b1.HasKey("AccountId");
+
+                            b1.ToTable("Accounts");
+
+                            b1
+                                .ToJson("Character")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("AccountId");
+
+                            b1.OwnsOne("Desertod.Domain.Entities.Appearance", "Appearance", b2 =>
+                                {
+                                    b2.Property<Guid>("CharacterAccountId");
+
+                                    b2.Property<string>("Gender")
+                                        .IsRequired();
+
+                                    b2.Property<int>("HairColor");
+
+                                    b2.Property<int>("OutfitColor");
+
+                                    b2.Property<int>("SkinTone");
+
+                                    b2.Property<int>("Style");
+
+                                    b2.HasKey("CharacterAccountId");
+
+                                    b2.ToTable("Accounts");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("CharacterAccountId");
+                                });
+
+                            b1.Navigation("Appearance")
+                                .IsRequired();
+                        });
+
+                    b.Navigation("Character");
+                });
+
             modelBuilder.Entity("Desertod.Domain.Entities.Citizen", b =>
                 {
                     b.HasOne("Desertod.Domain.Entities.Account", null)
@@ -410,6 +503,30 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasForeignKey("VillageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsMany("Desertod.Domain.Entities.CarriedGood", "Load", b1 =>
+                        {
+                            b1.Property<Guid>("CitizenId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<int>("Amount");
+
+                            b1.Property<string>("Kind")
+                                .IsRequired();
+
+                            b1.HasKey("CitizenId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Citizens");
+
+                            b1
+                                .ToJson("Load")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CitizenId");
+                        });
 
                     b.OwnsOne("Desertod.Domain.Entities.Appearance", "Appearance", b1 =>
                         {
@@ -438,24 +555,26 @@ namespace Desertod.Infrastructure.Data.Migrations
                                 .HasForeignKey("CitizenId");
                         });
 
-                    b.OwnsMany("Desertod.Domain.Entities.CarriedGood", "Load", b1 =>
+                    b.OwnsMany("Desertod.Domain.Skills.SkillProgress", "Skills", b1 =>
                         {
                             b1.Property<Guid>("CitizenId");
 
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
-                            b1.Property<double>("Amount");
+                            b1.Property<int>("Experience");
 
                             b1.Property<string>("Kind")
                                 .IsRequired();
+
+                            b1.Property<int>("Level");
 
                             b1.HasKey("CitizenId", "__synthesizedOrdinal");
 
                             b1.ToTable("Citizens");
 
                             b1
-                                .ToJson("Load")
+                                .ToJson("Skills")
                                 .HasColumnType("jsonb");
 
                             b1.WithOwner()
@@ -470,32 +589,32 @@ namespace Desertod.Infrastructure.Data.Migrations
                             b1.Property<int>("Charisma")
                                 .HasColumnType("integer");
 
-                            b1.Property<double>("CharismaExperience")
-                                .HasColumnType("double precision");
+                            b1.Property<int>("CharismaExperience")
+                                .HasColumnType("integer");
 
                             b1.Property<int>("Dexterity")
                                 .HasColumnType("integer");
 
-                            b1.Property<double>("DexterityExperience")
-                                .HasColumnType("double precision");
+                            b1.Property<int>("DexterityExperience")
+                                .HasColumnType("integer");
 
                             b1.Property<int>("Endurance")
                                 .HasColumnType("integer");
 
-                            b1.Property<double>("EnduranceExperience")
-                                .HasColumnType("double precision");
+                            b1.Property<int>("EnduranceExperience")
+                                .HasColumnType("integer");
 
                             b1.Property<int>("Intelligence")
                                 .HasColumnType("integer");
 
-                            b1.Property<double>("IntelligenceExperience")
-                                .HasColumnType("double precision");
+                            b1.Property<int>("IntelligenceExperience")
+                                .HasColumnType("integer");
 
                             b1.Property<int>("Strength")
                                 .HasColumnType("integer");
 
-                            b1.Property<double>("StrengthExperience")
-                                .HasColumnType("double precision");
+                            b1.Property<int>("StrengthExperience")
+                                .HasColumnType("integer");
 
                             b1.HasKey("CitizenId");
 
@@ -509,6 +628,8 @@ namespace Desertod.Infrastructure.Data.Migrations
 
                     b.Navigation("Load");
 
+                    b.Navigation("Skills");
+
                     b.Navigation("Stats")
                         .IsRequired();
                 });
@@ -517,6 +638,15 @@ namespace Desertod.Infrastructure.Data.Migrations
                 {
                     b.HasOne("Desertod.Domain.Entities.Account", null)
                         .WithMany("Logins")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Desertod.Domain.Entities.PasswordLogin", b =>
+                {
+                    b.HasOne("Desertod.Domain.Entities.Account", null)
+                        .WithMany()
                         .HasForeignKey("AccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -571,7 +701,7 @@ namespace Desertod.Infrastructure.Data.Migrations
                                     b2.Property<int>("__synthesizedOrdinal")
                                         .ValueGeneratedOnAdd();
 
-                                    b2.Property<double>("Done");
+                                    b2.Property<int>("Done");
 
                                     b2.Property<string>("JobId")
                                         .IsRequired();
@@ -706,7 +836,7 @@ namespace Desertod.Infrastructure.Data.Migrations
                                     b2.Property<int>("__synthesizedOrdinal")
                                         .ValueGeneratedOnAdd();
 
-                                    b2.Property<double>("Amount");
+                                    b2.Property<int>("Amount");
 
                                     b2.Property<string>("Kind")
                                         .IsRequired();
@@ -780,7 +910,7 @@ namespace Desertod.Infrastructure.Data.Migrations
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
-                            b1.Property<double>("Done");
+                            b1.Property<int>("Done");
 
                             b1.Property<DateTimeOffset?>("ResearchedAt");
 
@@ -820,6 +950,35 @@ namespace Desertod.Infrastructure.Data.Migrations
                             b1.Navigation("Hands");
                         });
 
+                    b.OwnsMany("Desertod.Domain.Weather.WeatherForecast", "Forecasts", b1 =>
+                        {
+                            b1.Property<Guid>("VillageId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<Guid>("CitizenId");
+
+                            b1.Property<long>("Day");
+
+                            b1.Property<DateTimeOffset>("MadeAt");
+
+                            b1.Property<bool>("Rain");
+
+                            b1.Property<bool>("SaysRain");
+
+                            b1.HasKey("VillageId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Villages");
+
+                            b1
+                                .ToJson("Forecasts")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("VillageId");
+                        });
+
                     b.OwnsMany("Desertod.Domain.World.Herd", "Wildlife", b1 =>
                         {
                             b1.Property<Guid>("VillageId");
@@ -827,7 +986,7 @@ namespace Desertod.Infrastructure.Data.Migrations
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
-                            b1.Property<double>("Count");
+                            b1.Property<int>("Count");
 
                             b1.Property<string>("Kind")
                                 .IsRequired();
@@ -853,7 +1012,7 @@ namespace Desertod.Infrastructure.Data.Migrations
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
-                            b1.Property<double>("Chopped");
+                            b1.Property<int>("Chopped");
 
                             b1.Property<DateTimeOffset?>("FelledAt");
 
@@ -874,6 +1033,8 @@ namespace Desertod.Infrastructure.Data.Migrations
                         });
 
                     b.Navigation("Fields");
+
+                    b.Navigation("Forecasts");
 
                     b.Navigation("Poll");
 

@@ -3,6 +3,7 @@ using Desertod.Domain.Entities;
 using Desertod.Domain.Rules;
 using Desertod.Domain.Stats;
 using Desertod.Domain.Storage;
+using Desertod.Domain.Weather;
 
 namespace Desertod.Domain.Tests;
 
@@ -18,14 +19,27 @@ internal static class TestWorld
     {
         var village = Village.Create("v", "V", Guid.NewGuid(), Now);
         village.Trees.Clear();
-        village.Storages.Add(StorageBuilding.Create(StorageKind.TownHall, "plot-1", Now));
-        village.Storages.Add(StorageBuilding.Create(StorageKind.Granary, "plot-2", Now));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.TownHall, "13,5", Now));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.Granary, "17,5", Now));
         if (fed)
         {
             village.Store(ResourceKind.Food, 200);
         }
 
+        SetSky(village, rain: false);
         return village;
+    }
+
+    /// <summary>Forecasts the same weather for every day within two weeks of <see cref="Now"/>, so the sky's own draw never decides a test.</summary>
+    public static void SetSky(Village village, bool rain)
+    {
+        village.Forecasts.Clear();
+        var today = WeatherRules.DayOf(Now);
+        var days = (long)(TimeSpan.FromDays(14) / WeatherRules.DayLength);
+        for (var day = today - days; day <= today + days; day++)
+        {
+            village.Forecasts.Add(new WeatherForecast { Day = day, Rain = rain, SaysRain = !rain, MadeAt = Now });
+        }
     }
 
     public static Citizen NewCitizen(Village village, params (Stat Stat, int Level)[] stats) =>

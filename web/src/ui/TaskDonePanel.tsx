@@ -68,11 +68,17 @@ export function TaskDonePanel({
                 `, ${i18n.stat(report.secondary)} +${i18n.amount(report.secondaryExperience)}`}
             </li>
           )}
+          {report.skillExperience > 0 && (
+            <li>{t('done.skill', { skill: i18n.skill(report.skill), amount: i18n.amount(report.skillExperience) })}</li>
+          )}
           {report.buildingCompleted && (
             <li className="highlight">{t('done.built', { building: i18n.building(report.buildingCompleted).name })}</li>
           )}
           {report.hungry && <li className="warning">{t('done.hungry')}</li>}
           {report.levelsGained > 0 && <li className="highlight">{t('done.levelUp', { stat: i18n.stat(report.primary) })}</li>}
+          {report.skillLevelsGained > 0 && (
+            <li className="highlight">{t('done.skillUp', { skill: i18n.skill(report.skill) })}</li>
+          )}
           {report.renownGained > 0 && <li>{t('done.renown', { amount: i18n.amount(report.renownGained) })}</li>}
           {report.rareFind && <li className="highlight">{t('done.rare')}</li>}
           {report.tired && <li className="warning">{t('done.tired')}</li>}

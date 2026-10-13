@@ -23,5 +23,6 @@ next to the sheets.
 |---|---|---|
 | 0 | Coal | Tiny Farm rock pile (index 89) with the greys darkened |
 | 1 | Campfire | Drawn by hand |
+| 2 | Feather | Drawn by hand |
 
 The church domes and the bridge scaffolding are drawn in code on the same 16-pixel grid.

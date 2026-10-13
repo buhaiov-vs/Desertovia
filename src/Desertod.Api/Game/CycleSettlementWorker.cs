@@ -1,14 +1,12 @@
 namespace Desertod.Api.Game;
 
 /// <summary>
-/// Banks finished cycles even when the player is not looking, so the overlay and village storage stay current.
+/// Banks finished cycles even when the player is not looking, so village storage stays current.
 /// </summary>
 public sealed class CycleSettlementWorker(GameService game, TimeProvider time, ILogger<CycleSettlementWorker> logger)
     : BackgroundService
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan MoraleDriftInterval = TimeSpan.FromMinutes(1);
-    private const double MoraleDriftRate = 0.02;
     private const int BatchSize = 200;
 
     /// <summary>Villages settled at the same time; each takes a database connection.</summary>
@@ -16,15 +14,20 @@ public sealed class CycleSettlementWorker(GameService game, TimeProvider time, I
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var nextDrift = time.GetUtcNow() + MoraleDriftInterval;
         using var timer = new PeriodicTimer(PollInterval, time);
 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             try
             {
-                var villages = (await game.FindDueCitizensAsync(BatchSize, stoppingToken))
-                    .GroupBy(due => due.VillageId, due => due.CitizenId);
+                var due = await game.FindDueCitizensAsync(BatchSize, stoppingToken);
+                if (due.Count == 0)
+                {
+                    continue;
+                }
+
+                var villages = due.GroupBy(citizen => citizen.VillageId, citizen => citizen.CitizenId).ToList();
+                logger.DueCitizensFound(due.Count, villages.Count);
                 await Parallel.ForEachAsync(
                     villages,
                     new ParallelOptions { MaxDegreeOfParallelism = ParallelVillages, CancellationToken = stoppingToken },
@@ -39,12 +42,6 @@ public sealed class CycleSettlementWorker(GameService game, TimeProvider time, I
                             logger.LogError(exception, "Cycle settlement failed in village {VillageId}.", village.Key);
                         }
                     });
-
-                if (time.GetUtcNow() >= nextDrift)
-                {
-                    await game.DriftMoraleAsync(MoraleDriftRate, stoppingToken);
-                    nextDrift = time.GetUtcNow() + MoraleDriftInterval;
-                }
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {

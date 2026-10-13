@@ -1,25 +1,23 @@
+import { useState } from 'react'
 import { api, type Me, type VillageState } from '../api'
 import { LanguageSwitcher, useI18n } from '../i18n'
 import { InviteCard } from './InviteCard'
-import { LoginPanel } from './LoginPanel'
 import { NotificationToggle } from './NotificationToggle'
 
 interface Props {
-  slug: string
   village: VillageState
-  me: Me | null
+  me: Me
   isOwner: boolean
   inviteCode: string | null
-  onToggleLive: () => void
   onNewInviteCode: () => Promise<void>
-  /** Reloads the account after signing in or out. */
+  /** Reloads the account after signing out. */
   onAccountChanged: () => void
 }
 
-/** Things that are not part of the game: language, notifications, account and stream controls. */
-export function SettingsPanel({ slug, village, me, isOwner, inviteCode, onToggleLive, onNewInviteCode, onAccountChanged }: Props) {
-  const i18n = useI18n()
-  const { t } = i18n
+/** Things that are not part of the game: language, notifications, account and invites. */
+export function SettingsPanel({ village, me, isOwner, inviteCode, onNewInviteCode, onAccountChanged }: Props) {
+  const { t } = useI18n()
+  const [copied, setCopied] = useState(false)
 
   return (
     <>
@@ -30,38 +28,36 @@ export function SettingsPanel({ slug, village, me, isOwner, inviteCode, onToggle
 
       <NotificationToggle />
 
-      {me ? (
-        <section className="card">
-          <h3>{t('settings.account')}</h3>
-          <div className="row">
-            <span>
-              {t('home.signedInAs')} <strong>{me.displayName}</strong>
-            </span>
-            <button
-              onClick={async () => {
-                await api.logout()
-                onAccountChanged()
-              }}
-            >
-              {t('home.signOut')}
-            </button>
-          </div>
-        </section>
-      ) : (
-        <LoginPanel onLoggedIn={onAccountChanged} />
-      )}
-
-      {isOwner && (
-        <section className="card">
-          <h3>{t('settings.stream')}</h3>
-          <div className="row">
-            <button onClick={onToggleLive}>{village.isLive ? t('menu.endLive') : t('menu.goLive')}</button>
-            <a className="button" href={`/v/${slug}/overlay?lang=${i18n.language}`} target="_blank" rel="noreferrer">
-              {t('menu.overlay')}
-            </a>
-          </div>
-        </section>
-      )}
+      <section className="card">
+        <h3>{t('settings.account')}</h3>
+        <div className="row">
+          <span>
+            {t('home.signedInAs')} <strong>{me.displayName}</strong>
+          </span>
+          <button
+            onClick={async () => {
+              await api.logout()
+              onAccountChanged()
+            }}
+          >
+            {t('home.signOut')}
+          </button>
+        </div>
+        <p className="small">{t('settings.accountIdHint')}</p>
+        <div className="row invite-row">
+          <code className="invite-code">{me.id}</code>
+          <button
+            onClick={async () => {
+              await navigator.clipboard.writeText(me.id)
+              setCopied(true)
+              window.setTimeout(() => setCopied(false), 4000)
+            }}
+          >
+            {t('settings.copyAccountId')}
+          </button>
+        </div>
+        {copied && <p className="small highlight">{t('settings.accountIdCopied')}</p>}
+      </section>
 
       {isOwner && <InviteCard village={village} inviteCode={inviteCode} onNewCode={onNewInviteCode} />}
     </>

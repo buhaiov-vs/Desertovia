@@ -4,7 +4,7 @@ import { useI18n } from '../i18n'
 import { TileIcon } from './TileIcon'
 
 /** The beds of one farm: what grows in each, how far it grew and whether it is wet. */
-export function FieldsCard({ beds, now }: { beds: FieldBed[]; now: number }) {
+export function FieldsCard({ beds, now, raining }: { beds: FieldBed[]; now: number; raining: boolean }) {
   const i18n = useI18n()
   const { t } = i18n
 
@@ -13,7 +13,8 @@ export function FieldsCard({ beds, now }: { beds: FieldBed[]; now: number }) {
     if (isRipe(bed)) return t('field.ripe')
     const wetMinutes = bed.wateredUntil ? Math.ceil((Date.parse(bed.wateredUntil) - now) / 60000) : 0
     const growth = t('field.growth', { percent: Math.floor(bed.growth * 100) })
-    return `${growth} · ${wetMinutes > 0 ? t('field.wet', { minutes: wetMinutes }) : t('field.dry')}`
+    const water = raining ? t('field.rain') : wetMinutes > 0 ? t('field.wet', { minutes: wetMinutes }) : t('field.dry')
+    return `${growth} · ${water}`
   }
 
   return (

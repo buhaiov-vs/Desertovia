@@ -1,4 +1,4 @@
-import { ApiError, type CycleReport, type Era, type ProjectPhase, type RoleTier, type Stat } from '../api'
+import { ApiError, type CycleReport, type Era, type ProjectPhase, type RoleTier, type Skill, type Stat } from '../api'
 import { en, type Dictionary, type UiKey } from './en'
 import { ru } from './ru'
 
@@ -18,7 +18,7 @@ function isLanguage(value: string | null): value is Language {
   return value !== null && value in DICTIONARIES
 }
 
-/** `?lang=` wins (handy for the stream overlay), then the saved choice, then the browser language, then English. */
+/** `?lang=` wins, then the saved choice, then the browser language, then English. */
 export function initialLanguage(): Language {
   const fromQuery = new URLSearchParams(window.location.search).get('lang')
   if (isLanguage(fromQuery)) return fromQuery
@@ -76,6 +76,7 @@ export function createTranslator(language: Language) {
   const building = (kind: string) => dictionary.buildings[kind] ?? en.buildings[kind] ?? { name: kind, description: '' }
   const stage = (id: string) => dictionary.stages[id] ?? en.stages[id] ?? id
   const stat = (value: Stat) => dictionary.stats[value] ?? en.stats[value] ?? value
+  const skill = (value: Skill) => dictionary.skills[value] ?? en.skills[value] ?? value
   const technology = (id: string) =>
     dictionary.technologies[id] ?? en.technologies[id] ?? { name: id, description: '' }
   const era = (value: Era) => dictionary.eras[value] ?? en.eras[value]
@@ -88,11 +89,15 @@ export function createTranslator(language: Language) {
     const parameters = { resource: quest.resource ? resource(quest.resource).toLowerCase() : '' }
     return { title: format(entry.title, parameters), story: format(entry.story, parameters) }
   }
-  /** The Governor's wording never carries numbers. */
-  const objective = (id: string, governor: boolean, parameters?: Parameters) => {
+  /** The Governor's wording speaks about citizens' work; its numbers, if any, follow it in brackets. */
+  const objective = (id: string, governor: boolean, parameters?: Parameters & { current?: string; required?: string }) => {
     const entry = dictionary.objectives[id] ?? en.objectives[id]
     if (!entry) return id
-    return format(governor ? entry.governor : entry.citizen, parameters)
+    if (!governor) return format(entry.citizen, parameters)
+    const text = format(entry.governor, parameters)
+    return parameters?.current !== undefined && parameters.required !== undefined
+      ? `${text} (${parameters.current} / ${parameters.required})`
+      : text
   }
 
   /** Server problems carry a code and arguments; identifiers in the arguments are translated too. */
@@ -116,6 +121,9 @@ export function createTranslator(language: Language) {
         }
         if (typeof parameters.stage === 'string') parameters.stage = stage(parameters.stage).toLowerCase()
         if (typeof parameters.technology === 'string') parameters.technology = technology(parameters.technology).name
+        if (typeof parameters.readyAt === 'string') {
+          parameters.readyAt = new Date(parameters.readyAt).toLocaleTimeString(language, { hour: '2-digit', minute: '2-digit' })
+        }
         if (typeof parameters.technologies === 'string') {
           parameters.technologies = parameters.technologies
             .split(',')
@@ -123,6 +131,7 @@ export function createTranslator(language: Language) {
             .join(', ')
         }
         if (typeof parameters.stat === 'string') parameters.stat = stat(parameters.stat as Stat)
+        if (typeof parameters.skill === 'string') parameters.skill = skill(parameters.skill as Skill)
         return format(template, parameters)
       }
     }
@@ -137,6 +146,7 @@ export function createTranslator(language: Language) {
       parts.push(t('report.contribution', { amount: amount(report.projectContribution) }))
     }
     if (report.levelsGained > 0) parts.push(t('report.level', { stat: stat(report.primary) }))
+    if (report.skillLevelsGained > 0) parts.push(t('report.skill', { skill: skill(report.skill) }))
     if (report.rareFind) parts.push(t('report.rare'))
     if (report.buildingCompleted) parts.push(t('done.built', { building: building(report.buildingCompleted).name }))
     if (report.technologyId) {
@@ -146,18 +156,18 @@ export function createTranslator(language: Language) {
     return `${report.citizenName} — ${task(report.taskId)}${parts.length ? `: ${parts.join(', ')}` : ''}`
   }
 
-  /** `governorView`: the Governor and the stream overlay never hear about full storage from the game. */
-  const speechFor = (report: CycleReport, governorView = false) => {
+  const speechFor = (report: CycleReport) => {
     if (report.buildingCompleted) return t('speech.built', { building: building(report.buildingCompleted).name })
     if (report.technologyDiscovered && report.technologyId) {
       return t('speech.discovered', { technology: technology(report.technologyId).name })
     }
     if (report.rareFind) return t('speech.gold')
     if (report.levelsGained > 0) return t('speech.level', { stat: stat(report.primary) })
+    if (report.skillLevelsGained > 0) return t('speech.skill', { skill: skill(report.skill) })
     if (report.tired) return t('speech.tired')
     if (report.overflowed && report.produced.length === 0 && FARM_TASKS.test(report.taskId)) return t('speech.fieldTaken')
-    if (report.overflowed && !governorView) return t('speech.full')
-    if (report.hungry && !governorView) return t('speech.hungry')
+    if (report.overflowed) return t('speech.full')
+    if (report.hungry) return t('speech.hungry')
     if (report.technologyId) return t('speech.research')
     if (report.siteId && report.produced.length === 0) return t('speech.done')
     if (report.taskId === 'carry-to-storage') return t('speech.carried')
@@ -190,6 +200,7 @@ export function createTranslator(language: Language) {
     building,
     stage,
     stat,
+    skill,
     technology,
     era,
     requirements,

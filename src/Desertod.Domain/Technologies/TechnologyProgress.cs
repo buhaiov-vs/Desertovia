@@ -6,7 +6,7 @@ public sealed class TechnologyProgress
     public required string TechnologyId { get; set; }
 
     /// <summary>Research work done, in cycles of a researcher with every stat at 0.</summary>
-    public double Done { get; set; }
+    public int Done { get; set; }
 
     /// <summary>Set once the technology is discovered.</summary>
     public DateTimeOffset? ResearchedAt { get; set; }

@@ -1,6 +1,15 @@
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
-import { api, type CitizenSummary, type CycleReport, type ProjectCompletion, type QuestCompletion, type VillageState } from './api'
+import {
+  api,
+  loadVillage,
+  type CitizenSummary,
+  type CycleReport,
+  type ProjectCompletion,
+  type QuestCompletion,
+  type VillageEvents,
+  type VillageState,
+} from './api'
 import type { GameCanvasHandle } from './game/GameCanvas'
 import { PRIEST_ID } from './game/VillageWorld'
 import { useI18n } from './i18n'
@@ -10,6 +19,9 @@ export type FeedEntry =
   | { key: number; kind: 'project'; completion: ProjectCompletion }
 
 const FEED_LENGTH = 8
+
+/** Wait after the weather day ends before asking for the new sky, and between retries; covers clock drift. */
+const WEATHER_RETRY_MS = 5_000
 
 export interface LiveVillageHandlers {
   onCitizenUpdated?: (citizen: CitizenSummary) => void
@@ -44,24 +56,30 @@ export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {})
       .build()
 
     connection.on('villageUpdated', (next: VillageState) => setState(next))
-    connection.on('citizenUpdated', (citizen: CitizenSummary) => {
-      setCitizens((previous) => new Map(previous).set(citizen.id, citizen))
-      callbacks.current.onCitizenUpdated?.(citizen)
+    connection.on('villageEvents', (events: VillageEvents) => {
+      for (const report of events.cycles) {
+        push({ kind: 'cycle', report })
+        callbacks.current.onCycleCompleted?.(report)
+      }
+      for (const completion of events.projects) {
+        push({ kind: 'project', completion })
+        callbacks.current.onProjectCompleted?.(completion)
+      }
+      for (const completion of events.quests) callbacks.current.onQuestCompleted?.(completion)
+      if (events.citizens.length > 0) {
+        setCitizens((previous) => {
+          const next = new Map(previous)
+          for (const citizen of events.citizens) next.set(citizen.id, citizen)
+          return next
+        })
+        for (const citizen of events.citizens) callbacks.current.onCitizenUpdated?.(citizen)
+      }
     })
-    connection.on('cycleCompleted', (report: CycleReport) => {
-      push({ kind: 'cycle', report })
-      callbacks.current.onCycleCompleted?.(report)
-    })
-    connection.on('projectCompleted', (completion: ProjectCompletion) => {
-      push({ kind: 'project', completion })
-      callbacks.current.onProjectCompleted?.(completion)
-    })
-    connection.on('questCompleted', (completion: QuestCompletion) => callbacks.current.onQuestCompleted?.(completion))
     connection.onreconnected(() => connection.invoke('JoinVillage', slug))
 
     const load = async () => {
       try {
-        const village = await api.village(slug)
+        const village = await loadVillage(slug)
         if (cancelled) return
         setState(village.state)
         setIsOwner(village.isOwner)
@@ -81,6 +99,29 @@ export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {})
       void connection.stop()
     }
   }, [slug])
+
+  // The sky changes when the weather day ends, and the server sends nothing at that moment.
+  const dayEndsAt = state?.weather.dayEndsAt
+  useEffect(() => {
+    if (!dayEndsAt) return
+    let cancelled = false
+    let id = 0
+    const refresh = async () => {
+      try {
+        const next = (await api.village(slug)).state
+        if (cancelled) return
+        if (next.weather.dayEndsAt === dayEndsAt) id = window.setTimeout(refresh, WEATHER_RETRY_MS)
+        else setState(next)
+      } catch {
+        if (!cancelled) id = window.setTimeout(refresh, WEATHER_RETRY_MS)
+      }
+    }
+    id = window.setTimeout(refresh, Math.max(0, Date.parse(dayEndsAt) - Date.now()) + WEATHER_RETRY_MS)
+    return () => {
+      cancelled = true
+      window.clearTimeout(id)
+    }
+  }, [slug, dayEndsAt])
 
   const updateCitizen = useCallback(
     (citizen: CitizenSummary) => setCitizens((previous) => new Map(previous).set(citizen.id, citizen)),
@@ -162,4 +203,17 @@ export function useMediaQuery(query: string) {
     return () => media.removeEventListener('change', listener)
   }, [query])
   return matches
+}
+
+/** A folded HUD card stays folded in this browser; until the player chooses, `initial` decides. */
+export function useCollapsed(id: string, initial: boolean) {
+  const key = `desertod.collapsed.${id}`
+  const [saved, setSaved] = useState(() => window.localStorage.getItem(key))
+  const collapsed = saved === null ? initial : saved === '1'
+  const toggle = () => {
+    const next = collapsed ? '0' : '1'
+    window.localStorage.setItem(key, next)
+    setSaved(next)
+  }
+  return [collapsed, toggle] as const
 }

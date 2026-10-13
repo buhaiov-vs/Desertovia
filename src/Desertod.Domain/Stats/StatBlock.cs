@@ -8,11 +8,11 @@ public sealed class StatBlock
     public int Charisma { get; set; }
     public int Endurance { get; set; }
 
-    public double StrengthExperience { get; set; }
-    public double DexterityExperience { get; set; }
-    public double IntelligenceExperience { get; set; }
-    public double CharismaExperience { get; set; }
-    public double EnduranceExperience { get; set; }
+    public int StrengthExperience { get; set; }
+    public int DexterityExperience { get; set; }
+    public int IntelligenceExperience { get; set; }
+    public int CharismaExperience { get; set; }
+    public int EnduranceExperience { get; set; }
 
     public int Total => Strength + Dexterity + Intelligence + Charisma + Endurance;
 
@@ -39,7 +39,7 @@ public sealed class StatBlock
         }
     }
 
-    public double GetExperience(Stat stat) => stat switch
+    public int GetExperience(Stat stat) => stat switch
     {
         Stat.Strength => StrengthExperience,
         Stat.Dexterity => DexterityExperience,
@@ -49,7 +49,7 @@ public sealed class StatBlock
         _ => throw new ArgumentOutOfRangeException(nameof(stat)),
     };
 
-    public void SetExperience(Stat stat, double value)
+    public void SetExperience(Stat stat, int value)
     {
         switch (stat)
         {

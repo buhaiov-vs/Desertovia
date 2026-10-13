@@ -58,14 +58,14 @@ public sealed class VillageQuest
     public DateTimeOffset? CompletedAt { get; set; }
 
     /// <summary>Food to store for hunger, free room for storage; fixed when the quest opens. Unused for cold.</summary>
-    public double Target { get; set; }
+    public int Target { get; set; }
 
     public List<QuestContribution> Contributions { get; set; } = [];
 
     public static string KeyFor(QuestKind kind, ResourceKind? resource) =>
         resource is null ? kind.ToString() : $"{kind}:{resource}";
 
-    public static VillageQuest Open(Guid villageId, QuestKind kind, ResourceKind? resource, double target, DateTimeOffset now) => new()
+    public static VillageQuest Open(Guid villageId, QuestKind kind, ResourceKind? resource, int target, DateTimeOffset now) => new()
     {
         VillageId = villageId,
         Kind = kind,
@@ -75,7 +75,7 @@ public sealed class VillageQuest
         StartedAt = now,
     };
 
-    public void Record(Guid citizenId, double amount)
+    public void Record(Guid citizenId, int amount)
     {
         var contribution = Contributions.SingleOrDefault(c => c.CitizenId == citizenId);
         if (contribution is null)
@@ -93,5 +93,5 @@ public sealed class QuestContribution
 {
     public Guid VillageQuestId { get; set; }
     public Guid CitizenId { get; set; }
-    public double Amount { get; set; }
+    public int Amount { get; set; }
 }

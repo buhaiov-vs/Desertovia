@@ -12,6 +12,10 @@ public static class Energy
     public static double Current(double storedEnergy, DateTimeOffset storedAt, DateTimeOffset now, int endurance, double multiplier = 1)
     {
         var hours = Math.Max(0, (now - storedAt).TotalHours);
-        return Math.Min(Maximum(endurance), storedEnergy + hours * RegenerationPerHour(endurance) * multiplier);
+        return Regenerate(storedEnergy, hours, endurance, multiplier);
     }
+
+    /// <param name="hours">Hours of regeneration at <paramref name="multiplier"/>.</param>
+    public static double Regenerate(double storedEnergy, double hours, int endurance, double multiplier = 1) =>
+        Math.Min(Maximum(endurance), storedEnergy + Math.Max(0, hours) * RegenerationPerHour(endurance) * multiplier);
 }

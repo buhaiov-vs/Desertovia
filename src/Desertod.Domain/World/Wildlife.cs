@@ -10,7 +10,7 @@ public enum AnimalKind
 /// <param name="Capacity">Most animals of this kind the land around the village feeds.</param>
 /// <param name="RecoveryHalfLifeHours">Half of the missing animals come back within this time.</param>
 /// <param name="Habitat">Place on <see cref="WorldMap"/> where they live and are hunted.</param>
-public sealed record AnimalDefinition(AnimalKind Kind, string Name, double Capacity, double RecoveryHalfLifeHours, string Habitat);
+public sealed record AnimalDefinition(AnimalKind Kind, string Name, int Capacity, double RecoveryHalfLifeHours, string Habitat);
 
 public static class WildlifeCatalog
 {
@@ -18,12 +18,12 @@ public static class WildlifeCatalog
     public const double AbundantShare = 0.5;
 
     /// <summary>Hunting needs at least one whole animal; below that the land is hunted out.</summary>
-    public const double MinimumToHunt = 1;
+    public const int MinimumToHunt = 1;
 
     public static IReadOnlyList<AnimalDefinition> Animals { get; } =
     [
-        new(AnimalKind.Rabbit, "rabbits", 60, 0.75, "hunting"),
-        new(AnimalKind.Deer, "deer", 20, 1.5, "deer-woods"),
+        new(AnimalKind.Rabbit, "rabbits", 72, 0.75, "hunting"),
+        new(AnimalKind.Deer, "deer", 40, 1.5, "deer-woods"),
         new(AnimalKind.Bird, "birds", 60, 0.5, "bird-grove"),
     ];
 
@@ -39,7 +39,7 @@ public static class WildlifeCatalog
 public sealed class Herd
 {
     public AnimalKind Kind { get; set; }
-    public double Count { get; set; }
+    public int Count { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
     public AnimalDefinition Definition => WildlifeCatalog.Get(Kind);
@@ -47,11 +47,13 @@ public sealed class Herd
     public static Herd Full(AnimalKind kind, DateTimeOffset now) =>
         new() { Kind = kind, Count = WildlifeCatalog.Get(kind).Capacity, UpdatedAt = now };
 
-    public double Current(DateTimeOffset now)
+    /// <summary>Animals now, rounded to whole ones.</summary>
+    public int Current(DateTimeOffset now)
     {
         var definition = Definition;
         var hours = Math.Max(0, (now - UpdatedAt).TotalHours);
-        return definition.Capacity - (definition.Capacity - Count) * Math.Pow(0.5, hours / definition.RecoveryHalfLifeHours);
+        var missing = (definition.Capacity - Count) * Math.Pow(0.5, hours / definition.RecoveryHalfLifeHours);
+        return definition.Capacity - (int)Math.Round(missing);
     }
 
     /// <summary>1 while the herd is at least half its capacity, then falling with the herd.</summary>
@@ -59,7 +61,7 @@ public sealed class Herd
         Math.Clamp(Current(now) / (Definition.Capacity * WildlifeCatalog.AbundantShare), 0, 1);
 
     /// <summary>Takes up to <paramref name="amount"/> animals and returns how many were taken.</summary>
-    public double Take(double amount, DateTimeOffset now)
+    public int Take(int amount, DateTimeOffset now)
     {
         var current = Current(now);
         var taken = Math.Clamp(amount, 0, current);

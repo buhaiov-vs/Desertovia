@@ -36,7 +36,7 @@ public sealed record TechnologyDefinition(
     IReadOnlyList<StatRequirement> Researcher,
     Stat Primary,
     Stat Secondary,
-    double Cycles,
+    int Cycles,
     int Crew,
     IReadOnlyList<YieldBonus> Bonuses);
 
@@ -61,6 +61,8 @@ public static class TechnologyCatalog
     public const string Mechanics = "mechanics";
     public const string Alchemy = "alchemy";
     public const string Forging = "forging";
+    public const string WeatherLore = "weather-lore";
+    public const string VigorDrinks = "vigor-drinks";
 
     private static StatRequirement Needs(Stat stat, int minimum) => new(stat, minimum);
 
@@ -103,6 +105,9 @@ public static class TechnologyCatalog
         new(Baking, "Baking", "Ground grain kneaded and baked in a clay oven. The tribe can plan a bakery, and bakers appear.",
             Era.Village, BuildingKind.Granary, [Agriculture], [Needs(Stat.Dexterity, 3), Needs(Stat.Intelligence, 2)], Stat.Dexterity, Stat.Intelligence, 8, 3,
             []),
+        new(WeatherLore, "Weather lore", "Clouds, wind and aching knees tell what the sky will do. Synoptics appear; reading the sky gives more.",
+            Era.Village, BuildingKind.Granary, [Agriculture], [Needs(Stat.Intelligence, 3), Needs(Stat.Endurance, 2)], Stat.Intelligence, Stat.Endurance, 8, 3,
+            [Bonus("read-sky", 1.25)]),
 
         new(Smelting, "Smelting", "Ore and coal in a hot furnace give iron. The tribe can plan a smithy, and smiths appear.",
             Era.Town, BuildingKind.Mine, [Mining], [Needs(Stat.Strength, 5), Needs(Stat.Intelligence, 3)], Stat.Strength, Stat.Intelligence, 12, 3,
@@ -122,6 +127,11 @@ public static class TechnologyCatalog
         new(Forging, "Forging", "Iron folded and hammered into chains. Master smiths appear; iron is smelted faster.",
             Era.Town, BuildingKind.Smithy, [Smelting], [Needs(Stat.Strength, 6), Needs(Stat.Dexterity, 4)], Stat.Strength, Stat.Dexterity, 12, 3,
             [Bonus("smelt-ingot", 1.25)]),
+        new(VigorDrinks, "Vigor drinks",
+            "Kvass, honey, beans from a passing merchant and three scholars who have not slept since Tuesday. Tastes like a thunderstorm. Brewed at the tavern; a drink gives energy back.",
+            Era.Town, BuildingKind.Tavern, [Brewing, Alchemy, Bookkeeping], [Needs(Stat.Charisma, 4), Needs(Stat.Intelligence, 4)],
+            Stat.Intelligence, Stat.Charisma, 12, 3,
+            []),
     ];
 
     private static readonly Dictionary<string, TechnologyDefinition> ById = Technologies.ToDictionary(t => t.Id);

@@ -19,7 +19,7 @@ public sealed record TelegramUser(string Id, string DisplayName);
 /// Verifies data from the Telegram Login Widget:
 /// https://core.telegram.org/widgets/login#checking-authorization
 /// </summary>
-public sealed class TelegramLoginVerifier(IOptions<TelegramOptions> options, TimeProvider time)
+public sealed class TelegramLoginVerifier(IOptions<TelegramOptions> options, TimeProvider time, ILogger<TelegramLoginVerifier> logger)
 {
     public const string ReturnUrlParameter = "returnUrl";
 
@@ -31,13 +31,13 @@ public sealed class TelegramLoginVerifier(IOptions<TelegramOptions> options, Tim
         var botToken = options.Value.BotToken;
         if (string.IsNullOrWhiteSpace(botToken))
         {
-            return null;
+            return Reject("the bot token is not configured");
         }
 
         var hash = query["hash"].ToString();
         if (hash.Length != 64)
         {
-            return null;
+            return Reject("the hash is missing or malformed");
         }
 
         var dataCheckString = string.Join('\n', query
@@ -55,29 +55,29 @@ public sealed class TelegramLoginVerifier(IOptions<TelegramOptions> options, Tim
         }
         catch (FormatException)
         {
-            return null;
+            return Reject("the hash is not hexadecimal");
         }
 
         if (!CryptographicOperations.FixedTimeEquals(expected, received))
         {
-            return null;
+            return Reject("the signature does not match");
         }
 
         if (!long.TryParse(query["auth_date"], NumberStyles.Integer, CultureInfo.InvariantCulture, out var authDate))
         {
-            return null;
+            return Reject("auth_date is missing or malformed");
         }
 
         var age = time.GetUtcNow() - DateTimeOffset.FromUnixTimeSeconds(authDate);
         if (age > MaximumAge || age < -MaximumClockSkew)
         {
-            return null;
+            return Reject($"the login is {age} old");
         }
 
         var id = query["id"].ToString();
         if (string.IsNullOrEmpty(id))
         {
-            return null;
+            return Reject("the user id is missing");
         }
 
         var username = query["username"].ToString();
@@ -85,5 +85,11 @@ public sealed class TelegramLoginVerifier(IOptions<TelegramOptions> options, Tim
         var displayName = !string.IsNullOrEmpty(username) ? username : fullName.Length > 0 ? fullName : $"telegram-{id}";
 
         return new TelegramUser(id, displayName);
+    }
+
+    private TelegramUser? Reject(string reason)
+    {
+        logger.TelegramRejected(reason);
+        return null;
     }
 }

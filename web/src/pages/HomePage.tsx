@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router'
 import { api, ApiError, type Me, type PublicVillage, type VillageListItem } from '../api'
 import { LanguageSwitcher, useI18n } from '../i18n'
 import { LoginPanel } from '../ui/LoginPanel'
+import { CreateCharacterForm } from '../ui/CreateCharacterForm'
 
 export function HomePage() {
   const navigate = useNavigate()
@@ -16,13 +17,15 @@ export function HomePage() {
 
   const applyAccount = useCallback(async (account: Me | null) => {
     setMe(account)
-    if (account) setVillages(await api.villages())
+    if (!account) return
+    const [mine, open] = await Promise.all([api.villages(), api.publicVillages()])
+    setVillages(mine)
+    setOpenVillages(open)
   }, [])
   const load = useCallback(async () => applyAccount(await api.me()), [applyAccount])
 
   useEffect(() => {
     api.me().then(applyAccount)
-    api.publicVillages().then(setOpenVillages)
   }, [applyAccount])
 
   if (me === undefined) return <div className="splash">{t('loading')}</div>
@@ -54,6 +57,8 @@ export function HomePage() {
 
       {!me ? (
         <LoginPanel onLoggedIn={load} title="login.titleHome" />
+      ) : !me.character ? (
+        <CreateCharacterForm suggestedName={me.displayName} onCreated={applyAccount} />
       ) : (
         <>
           <section className="card">
@@ -66,7 +71,6 @@ export function HomePage() {
                   <li key={village.slug}>
                     <Link to={`/v/${village.slug}`}>{village.name}</Link>
                     {village.isOwner && <span className="badge">{t('host')}</span>}
-                    {village.isLive && <span className="badge live">{t('live')}</span>}
                   </li>
                 ))}
               </ul>
@@ -115,30 +119,29 @@ export function HomePage() {
               {t('home.create')}
             </Link>
           </section>
+
+          <section className="card">
+            <h3>{t('home.open')}</h3>
+            {openVillages.length === 0 ? (
+              <p className="muted">{t('home.noOpen')}</p>
+            ) : (
+              <ul className="open-villages">
+                {openVillages.map((village) => (
+                  <li key={village.slug}>
+                    <div className="row">
+                      <Link to={`/v/${village.slug}`}>
+                        <strong>{village.name}</strong>
+                      </Link>
+                      <span className="muted small">{t('home.citizens', { count: village.citizens })}</span>
+                    </div>
+                    {village.description && <p className="small">{village.description}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </>
       )}
-
-      <section className="card">
-        <h3>{t('home.open')}</h3>
-        {openVillages.length === 0 ? (
-          <p className="muted">{t('home.noOpen')}</p>
-        ) : (
-          <ul className="open-villages">
-            {openVillages.map((village) => (
-              <li key={village.slug}>
-                <div className="row">
-                  <Link to={`/v/${village.slug}`}>
-                    <strong>{village.name}</strong>
-                  </Link>
-                  {village.isLive && <span className="badge live">{t('live')}</span>}
-                  <span className="muted small">{t('home.citizens', { count: village.citizens })}</span>
-                </div>
-                {village.description && <p className="small">{village.description}</p>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   )
 }

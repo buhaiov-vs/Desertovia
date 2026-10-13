@@ -28,24 +28,11 @@ test.describe('governor', () => {
     await expect(page.locator('.hud-top .badge', { hasText: 'Governor' })).toBeVisible()
 
     await openMenu(page)
-    await visitEveryTab(page, ['Village', 'Build', 'Discoveries', 'Settings'])
+    await visitEveryTab(page, ['Village', 'Build', 'Tech', 'Settings'])
 
     const menu = page.getByRole('dialog', { name: 'Menu' })
     await menu.locator('nav.tabs button', { hasText: 'Build' }).click()
     await expect(menu.getByRole('heading', { name: 'Plan a building' })).toBeVisible()
-
-    await menu.locator('nav.tabs button', { hasText: 'Settings' }).click()
-    await menu.getByRole('button', { name: 'Go live' }).click()
-    await expect(menu.getByRole('button', { name: 'End stream' })).toBeVisible()
-    await expect(page.locator('.hud-top .badge.live')).toBeVisible()
-
-    const [overlay] = await Promise.all([
-      page.waitForEvent('popup'),
-      menu.getByRole('link', { name: 'Stream overlay' }).click(),
-    ])
-    await expect(overlay.locator('canvas').first()).toBeVisible()
-    await expect(overlay.locator('.overlay-join')).toContainText('Join the village')
-    await overlay.close()
 
     await closeModal(page, 'Menu')
 

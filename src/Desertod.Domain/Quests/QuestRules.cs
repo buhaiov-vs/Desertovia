@@ -7,12 +7,12 @@ using Desertod.Domain.Storage;
 namespace Desertod.Domain.Quests;
 
 /// <param name="Current">Progress for citizens; the Governor's view never shows numbers.</param>
-public sealed record QuestObjective(string Id, QuestAudience Audience, bool Done, double? Current = null, double? Required = null);
+public sealed record QuestObjective(string Id, QuestAudience Audience, bool Done, int? Current = null, int? Required = null);
 
 /// <param name="RenownPool">Split between the helpers by their useful cycles.</param>
-public sealed record QuestReward(double RenownPool, double Morale);
+public sealed record QuestReward(int RenownPool, double Morale);
 
-public sealed record QuestCompletion(Guid QuestId, QuestKind Kind, ResourceKind? Resource, IReadOnlyDictionary<Guid, double> RenownByCitizen);
+public sealed record QuestCompletion(Guid QuestId, QuestKind Kind, ResourceKind? Resource, IReadOnlyDictionary<Guid, int> RenownByCitizen);
 
 /// <param name="HungryCitizens">Active citizens whose last cycle found no food.</param>
 public sealed record VillageNeeds(int ActiveCitizens, int HungryCitizens);
@@ -23,14 +23,12 @@ public sealed record VillageNeeds(int ActiveCitizens, int HungryCitizens);
 /// </summary>
 public static class QuestRules
 {
-    private const double Epsilon = 1e-6;
-
-    public const double FoodPerCitizen = 3;
-    public const double FoodMinimum = 10;
-    public const double FoodMaximum = 40;
+    public const int FoodPerCitizen = 3;
+    public const int FoodMinimum = 10;
+    public const int FoodMaximum = 40;
 
     /// <summary>Free room a full storage quest asks for: one Heap slot.</summary>
-    public const double StorageRoom = 10;
+    public const int StorageRoom = 10;
 
     public static IReadOnlyDictionary<QuestKind, QuestReward> Rewards { get; } = new Dictionary<QuestKind, QuestReward>
     {
@@ -50,7 +48,7 @@ public static class QuestRules
         [QuestKind.GreatGranary] = new(60, 0.05),
     };
 
-    public static double FoodTarget(int activeCitizens) =>
+    public static int FoodTarget(int activeCitizens) =>
         Math.Clamp(FoodPerCitizen * activeCitizens, FoodMinimum, FoodMaximum);
 
     public static int Beds(Village village) => village.Structures.Sum(s => BuildingCatalog.Get(s.Kind).Shelter);
@@ -110,7 +108,7 @@ public static class QuestRules
                 [
                     new("plan-food-storage", QuestAudience.Governor, built || planned),
                     new("build-food-storage", QuestAudience.Citizens, built),
-                    new("stock-food", QuestAudience.Citizens, food >= quest.Target - Epsilon, food, quest.Target),
+                    new("stock-food", QuestAudience.Citizens, food >= quest.Target, food, quest.Target),
                 ];
             }
 
@@ -130,7 +128,7 @@ public static class QuestRules
                 var resource = quest.Resource!.Value;
                 var free = village.FreeSpace(resource);
                 var planned = village.Sites.Any(s => Stores(s.Definition.Storage, resource));
-                var room = free >= quest.Target - Epsilon;
+                var room = free >= quest.Target;
                 return
                 [
                     new("plan-storage", QuestAudience.Governor, room || planned),
@@ -160,10 +158,10 @@ public static class QuestRules
         var reward = Rewards[quest.Kind];
         quest.Status = QuestStatus.Completed;
         quest.CompletedAt = now;
-        village.AddMorale(reward.Morale);
+        village.AddMorale(reward.Morale, now);
 
         var total = quest.Contributions.Sum(c => c.Amount);
-        var renown = new Dictionary<Guid, double>();
+        var renown = new Dictionary<Guid, int>();
         foreach (var contribution in quest.Contributions)
         {
             if (total <= 0 || !contributors.TryGetValue(contribution.CitizenId, out var citizen))
@@ -171,7 +169,7 @@ public static class QuestRules
                 continue;
             }
 
-            var amount = Math.Round(reward.RenownPool * contribution.Amount / total, 1);
+            var amount = (int)Math.Round((double)reward.RenownPool * contribution.Amount / total, MidpointRounding.AwayFromZero);
             citizen.Renown += amount;
             renown[contribution.CitizenId] = amount;
         }
@@ -181,7 +179,7 @@ public static class QuestRules
 
     /// <summary>The building whose site the cycle moved forward, if any.</summary>
     internal static BuildingKind? BuildingWorkedOn(Village village, CycleReport report) =>
-        report.ProjectContribution > Epsilon && report.SiteId is { } plotId
+        report.ProjectContribution > 0 && report.SiteId is { } plotId
             ? report.BuildingCompleted ?? village.KindAt(plotId)
             : null;
 
@@ -192,7 +190,7 @@ public static class QuestRules
         switch (quest.Kind)
         {
             case QuestKind.Hunger:
-                return Stored(report, ResourceKind.Food) > Epsilon || IsFoodStore(definition?.Storage);
+                return Stored(report, ResourceKind.Food) > 0 || IsFoodStore(definition?.Storage);
 
             case QuestKind.Cold:
                 return definition is { Shelter: > 0 };
@@ -200,8 +198,8 @@ public static class QuestRules
             case QuestKind.Storage:
             {
                 var resource = quest.Resource!.Value;
-                var unloaded = report.TaskId == GameCatalog.CarryToStorage && Stored(report, resource) > Epsilon;
-                var hauledAway = report.ProjectContribution > Epsilon && BuildingCatalog.FindJob(report.TaskId)?.Resource == resource;
+                var unloaded = report.TaskId == GameCatalog.CarryToStorage && Stored(report, resource) > 0;
+                var hauledAway = report.ProjectContribution > 0 && BuildingCatalog.FindJob(report.TaskId)?.Resource == resource;
                 return unloaded || hauledAway || Stores(definition?.Storage, resource);
             }
 
@@ -211,7 +209,7 @@ public static class QuestRules
     }
 
     /// <summary>What actually went into storage: produced minus what stayed in the citizen's hands.</summary>
-    internal static double Stored(CycleReport report, ResourceKind kind) =>
+    internal static int Stored(CycleReport report, ResourceKind kind) =>
         report.Produced.Where(p => p.Resource == kind).Sum(p => p.Amount)
         - report.Carried.Where(c => c.Resource == kind).Sum(c => c.Amount);
 

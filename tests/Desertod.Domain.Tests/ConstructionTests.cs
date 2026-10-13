@@ -26,7 +26,7 @@ public class ConstructionTests
 
         var site = ConstructionRules.Place(village, BuildingKind.WoodPile, 9, 11, Now);
 
-        Assert.Equal(50, village.Stock(ResourceKind.Wood), 6);
+        Assert.Equal(50, village.Stock(ResourceKind.Wood));
         Assert.Equal(0, site.Stage);
         Assert.Equal("9,11", site.PlotId);
         Assert.Equal("building.plotTaken",
@@ -49,8 +49,6 @@ public class ConstructionTests
 
         Assert.Equal("building.plotTaken",
             Assert.Throws<GameRuleException>(() => ConstructionRules.Place(village, BuildingKind.Heap, 3, 8, Now)).Code);
-        Assert.Equal("building.plotTaken",
-            Assert.Throws<GameRuleException>(() => ConstructionRules.Place(village, BuildingKind.Heap, 18, 13, Now)).Code);
         Assert.Equal("building.cannotBuildHere",
             Assert.Throws<GameRuleException>(() => ConstructionRules.Place(village, BuildingKind.Heap, 13, 11, Now)).Code);
         Assert.Equal("building.cannotBuildHere",
@@ -84,13 +82,40 @@ public class ConstructionTests
 
         var haul = Job(citizen, "9,11", 0, "bring-sticks", context, ref now);
 
-        Assert.Equal(2, haul.ProjectContribution, 6);
-        Assert.Equal(0, village.Stock(ResourceKind.Wood), 6);
+        Assert.Equal(2, haul.ProjectContribution);
+        Assert.Equal(0, village.Stock(ResourceKind.Wood));
         var site = village.Sites.Single();
-        Assert.Equal(2, site.Done(0, "bring-sticks"), 6);
-        Assert.Equal(2.0 / 6 * 2, site.LaborRoom(0, "stack-pile"), 6);
+        Assert.Equal(2, site.Done(0, "bring-sticks"));
+        Assert.Equal(0, site.LaborRoom(0, "stack-pile"));
         Assert.Equal("site.noMaterial",
             Assert.Throws<GameRuleException>(() => CycleEngine.StartJob(citizen, "9,11", 0, "bring-sticks", context, now)).Code);
+
+        // Labor opens in whole units: a third of the sticks is not enough for one of the two stacking works, half is.
+        village.Store(ResourceKind.Wood, 1);
+        Job(citizen, "9,11", 0, "bring-sticks", context, ref now);
+        Assert.Equal(1, site.LaborRoom(0, "stack-pile"));
+    }
+
+    [Fact]
+    public void NewTribe_BuildsItsFirstHeap_FromSticksInHand()
+    {
+        var village = Village.Create("v", "V", Guid.NewGuid(), Now);
+        village.Trees.Clear();
+        var citizen = NewCitizen(village);
+        citizen.Carry(ResourceKind.Wood, 10);
+        ConstructionRules.Place(village, BuildingKind.Heap, 9, 11, Now);
+        var context = Context(village, 1);
+        var now = Now;
+
+        Job(citizen, "9,11", 0, "clear-ground", context, ref now);
+        Job(citizen, "9,11", 0, "clear-ground", context, ref now);
+        while (village.Sites.Count > 0)
+        {
+            Job(citizen, "9,11", 0, "bring-sticks", context, ref now);
+        }
+
+        Assert.Contains(village.Storages, s => s.Kind == StorageKind.Heap && s.PlotId == "9,11");
+        Assert.Equal(6, citizen.Carried(ResourceKind.Wood));
     }
 
     [Fact]
@@ -107,7 +132,7 @@ public class ConstructionTests
             Assert.Throws<GameRuleException>(() => CycleEngine.StartJob(citizen, "9,11", 1, "lay-cover", context, now)).Code);
 
         Job(citizen, "9,11", 1, "bring-reeds", context, ref now);
-        Assert.Equal(5, village.Sites.Single().Done(1, "bring-reeds"), 6);
+        Assert.Equal(5, village.Sites.Single().Done(1, "bring-reeds"));
     }
 
     [Fact]
@@ -193,7 +218,7 @@ public class ConstructionTests
     public void Repeats_NeedMoreMaterial()
     {
         var village = NewVillage();
-        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "plot-4", Now));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "25,5", Now));
 
         var site = ConstructionRules.Place(village, BuildingKind.WoodPile, 9, 11, Now);
 

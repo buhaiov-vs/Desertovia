@@ -1,5 +1,8 @@
+using System.Net;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Testcontainers.PostgreSql;
 
 namespace Desertod.Api.Tests;
@@ -21,6 +24,27 @@ public sealed class DesertodApiFactory : WebApplicationFactory<Program>, IAsyncL
         builder.UseSetting("Authentication:Twitch:ClientId", "");
         builder.UseSetting("Authentication:Google:ClientId", "");
         builder.UseSetting("Authentication:Telegram:BotToken", "");
+        builder.ConfigureServices(services => services.AddTransient<IStartupFilter, TestAddressStartupFilter>());
+    }
+
+    /// <summary>The test server has no client address; tests pick one with <see cref="AddressHeader"/>.</summary>
+    public const string AddressHeader = "X-Test-Address";
+
+    private sealed class TestAddressStartupFilter : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((http, nextMiddleware) =>
+            {
+                if (IPAddress.TryParse(http.Request.Headers[AddressHeader], out var address))
+                {
+                    http.Connection.RemoteIpAddress = address;
+                }
+
+                return nextMiddleware(http);
+            });
+            next(app);
+        };
     }
 
     async Task IAsyncLifetime.DisposeAsync()

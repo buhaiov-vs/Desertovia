@@ -2,6 +2,7 @@ using Desertod.Domain.Buildings;
 using Desertod.Domain.Catalog;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Rules;
+using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using Desertod.Domain.Technologies;
 using Desertod.Domain.World;
@@ -70,7 +71,7 @@ public class CycleEngineTests
         var error = Assert.Throws<GameRuleException>(() => CycleEngine.Start(citizen, Task("mine-coal"), WorkContext.For(village), Now));
         Assert.Equal("task.needsBuilding", error.Code);
 
-        village.Structures.Add(new Structure { Kind = BuildingKind.Mine, PlotId = "plot-5" });
+        village.Structures.Add(new Structure { Kind = BuildingKind.Mine, PlotId = "9,11" });
         CycleEngine.Start(citizen, Task("mine-coal"), WorkContext.For(village), Now);
     }
 
@@ -98,7 +99,7 @@ public class CycleEngineTests
 
         Assert.True(village.Stock(ResourceKind.Wood) > 0);
         Assert.Equal(10, report.PrimaryExperience);
-        Assert.Equal(3, report.SecondaryExperience, 6);
+        Assert.Equal(3, report.SecondaryExperience);
         Assert.False(report.Hungry);
         Assert.Null(CycleEngine.Settle(citizen, WorkContext.For(village), citizen.CycleEndsAt!.Value.AddSeconds(1)));
     }
@@ -131,7 +132,7 @@ public class CycleEngineTests
 
         Assert.True(report.Tired);
         Assert.Equal(0, report.PrimaryExperience);
-        Assert.True(village.Stock(ResourceKind.Wood) < 1);
+        Assert.Equal(1, village.Stock(ResourceKind.Wood));
     }
 
     [Fact]
@@ -145,7 +146,7 @@ public class CycleEngineTests
 
         Assert.True(report.Overflowed);
         Assert.Equal(5, report.PrimaryExperience);
-        Assert.Equal(report.Produced.Single().Amount, citizen.Carried(ResourceKind.Wood), 6);
+        Assert.Equal(report.Produced.Single().Amount, citizen.Carried(ResourceKind.Wood));
         Assert.True(citizen.IsCarrying);
     }
 
@@ -159,8 +160,8 @@ public class CycleEngineTests
         var report = Finish(citizen, WorkContext.For(village));
 
         var produced = report.Produced.Single().Amount;
-        Assert.Equal(produced - 1, report.Carried.Single().Amount, 6);
-        Assert.Equal(10 * (0.5 + 0.5 / produced), report.PrimaryExperience, 6);
+        Assert.Equal(produced - 1, report.Carried.Single().Amount);
+        Assert.Equal(YieldMath.Whole(10 * (0.5 + 0.5 / produced)), report.PrimaryExperience);
     }
 
     [Fact]
@@ -213,8 +214,9 @@ public class CycleEngineTests
             citizen.StoredEnergy = 100;
             citizen.DropLoad();
             var start = citizen.CycleEndsAt ?? Now;
+            var work = SkillRules.WorkTime(citizen, Skill.Exploring, 0, GameRules.CycleLength);
             CycleEngine.Start(citizen, Task("roam"), context, start);
-            Assert.Equal(start + GameRules.CycleLength, citizen.CycleEndsAt);
+            Assert.Equal(start + work, citizen.CycleEndsAt);
 
             var report = Finish(citizen, context);
             Assert.All(report.Produced, p => Assert.Contains(p.Resource, common));
@@ -242,7 +244,7 @@ public class CycleEngineTests
 
         CycleEngine.Start(citizen, Task("quarry-stone"), WorkContext.For(village), Now);
         Finish(citizen, WorkContext.For(village));
-        Assert.Equal(3, citizen.Carried(ResourceKind.Wood), 6);
+        Assert.Equal(3, citizen.Carried(ResourceKind.Wood));
 
         var start = citizen.CycleEndsAt!.Value;
         CycleEngine.Start(citizen, Task(GameCatalog.CarryToStorage), WorkContext.For(village), start);
@@ -250,8 +252,8 @@ public class CycleEngineTests
         var report = Finish(citizen, WorkContext.For(village));
 
         Assert.False(citizen.IsCarrying);
-        Assert.Equal(3, report.Produced.Single().Amount, 6);
-        Assert.Equal(3, village.Stock(ResourceKind.Wood), 6);
+        Assert.Equal(3, report.Produced.Single().Amount);
+        Assert.Equal(3, village.Stock(ResourceKind.Wood));
     }
 
     [Fact]
@@ -273,39 +275,52 @@ public class CycleEngineTests
         Assert.False(citizen.IsCarrying);
     }
 
+    private static CycleReport Work(Citizen citizen, Village village)
+    {
+        CycleEngine.Start(citizen, Task("quarry-stone"), WorkContext.For(village), citizen.CycleEndsAt ?? Now);
+        return Finish(citizen, WorkContext.For(village));
+    }
+
     [Fact]
-    public void EveryCycle_EatsFood_AndAnEmptyLarderMakesCitizensHungry()
+    public void Citizens_EatOneFoodEveryFewCycles_AndAnEmptyLarderMakesThemHungry()
     {
         var village = NewVillage(fed: false);
         var citizen = NewCitizen(village);
 
-        CycleEngine.Start(citizen, Task("quarry-stone"), WorkContext.For(village), Now);
-        var hungry = Finish(citizen, WorkContext.For(village));
+        for (var cycle = 1; cycle < GameRules.CyclesPerMeal; cycle++)
+        {
+            Assert.False(Work(citizen, village).Hungry);
+        }
+
+        var hungry = Work(citizen, village);
         Assert.True(hungry.Hungry);
         Assert.True(citizen.IsHungry);
         Assert.Equal(5, hungry.PrimaryExperience);
 
+        // A hungry citizen looks for food after every cycle, not only at mealtime.
         village.Store(ResourceKind.Food, 1);
-        CycleEngine.Start(citizen, Task("quarry-stone"), WorkContext.For(village), citizen.CycleEndsAt!.Value);
-        var fed = Finish(citizen, WorkContext.For(village));
+        var fed = Work(citizen, village);
         Assert.False(fed.Hungry);
         Assert.False(citizen.IsHungry);
-        Assert.Equal(1 - GameRules.FoodPerCycle, village.Stock(ResourceKind.Food), 6);
+        Assert.Equal(0, village.Stock(ResourceKind.Food));
+        Assert.Equal(0, citizen.CyclesSinceMeal);
     }
 
     [Fact]
     public void Eating_TakesFoodFromHandsBeforeStorage()
     {
         var village = NewVillage(fed: false);
+        village.Store(ResourceKind.Food, 1);
         var citizen = NewCitizen(village);
         citizen.Carry(ResourceKind.Food, 1);
+        citizen.CyclesSinceMeal = GameRules.CyclesPerMeal - 1;
 
-        CycleEngine.Start(citizen, Task("quarry-stone"), WorkContext.For(village), Now);
-        var report = Finish(citizen, WorkContext.For(village));
+        var report = Work(citizen, village);
 
         Assert.False(report.Hungry);
         Assert.False(citizen.IsHungry);
-        Assert.Equal(1 - GameRules.FoodPerCycle, citizen.Carried(ResourceKind.Food), 6);
+        Assert.Equal(0, citizen.Carried(ResourceKind.Food));
+        Assert.Equal(1, village.Stock(ResourceKind.Food));
     }
 
     [Fact]
@@ -313,7 +328,7 @@ public class CycleEngineTests
     {
         var village = NewVillage();
         var citizens = Enumerable.Range(0, 5).Select(i => NewCitizen(village, $"C{i}", Now.AddMinutes(i))).ToList();
-        village.Structures.Add(new Structure { Kind = BuildingKind.Hut, PlotId = "plot-5" });
+        village.Structures.Add(new Structure { Kind = BuildingKind.Hut, PlotId = "9,11" });
         ShelterRules.Assign(village, citizens, Now);
         var inside = citizens[0];
         var outside = citizens[4];
@@ -326,26 +341,14 @@ public class CycleEngineTests
         Assert.Equal(1, inside.ShelterQuality);
         Assert.Equal(GameRules.UnderTreesRegeneration, outside.ShelterQuality);
         var later = Now.AddHours(1);
-        Assert.Equal(inside.CurrentEnergy(later) * GameRules.UnderTreesRegeneration, outside.CurrentEnergy(later), 6);
-    }
-
-    [Fact]
-    public void LiveStream_BoostsExperience()
-    {
-        var (citizen, village) = Setup();
-        village.IsLive = true;
-
-        CycleEngine.Start(citizen, Task("chop-wood"), WorkContext.For(village), Now);
-        var report = Finish(citizen, WorkContext.For(village));
-
-        Assert.Equal(12.5, report.PrimaryExperience);
+        Assert.Equal(inside.CurrentEnergy(later, village) * GameRules.UnderTreesRegeneration, outside.CurrentEnergy(later, village), 6);
     }
 
     [Fact]
     public void Inputs_AreConsumedAtStart_AndRequired()
     {
         var (citizen, village) = Setup((Stat.Strength, 4), (Stat.Dexterity, 3));
-        village.Structures.Add(new Structure { Kind = BuildingKind.Smithy, PlotId = "plot-5" });
+        village.Structures.Add(new Structure { Kind = BuildingKind.Smithy, PlotId = "9,11" });
         village.Research.Add(new TechnologyProgress { TechnologyId = TechnologyCatalog.Smelting, ResearchedAt = Now });
         var smelt = Task("smelt-ingot");
 

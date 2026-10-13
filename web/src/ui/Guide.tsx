@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { inviteLink, type Catalog, type Citizen, type VillageState } from '../api'
+import { useCollapsed } from '../hooks'
 import { useI18n } from '../i18n'
+import { FoldHead } from './Hud'
 import type { UiKey } from '../i18n/en'
 import type { MenuTab } from './menuTabs'
 
@@ -25,7 +27,6 @@ const STEPS: Record<Role, Step[]> = {
   governor: [
     { id: 'blueprint', text: 'guide.governor.blueprint', action: 'guide.governor.blueprintAction', tab: 'build' },
     { id: 'invite', text: 'guide.governor.invite', action: 'guide.governor.inviteAction' },
-    { id: 'live', text: 'guide.governor.live', action: 'guide.governor.liveAction', tab: 'settings' },
     { id: 'needs', text: 'guide.governor.needs', action: 'guide.governor.needsAction', tab: 'village' },
   ],
 }
@@ -52,7 +53,6 @@ function reached(role: Role, village: VillageState, citizen: Citizen | null | un
   if (role === 'governor') {
     return {
       blueprint: village.sites.length > 0 || village.structures.length > 0 || village.storages.length > 1,
-      live: village.isLive,
       needs: menuTab === 'village',
     } as Record<string, boolean>
   }
@@ -90,6 +90,7 @@ export function Guide({
   const role: Role = governor ? 'governor' : 'citizen'
   const [saved, setSaved] = useState<Progress>(() => load(role))
   const [copied, setCopied] = useState(false)
+  const [collapsed, toggle] = useCollapsed('guide', false)
   const steps = STEPS[role]
 
   const conditions = reached(role, village, citizen, menuTab)
@@ -118,23 +119,27 @@ export function Guide({
   }
 
   return (
-    <aside className="guide" aria-label={t('guide.title')}>
-      <div className="guide-head">
+    <aside className={`guide${collapsed ? ' collapsed' : ''}`} aria-label={t('guide.title')}>
+      <FoldHead collapsed={collapsed} onToggle={toggle}>
         <strong>{t('guide.title')}</strong>
         <span className="small">{t('guide.step', { number: index + 1, total: steps.length })}</span>
-      </div>
-      <p>{t(step.text, { seconds: catalog.rules.graceSeconds })}</p>
-      <div className="row">
-        {step.action && (
-          <button className="primary" onClick={act}>
-            {t(step.action)}
-          </button>
-        )}
-        <button className="link-button small" onClick={() => setSaved({ skipped: true, done })}>
-          {t('guide.skip')}
-        </button>
-      </div>
-      {copied && <p className="small highlight">{t('guide.copied')}</p>}
+      </FoldHead>
+      {!collapsed && (
+        <>
+          <p>{t(step.text, { seconds: catalog.rules.graceSeconds })}</p>
+          <div className="row">
+            {step.action && (
+              <button className="primary" onClick={act}>
+                {t(step.action)}
+              </button>
+            )}
+            <button className="link-button small" onClick={() => setSaved({ skipped: true, done })}>
+              {t('guide.skip')}
+            </button>
+          </div>
+          {copied && <p className="small highlight">{t('guide.copied')}</p>}
+        </>
+      )}
     </aside>
   )
 }

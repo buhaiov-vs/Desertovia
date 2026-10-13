@@ -4,7 +4,7 @@ using Desertod.Domain.Storage;
 namespace Desertod.Domain.Projects;
 
 /// <param name="Storage">Storage building the village gets on the project site when it is finished.</param>
-public sealed record ProjectReward(double RenownPool, double Morale, StorageKind? Storage);
+public sealed record ProjectReward(int RenownPool, double Morale, StorageKind? Storage);
 
 /// <param name="SurveyCycles">Zero for small works: building starts right away.</param>
 /// <param name="NeedsEngineer">Great works need an Engineer to supervise the builders; small works do not.</param>

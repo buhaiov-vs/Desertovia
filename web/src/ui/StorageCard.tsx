@@ -1,4 +1,5 @@
-import type { Catalog, Citizen, Storage } from '../api'
+import { useState } from 'react'
+import type { Catalog, Citizen, ResourceAmount, Storage } from '../api'
 import { useI18n } from '../i18n'
 import { ResourceIcon } from './TileIcon'
 
@@ -6,7 +7,7 @@ import { ResourceIcon } from './TileIcon'
 export interface StorageTake {
   citizen: Citizen
   disabled: boolean
-  onTake: (resource: string) => void
+  onTake: (resource: string, amount: number) => void
 }
 
 /** One storage building: what it takes, how many slots are used and what lies inside. */
@@ -15,7 +16,6 @@ export function StorageCard({ storage, catalog, take }: { storage: Storage; cata
   const { t } = i18n
   const info = catalog.storages.find((s) => s.kind === storage.kind)
   const limit = catalog.rules.takeLimit
-  const held = (resource: string) => take?.citizen.load.find((good) => good.resource === resource)?.amount ?? 0
 
   return (
     <div className="storage-card">
@@ -32,18 +32,7 @@ export function StorageCard({ storage, catalog, take }: { storage: Storage; cata
       {take ? (
         <ul className="storage-take">
           {storage.goods.map((good) => (
-            <li key={good.resource}>
-              <ResourceIcon kind={good.resource} scale={1} />
-              <span>{i18n.resource(good.resource)}</span>
-              <span className="muted">{i18n.amount(good.amount)}</span>
-              <button
-                disabled={take.disabled || held(good.resource) >= limit}
-                title={t('storage.takeTitle', { amount: i18n.amount(limit) })}
-                onClick={() => take.onTake(good.resource)}
-              >
-                {t('storage.take')}
-              </button>
-            </li>
+            <TakeRow key={good.resource} good={good} limit={limit} take={take} />
           ))}
         </ul>
       ) : (
@@ -57,5 +46,47 @@ export function StorageCard({ storage, catalog, take }: { storage: Storage; cata
       )}
       {take && storage.goods.length > 0 && <p className="small muted">{t('storage.takeHint', { amount: i18n.amount(limit) })}</p>}
     </div>
+  )
+}
+
+/** One stored good with a number field that starts at the most the citizen can still carry. */
+function TakeRow({ good, limit, take }: { good: ResourceAmount; limit: number; take: StorageTake }) {
+  const i18n = useI18n()
+  const { t } = i18n
+  const held = take.citizen.load.find((carried) => carried.resource === good.resource)?.amount ?? 0
+  const most = Math.max(0, Math.min(limit - held, good.amount))
+  const [chosen, setChosen] = useState<number | null>(null)
+  const amount = Math.min(chosen ?? most, most)
+
+  return (
+    <li>
+      <ResourceIcon kind={good.resource} scale={1} />
+      <span>{i18n.resource(good.resource)}</span>
+      <span className="muted">{i18n.amount(good.amount)}</span>
+      <input
+        type="number"
+        className="take-amount"
+        min={1}
+        max={most}
+        step={1}
+        value={amount}
+        disabled={take.disabled || most < 1}
+        aria-label={t('storage.takeAmount')}
+        onChange={(event) => {
+          const value = Math.floor(Number(event.target.value))
+          setChosen(Number.isFinite(value) ? Math.max(1, value) : null)
+        }}
+      />
+      <button
+        disabled={take.disabled || most < 1 || amount < 1}
+        title={t('storage.takeTitle', { amount: i18n.amount(limit) })}
+        onClick={() => {
+          take.onTake(good.resource, amount)
+          setChosen(null)
+        }}
+      >
+        {t('storage.take')}
+      </button>
+    </li>
   )
 }

@@ -28,7 +28,7 @@ public static class ShelterRules
                 continue;
             }
 
-            citizen.FlushEnergy(now);
+            citizen.FlushEnergy(now, village);
             citizen.ShelterQuality = quality;
         }
     }

@@ -2,6 +2,27 @@ export type Stat = 'Strength' | 'Dexterity' | 'Intelligence' | 'Charisma' | 'End
 
 export const STATS: Stat[] = ['Strength', 'Dexterity', 'Intelligence', 'Charisma', 'Endurance']
 
+/** Crafts a citizen gets better at by doing them; every task, construction job and research trains one. */
+export type Skill =
+  | 'Woodcutting'
+  | 'Quarrying'
+  | 'Gathering'
+  | 'Hunting'
+  | 'Fishing'
+  | 'Farming'
+  | 'Mining'
+  | 'Smithing'
+  | 'Carpentry'
+  | 'Baking'
+  | 'Scholarship'
+  | 'Building'
+  | 'Hauling'
+  | 'Entertaining'
+  | 'Exploring'
+  | 'Trading'
+  | 'Guarding'
+  | 'Weatherlore'
+
 export type WorkState = 'Idle' | 'Working' | 'AwaitingRenewal'
 
 export type RoleTier = 'Basic' | 'Journeyman' | 'Master'
@@ -49,6 +70,8 @@ export interface Task {
   tierRequirement: number
   primary: Stat
   secondary: Stat
+  /** Craft the task trains; levels above `skillLevel` make it yield more and take less time. */
+  skill: Skill
   effect: TaskEffect
   baseYield: number
   outputs: ResourceAmount[]
@@ -65,6 +88,8 @@ export interface Task {
   hunt: { prey: AnimalKind; animals: number; dexterity: number } | null
   /** Set for sowing: the crop put in the bed; its Endurance level is the farming skill needed. */
   crop: CropKind | null
+  /** Level of `skill` needed to do the task. */
+  skillLevel: number
 }
 
 export type AnimalKind = 'Rabbit' | 'Deer' | 'Bird'
@@ -132,9 +157,18 @@ export interface Rules {
   talentCap: number
   secondsPerTile: number
   maximumOpenSites: number
-  foodPerCycle: number
+  cyclesPerMeal: number
   /** Most of one good a citizen may hold after taking it out of storage. */
   takeLimit: number
+  /** Each repeat of a building needs this much more material than the previous one. */
+  repeatCostGrowth: number
+  skillMaximum: number
+  /** Skill levels above what a task needs make it yield more and take less time, up to this many levels. */
+  skillBonusLevels: number
+  skillYieldPerLevel: number
+  skillWorkTimePerLevel: number
+  /** Energy one vigor drink gives back. */
+  vigorDrinkEnergy: number
 }
 
 export type BuildingKind = string
@@ -147,6 +181,7 @@ export interface JobDefinition {
   perCycle: number
   primary: Stat
   secondary: Stat
+  skill: Skill
   needsMaterial: boolean
 }
 
@@ -288,8 +323,6 @@ export interface Catalog {
   storages: StorageDefinition[]
   buildings: BuildingDefinition[]
   jobs: JobDefinition[]
-  /** Top-left tile of plots known by name; other plot ids are the top-left tile written as "x,y". */
-  plots: Record<string, TilePoint>
   /** Land where a whole building footprint must fit. */
   buildArea: TileArea
   /** Ground nobody builds on: the campfire and the project sites. */
@@ -308,7 +341,7 @@ export interface QuestObjective {
   id: string
   audience: QuestAudience
   done: boolean
-  /** Progress numbers; never shown to the Governor. */
+  /** Progress numbers; null for planning objectives. */
   current: number | null
   required: number | null
 }
@@ -427,12 +460,9 @@ export const SPOT_WORKPLACES: readonly string[] = ['forest', 'stones', 'berries'
 export const takesSpot = (task: Task) =>
   task.effect === 'Resources' && task.hunt === null && task.inputs.length === 0 && SPOT_WORKPLACES.includes(task.workplace)
 
-/** Below this much gold the vein counts as empty; mirrors the server's tolerance. */
-export const VEIN_EPSILON = 1e-6
-
 /** Whether the task digs the gold vein and the vein has nothing left. */
 export const veinEmpty = (village: VillageState, task: Task) =>
-  task.workplace === GOLD_VEIN && village.goldVeinRemaining <= VEIN_EPSILON
+  task.workplace === GOLD_VEIN && village.goldVeinRemaining <= 0
 
 export interface ProjectCompletion {
   projectId: string
@@ -447,6 +477,36 @@ export interface Resource {
   capacity: number | null
 }
 
+/** A Synoptic's announcement; the weather it brought stays secret until its day comes. */
+export interface Forecast {
+  citizenId: string
+  saysRain: boolean
+  madeAt: string
+}
+
+export interface Weather {
+  /** Weather of the current weather day. */
+  raining: boolean
+  /** When the current weather day ends and the next one's weather comes. */
+  dayEndsAt: string
+  /** The forecast made for the current day, if any. */
+  today: Forecast | null
+  /** The forecast for the next day; null until a Synoptic makes one. */
+  tomorrow: Forecast | null
+}
+
+/** Rain's effects, mirroring the server's weather rules. */
+export const RAIN = {
+  fishingYield: 1.25,
+  indoorYield: 1.15,
+  fireMorale: 0.5,
+  mudYield: 0.75,
+  huntingYield: 0.8,
+  outdoorEnergyCost: 1.5,
+  underTreesRegeneration: 0.5,
+  forestRegrowth: 2,
+}
+
 export interface VillageState {
   id: string
   slug: string
@@ -454,7 +514,6 @@ export interface VillageState {
   description: string | null
   /** Joining needs the invite code; watching stays open to everyone. */
   isPrivate: boolean
-  isLive: boolean
   morale: number
   resources: Resource[]
   storages: Storage[]
@@ -478,6 +537,17 @@ export interface VillageState {
   goldVeinRemaining: number
   /** Beds of every farm. */
   fields: FieldBed[]
+  weather: Weather
+  /** The village owner's figure on the map. */
+  governor: Governor
+}
+
+export interface Governor {
+  name: string
+  /** Null until the owner creates their character. */
+  appearance: Appearance | null
+  /** Where the Governor walked to; null while they stand at the campfire. */
+  spot: TilePoint | null
 }
 
 export type Gender = 'Male' | 'Female'
@@ -528,14 +598,12 @@ export interface VillageListItem {
   slug: string
   name: string
   isOwner: boolean
-  isLive: boolean
 }
 
 export interface PublicVillage {
   slug: string
   name: string
   description: string | null
-  isLive: boolean
   citizens: number
 }
 
@@ -564,6 +632,14 @@ export interface StatValue {
   experienceToNext: number
 }
 
+export interface SkillValue {
+  skill: Skill
+  level: number
+  experience: number
+  /** 0 at the maximum level. */
+  experienceToNext: number
+}
+
 export interface Citizen {
   id: string
   name: string
@@ -572,6 +648,8 @@ export interface Citizen {
   status: 'Active' | 'Dormant'
   stats: StatValue[]
   statTotal: number
+  /** Only the crafts the citizen has trained; any other is at level 0. */
+  skills: SkillValue[]
   renown: number
   energy: number
   maximumEnergy: number
@@ -590,9 +668,19 @@ export interface Citizen {
   /** Energy regeneration of where the citizen sleeps: 0.5 under the trees. */
   shelterQuality: number
   isHungry: boolean
+  /** Finished tasks since the last meal; the citizen eats at `rules.cyclesPerMeal`. */
+  cyclesSinceMeal: number
+  /** Shelter quality, halved while hungry and again in the rain under the trees. */
+  regenerationMultiplier: number
+  /** Energy regained per hour at the current shelter, hunger and weather. */
+  energyPerHour: number
   serverNow: string
   /** Technology the current cycle researches. */
   technologyId: string | null
+  /** Chance the weather turns out opposite to this citizen's forecast; null if not a Synoptic. */
+  forecastReliability: number | null
+  /** When the next vigor drink may be drunk; null if never drunk. */
+  drinkReadyAt: string | null
 }
 
 export interface CycleReport {
@@ -609,6 +697,10 @@ export interface CycleReport {
   primaryExperience: number
   secondary: Stat
   secondaryExperience: number
+  skill: Skill
+  skillExperience: number
+  skillLevelsGained: number
+  /** Stat levels; skill levels are in `skillLevelsGained`. */
   levelsGained: number
   renownGained: number
   tired: boolean
@@ -622,18 +714,41 @@ export interface CycleReport {
   technologyDiscovered: boolean
 }
 
+/** Events of one village since the last `villageEvents` message, in order; only the latest summary per citizen. */
+export interface VillageEvents {
+  cycles: CycleReport[]
+  projects: ProjectCompletion[]
+  quests: QuestCompletion[]
+  citizens: CitizenSummary[]
+}
+
+/** One per account, played in every village; each village keeps its own progress. */
+export interface Character {
+  name: string
+  appearance: Appearance
+}
+
 export interface Me {
   id: string
   displayName: string
   providers: string[]
+  /** Null until the player creates it after signing up. */
+  character: Character | null
 }
 
 export interface LoginProviders {
   twitch: boolean
   google: boolean
   telegramBotUsername: string | null
+  /** Email and password, without any outside service. */
+  password: boolean
   developmentLogin: boolean
 }
+
+export const PASSWORD_MINIMUM = 8
+export const PASSWORD_MAXIMUM = 128
+export const EMAIL_MAXIMUM = 254
+export const DISPLAY_NAME_MAXIMUM = 32
 
 /** `code` and `parameters` come from the server's problem details so the message can be translated. */
 export class ApiError extends Error {
@@ -686,40 +801,70 @@ async function orNull<T>(promise: Promise<T>): Promise<T | null> {
   }
 }
 
+let prefetchedVillage: { slug: string; promise: Promise<Village> } | null = null
+
+/** Starts loading the village of a `/v/:slug` address while the map page's code is still downloading. */
+export function prefetchVillage(path: string) {
+  const match = /^\/v\/([^/]+)/.exec(path)
+  if (!match) return
+  const slug = decodeURIComponent(match[1])
+  const promise = api.village(slug)
+  // The page reports a failure when it takes the promise.
+  promise.catch(() => {})
+  prefetchedVillage = { slug, promise }
+}
+
+/**
+ * The prefetched village when it is for `slug`, at most once; otherwise a fresh request.
+ * A failed prefetch is retried, because the visitor may have signed in since.
+ */
+export function loadVillage(slug: string) {
+  const prefetched = prefetchedVillage
+  prefetchedVillage = null
+  return prefetched?.slug === slug ? prefetched.promise.catch(() => api.village(slug)) : api.village(slug)
+}
+
 export const api = {
   providers: () => request<LoginProviders>('GET', '/auth/providers'),
   me: () => orNull(request<Me>('GET', '/api/me')),
   developmentLogin: (name: string) => request<void>('POST', '/auth/dev-login', { name }),
+  passwordLogin: (email: string, password: string) => request<void>('POST', '/auth/password/login', { email, password }),
+  passwordRegister: (email: string, password: string, name: string) =>
+    request<void>('POST', '/auth/password/register', { email, password, name }),
   logout: () => request<void>('POST', '/auth/logout'),
+  createCharacter: (name: string, appearance: Appearance) => request<Me>('POST', '/api/me/character', { name, appearance }),
 
   catalog: () => request<Catalog>('GET', '/api/catalog'),
   villages: () => request<VillageListItem[]>('GET', '/api/villages'),
   publicVillages: () => request<PublicVillage[]>('GET', '/api/villages/public'),
   createVillage: (village: CreateVillageRequest) => request<VillageState>('POST', '/api/villages', village),
   village: (slug: string) => request<Village>('GET', `/api/villages/${encodeURIComponent(slug)}`),
-  setLive: (slug: string, isLive: boolean) =>
-    request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/live`, { isLive }),
   newInviteCode: (slug: string) =>
     request<{ inviteCode: string }>('POST', `/api/villages/${encodeURIComponent(slug)}/invite`),
 
   myCitizen: (slug: string) => orNull(request<Citizen>('GET', `/api/villages/${encodeURIComponent(slug)}/me`)),
-  createCitizen: (slug: string, name: string, appearance: Appearance, inviteCode: string | null) =>
-    request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/citizens`, { name, appearance, inviteCode }),
+  joinVillage: (slug: string, inviteCode: string | null) =>
+    request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/citizens`, { inviteCode }),
   startTask: (slug: string, taskId: string, spot: TilePoint | null = null) =>
     request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/task`, { taskId, spot }),
   cancelTask: (slug: string) => request<Citizen>('DELETE', `/api/villages/${encodeURIComponent(slug)}/me/task`),
   startJob: (slug: string, plotId: string, stage: number, jobId: string) =>
     request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/job`, { plotId, stage, jobId }),
   dropLoad: (slug: string) => request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/drop`),
-  takeFromStorage: (slug: string, plotId: string, resource: string) =>
-    request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/take`, { plotId, resource }),
+  drink: (slug: string) => request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/drink`),
+  takeFromStorage: (slug: string, plotId: string, resource: string, amount: number) =>
+    request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/take`, { plotId, resource, amount }),
   goTo: (slug: string, spot: TilePoint) => request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/goto`, { spot }),
   research: (slug: string) => request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/research`),
+  forecast: (slug: string, rain: boolean) =>
+    request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/me/forecast`, { rain }),
   vote: (slug: string, technologyId: string) =>
     request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/me/vote`, { technologyId }),
   openPoll: (slug: string, technologyIds: string[]) =>
     request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/poll`, { technologyIds }),
   cancelPoll: (slug: string) => request<VillageState>('DELETE', `/api/villages/${encodeURIComponent(slug)}/poll`),
+  governorGoTo: (slug: string, spot: TilePoint) =>
+    request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/governor/goto`, { spot }),
   placeBlueprint: (slug: string, kind: BuildingKind, x: number, y: number) =>
     request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/blueprints`, { kind, x, y }),
   cancelBlueprint: (slug: string, plotId: string) =>
@@ -758,10 +903,30 @@ export function builtKinds(village: VillageState, catalog: Catalog) {
   return kinds
 }
 
-/** Top-left tile of a plot, or null for an id that is not a plot. Mirrors the server's map. */
-export function plotPosition(plots: Record<string, TilePoint>, plotId: string): TilePoint | null {
-  const named = plots[plotId]
-  if (named) return named
+/** Built, stored and planned buildings of a kind; mirrors the server's count for the repeat cost. */
+export function buildingCount(village: VillageState, catalog: Catalog, kind: BuildingKind) {
+  const storageKind = catalog.buildings.find((b) => b.kind === kind)?.storage
+  return (
+    village.structures.filter((s) => s.kind === kind).length +
+    (storageKind ? village.storages.filter((s) => s.kind === storageKind).length : 0) +
+    village.sites.filter((s) => s.kind === kind).length
+  )
+}
+
+/** Goods every stage of a building needs carried in, rounded up per job as the server does. */
+export function buildingMaterials(catalog: Catalog, definition: BuildingDefinition, scale: number) {
+  const totals = new Map<string, number>()
+  for (const stage of definition.stages) {
+    for (const job of stage.jobs) {
+      const resource = catalog.jobs.find((j) => j.id === job.jobId && j.kind === 'Haul')?.resource
+      if (resource) totals.set(resource, (totals.get(resource) ?? 0) + Math.ceil(job.amount * scale))
+    }
+  }
+  return [...totals].map(([resource, amount]) => ({ resource, amount }))
+}
+
+/** Top-left tile of a plot, whose id is that tile written as "x,y"; null for an id that is not a plot. Mirrors the server's map. */
+export function plotPosition(plotId: string): TilePoint | null {
   const match = /^(-?\d+),(-?\d+)$/.exec(plotId)
   return match ? { x: Number(match[1]), y: Number(match[2]) } : null
 }

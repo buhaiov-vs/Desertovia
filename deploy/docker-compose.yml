@@ -1,0 +1,109 @@
+name: desertod-app
+
+x-logging: &default-logging
+  driver: local
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      POSTGRES_USER: desertod
+      POSTGRES_DB: desertod
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U desertod -d desertod"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres-backup:
+    # Same image as postgres: pg_dump must not be older than the server.
+    image: postgres:17
+    restart: unless-stopped
+    logging: *default-logging
+    entrypoint: ["sh", "/backup/backup.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: desertod
+      PGDATABASE: desertod
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_TIME: ${BACKUP_TIME:-02:00}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+    volumes:
+      - ./backup:/backup:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+    networks: [backend]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ..
+      target: api
+    image: desertod-api:latest
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${DESERTOD_ENVIRONMENT:-Production}
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+      ConnectionStrings__Desertod: Host=postgres;Database=desertod;Username=desertod;Password=${POSTGRES_PASSWORD};GSS Encryption Mode=Disable
+      DataProtection__Key: ${DATA_PROTECTION_KEY:?Set DATA_PROTECTION_KEY in deploy/.env}
+      LogLevelsFile: /config/logging.json
+      Authentication__Twitch__ClientId: ${TWITCH_CLIENT_ID:-}
+      Authentication__Twitch__ClientSecret: ${TWITCH_CLIENT_SECRET:-}
+      Authentication__Google__ClientId: ${GOOGLE_CLIENT_ID:-}
+      Authentication__Google__ClientSecret: ${GOOGLE_CLIENT_SECRET:-}
+      Authentication__Telegram__BotUsername: ${TELEGRAM_BOT_USERNAME:-}
+      Authentication__Telegram__BotToken: ${TELEGRAM_BOT_TOKEN:-}
+    volumes:
+      # A directory, not the single file: editors that save by replacing the file would detach a file mount.
+      - ./config:/config:ro
+    networks: [backend, frontend]
+    healthcheck:
+      test: ["CMD", "dotnet", "Desertod.Api.dll", "--health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+      start_interval: 5s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      DESERTOD_DOMAIN: ${DESERTOD_DOMAIN:?Set DESERTOD_DOMAIN in deploy/.env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [frontend]
+    depends_on:
+      api:
+        condition: service_healthy
+
+networks:
+  backend:
+    internal: true
+  frontend:
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

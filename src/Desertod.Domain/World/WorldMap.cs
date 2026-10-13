@@ -33,7 +33,6 @@ public static class WorldMap
     public const int PlotHeight = 4;
 
     public const string Camp = "camp";
-    public const string HeapPlot = "heap";
     public const string Pier = "pier";
 
     /// <summary>The river bank by the road, where the bridge will cross: depth and current are measured here.</summary>
@@ -61,27 +60,6 @@ public static class WorldMap
         ["gate"] = new(1, 13),
     };
 
-    /// <summary>
-    /// Top-left tile of plots known by name: the heap, and the fixed plots buildings stood on before they could be
-    /// placed anywhere. Other plot ids are the top-left tile written as "x,y".
-    /// </summary>
-    public static IReadOnlyDictionary<string, TilePoint> Plots { get; } = new Dictionary<string, TilePoint>
-    {
-        [HeapPlot] = new(17, 12),
-        ["plot-1"] = new(13, 5),
-        ["plot-2"] = new(17, 5),
-        ["plot-3"] = new(21, 5),
-        ["plot-4"] = new(25, 5),
-        ["plot-5"] = new(9, 11),
-        ["plot-6"] = new(21, 12),
-        ["plot-7"] = new(25, 12),
-        ["plot-8"] = new(9, 17),
-        ["plot-9"] = new(13, 18),
-        ["plot-10"] = new(17, 18),
-        ["plot-11"] = new(21, 18),
-        ["plot-12"] = new(25, 18),
-    };
-
     /// <summary>The camp land west of the river, short of the reeds on its bank. A whole plot must fit inside.</summary>
     public static TileArea BuildArea { get; } = new(0, 0, 28, 26);
 
@@ -97,16 +75,12 @@ public static class WorldMap
         new(18, 0, 3, 4),
     ];
 
+    /// <summary>A plot id is the top-left tile of the building, written as "x,y".</summary>
     public static string PlotAt(int x, int y) => string.Create(CultureInfo.InvariantCulture, $"{x},{y}");
 
     /// <summary>Top-left tile of a plot, or null for an id that is not a plot.</summary>
     public static TilePoint? PlotPosition(string plotId)
     {
-        if (Plots.TryGetValue(plotId, out var named))
-        {
-            return named;
-        }
-
         var parts = plotId.Split(',');
         return parts.Length == 2
                && int.TryParse(parts[0], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var x)

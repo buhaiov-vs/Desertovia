@@ -3,7 +3,6 @@ import {
   blockedByLoad,
   fieldsBlock,
   GOLD_VEIN,
-  VEIN_EPSILON,
   type Catalog,
   type Citizen,
   type FieldBed,
@@ -98,10 +97,13 @@ export function TaskCard({
   const level = (stat: string) => citizen.stats.find((s) => s.stat === stat)?.level ?? 0
   const huntingSkill = task.hunt?.dexterity ?? 0
   const farmingSkill = catalog.crops.find((crop) => crop.kind === task.crop)?.endurance ?? 0
+  const craftLevel = citizen.skills.find((s) => s.skill === task.skill)?.level ?? 0
+  const mastery = Math.min(Math.max(craftLevel - task.skillLevel, 0), catalog.rules.skillBonusLevels)
   const qualified =
     role.requirements.every((r) => level(r.stat) >= r.minimum) &&
     level('Dexterity') >= huntingSkill &&
-    level('Endurance') >= farmingSkill
+    level('Endurance') >= farmingSkill &&
+    craftLevel >= task.skillLevel
   const missingBuilding = task.requiredBuilding && !built.has(task.requiredBuilding) ? task.requiredBuilding : null
   const missingProject = task.requiredProject && !built.has(task.requiredProject) ? task.requiredProject : null
   const missingTechnology =
@@ -110,7 +112,7 @@ export function TaskCard({
   const herd = task.hunt ? wildlife.find((h) => h.kind === task.hunt!.prey) : undefined
   const huntedOut = herd !== undefined && herd.count < MINIMUM_TO_HUNT
   const digsVein = task.workplace === GOLD_VEIN
-  const veinDug = digsVein && goldVein <= VEIN_EPSILON
+  const veinDug = digsVein && goldVein <= 0
   const fieldsBlocked = missingBuilding === null ? fieldsBlock(task, fields) : null
   const available =
     task.effect !== 'NotAvailableYet' &&
@@ -130,6 +132,7 @@ export function TaskCard({
     ...role.requirements.map((r) => `${i18n.stat(r.stat)} ${r.minimum}`),
     ...(huntingSkill > 0 ? [`${i18n.stat('Dexterity')} ${huntingSkill}`] : []),
     ...(farmingSkill > 0 ? [`${i18n.stat('Endurance')} ${farmingSkill}`] : []),
+    ...(task.skillLevel > 0 ? [`${i18n.skill(task.skill)} ${task.skillLevel}`] : []),
   ].join(', ')
   const inputs = task.inputs.map((input) => `${input.amount} ${i18n.resource(input.resource).toLowerCase()}`).join(', ')
 
@@ -145,10 +148,21 @@ export function TaskCard({
           {isCurrent && citizen.state === 'AwaitingRenewal' ? t('task.again', { task: name }) : name}
         </span>
         <span className="task-meta">
-          {i18n.role(role.id)} · {t('task.gives', { stat: i18n.stat(task.primary) })}
+          {i18n.role(role.id)} · {t('task.gives', { stat: i18n.stat(task.primary) })} ·{' '}
+          {t('task.trains', { skill: i18n.skill(task.skill) })}
           {outcome && ` · ${outcome}`}
           {inputs && ` · ${t('task.uses', { inputs })}`}
         </span>
+        {mastery > 0 && (
+          <span className="task-meta">
+            {t('task.mastery', {
+              skill: i18n.skill(task.skill),
+              level: craftLevel,
+              yield: Math.round(mastery * catalog.rules.skillYieldPerLevel * 100),
+              time: Math.round(mastery * catalog.rules.skillWorkTimePerLevel * 100),
+            })}
+          </span>
+        )}
         {task.hunt && (
           <span className="task-meta">
             {t('task.huntTime', {
@@ -159,7 +173,7 @@ export function TaskCard({
         )}
         {herd && (
           <span className="task-meta">
-            {t('task.prey', { animal: i18n.animal(herd.kind), count: Math.floor(herd.count), capacity: herd.capacity })}
+            {t('task.prey', { animal: i18n.animal(herd.kind), count: herd.count, capacity: herd.capacity })}
           </span>
         )}
         {!qualified && <span className="task-lock">{t('task.requires', { requirements })}</span>}
@@ -176,7 +190,7 @@ export function TaskCard({
         )}
         {qualified && emptyHands && <span className="task-lock">{t('task.emptyHands')}</span>}
         {digsVein && !veinDug && (
-          <span className="task-meta">{t('task.vein', { amount: i18n.amount(Math.floor(goldVein)) })}</span>
+          <span className="task-meta">{t('task.vein', { amount: i18n.amount(goldVein) })}</span>
         )}
         {qualified && huntedOut && <span className="task-lock">{t('task.preyGone')}</span>}
         {qualified && veinDug && <span className="task-lock">{t('task.veinEmpty')}</span>}

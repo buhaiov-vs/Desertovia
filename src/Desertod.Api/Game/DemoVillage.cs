@@ -7,6 +7,7 @@ using Desertod.Domain.Quests;
 using Desertod.Domain.Rules;
 using Desertod.Domain.Stats;
 using Desertod.Domain.Storage;
+using Desertod.Domain.World;
 using Desertod.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,7 @@ namespace Desertod.Api.Game;
 
 /// <summary>
 /// Development only: a village half way through the story, with the Tsar Bridge under construction and citizens at
-/// work, so the bridge, its panel and the stream banner can be seen without hours of play. It is rebuilt on every
+/// work, so the bridge and its panel can be seen without hours of play. It is rebuilt on every
 /// start; its Governor and citizens are development logins, so anyone can sign in as them by name.
 /// </summary>
 public static class DemoVillage
@@ -50,7 +51,6 @@ public static class DemoVillage
 
         var governor = await AccountAsync(db, GovernorName, now, cancellationToken);
         var village = Village.Create(Slug, Name, "Посмотреть стройку Царского моста без долгой игры.", false, governor.Id, now);
-        village.IsLive = true;
         village.Structures.AddRange(
         [
             new Structure { Kind = BuildingKind.Hut, PlotId = "13,5", BuiltAt = now },
@@ -58,6 +58,7 @@ public static class DemoVillage
             new Structure { Kind = BuildingKind.Hut, PlotId = "21,5", BuiltAt = now },
             new Structure { Kind = BuildingKind.LeanTo, PlotId = "9,5", BuiltAt = now },
         ]);
+        village.Storages.Add(StorageBuilding.Create(StorageKind.Heap, "17,12", now));
         village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "21,12", now));
         village.Storages.Add(StorageBuilding.Create(StorageKind.StonePile, "21,17", now));
         village.Store(ResourceKind.Wood, 60);
@@ -148,12 +149,12 @@ public static class DemoVillage
         await db.SaveChangesAsync(cancellationToken);
     }
 
-    /// <summary>Spreads earlier work evenly, so nobody is over the share cap.</summary>
-    private static void Share(VillageProject project, IReadOnlyList<Citizen> citizens, string key, double amount)
+    /// <summary>Spreads earlier work evenly, so nobody is over the share cap; the first citizens take the remainder.</summary>
+    private static void Share(VillageProject project, IReadOnlyList<Citizen> citizens, string key, int amount)
     {
-        foreach (var citizen in citizens)
+        for (var index = 0; index < citizens.Count; index++)
         {
-            project.Record(citizen.Id, key, amount / citizens.Count);
+            project.Record(citizens[index].Id, key, amount / citizens.Count + (index < amount % citizens.Count ? 1 : 0));
         }
     }
 

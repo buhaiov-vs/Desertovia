@@ -2,7 +2,7 @@ using Desertod.Domain.Catalog;
 
 namespace Desertod.Domain.Rules;
 
-public sealed record LootEntry(ResourceKind Resource, double Amount, int Weight);
+public sealed record LootEntry(ResourceKind Resource, int Amount, int Weight);
 
 public static class Loot
 {

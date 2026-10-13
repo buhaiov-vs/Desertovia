@@ -25,9 +25,6 @@ export const PLOT_HEIGHT = 4
 
 export const CAMPFIRE = { x: 15.5, y: 13.5 }
 
-/** Top-left tile of the heap every tribe starts with; the catalog sends the same plot. */
-export const HEAP_PLOT = { x: 17, y: 12 }
-
 /** Tiles a building and its yard cover when its top-left tile is (`x`, `y`). */
 export const footprint = (x: number, y: number): TileArea => ({ x, y, width: PLOT_WIDTH, height: PLOT_HEIGHT })
 
@@ -35,9 +32,9 @@ const overlaps = (a: TileArea, b: TileArea) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 
 /** Footprints of every building and open site. */
-export function buildingFootprints(plots: Record<string, TilePoint>, village: VillageState): TileArea[] {
+export function buildingFootprints(village: VillageState): TileArea[] {
   return [...village.storages, ...village.structures, ...village.sites].flatMap((building) => {
-    const plot = plotPosition(plots, building.plotId)
+    const plot = plotPosition(building.plotId)
     return plot ? [footprint(plot.x, plot.y)] : []
   })
 }
@@ -53,13 +50,13 @@ export function canBuildAt(catalog: Catalog, village: VillageState, x: number, y
   return (
     inside &&
     !catalog.reservedAreas.some((reserved) => overlaps(reserved, area)) &&
-    !buildingFootprints(catalog.plots, village).some((taken) => overlaps(taken, area))
+    !buildingFootprints(village).some((taken) => overlaps(taken, area))
   )
 }
 
 /** True when a building or an open site covers the tile; its trees belong to the builders, not to wood gatherers. */
-export const tileBuiltOver = (catalog: Catalog, village: VillageState, x: number, y: number) =>
-  buildingFootprints(catalog.plots, village).some((taken) => overlaps(taken, { x, y, width: 1, height: 1 }))
+export const tileBuiltOver = (village: VillageState, x: number, y: number) =>
+  buildingFootprints(village).some((taken) => overlaps(taken, { x, y, width: 1, height: 1 }))
 
 /** Camp land up to the river whose trees come from the server. Mirrors the server's forest area. */
 export const FOREST_AREA: TileArea = { x: 0, y: 0, width: 30, height: 26 }
@@ -401,6 +398,121 @@ export const PROJECT_AREAS: Record<string, TileArea[]> = {
   'bell-tower': [{ x: 40, y: 0, width: 5, height: 6 }],
 }
 
+/** Deck of the Tsar Bridge: the only way across the river once it is finished. */
+export const BRIDGE_DECK: TileArea = { x: RIVER_LEFT, y: ROAD_TOP, width: RIVER_RIGHT - RIVER_LEFT + 1, height: 2 }
+
+/** Why a walk cannot be made: the spot is in water, or the river lies between and no bridge crosses it. */
+export type WalkBlock = 'water' | 'river'
+
+/**
+ * The way on foot between two points, in tiles: the turns to take, ending at `to`. Water stops walkers, except the
+ * deck of a finished bridge. A walker already standing in water may still walk out of it.
+ */
+export function findWay(terrain: Uint8Array, from: TilePoint, to: TilePoint, bridge: boolean): TilePoint[] | WalkBlock {
+  const startX = Math.floor(from.x)
+  const startY = Math.floor(from.y)
+  const goalX = Math.floor(to.x)
+  const goalY = Math.floor(to.y)
+  const inside = (x: number, y: number) => x >= MAP_LEFT && x < MAP_RIGHT && y >= MAP_TOP && y < MAP_BOTTOM
+  const index = (x: number, y: number) => (y - MAP_TOP) * MAP_WIDTH + (x - MAP_LEFT)
+  const onDeck = (x: number, y: number) =>
+    x >= BRIDGE_DECK.x && x < BRIDGE_DECK.x + BRIDGE_DECK.width && y >= BRIDGE_DECK.y && y < BRIDGE_DECK.y + BRIDGE_DECK.height
+  const walkable = (x: number, y: number) =>
+    inside(x, y) && (terrain[index(x, y)] !== Terrain.Water || (bridge && onDeck(x, y)) || (x === startX && y === startY))
+
+  if (!walkable(goalX, goalY)) return 'water'
+  const clear = (a: TilePoint, b: TilePoint) => {
+    const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.1)
+    for (let step = 1; step <= steps; step++) {
+      const share = step / steps
+      if (!walkable(Math.floor(a.x + (b.x - a.x) * share), Math.floor(a.y + (b.y - a.y) * share))) return false
+    }
+    return true
+  }
+  if (clear(from, to)) return [to]
+
+  // A* over tiles, eight ways; a diagonal step may not cut the corner of water.
+  const cost = new Float64Array(MAP_WIDTH * MAP_HEIGHT).fill(Infinity)
+  const cameFrom = new Int32Array(MAP_WIDTH * MAP_HEIGHT).fill(-1)
+  const closed = new Uint8Array(MAP_WIDTH * MAP_HEIGHT)
+  const heuristic = (x: number, y: number) => {
+    const dx = Math.abs(x - goalX)
+    const dy = Math.abs(y - goalY)
+    return Math.max(dx, dy) + (Math.SQRT2 - 1) * Math.min(dx, dy)
+  }
+  const open: Array<{ node: number; score: number }> = []
+  const push = (node: number, score: number) => {
+    open.push({ node, score })
+    let child = open.length - 1
+    while (child > 0) {
+      const parent = (child - 1) >> 1
+      if (open[parent].score <= open[child].score) break
+      ;[open[parent], open[child]] = [open[child], open[parent]]
+      child = parent
+    }
+  }
+  const pop = () => {
+    const top = open[0]
+    const last = open.pop()!
+    if (open.length > 0) {
+      open[0] = last
+      let parent = 0
+      for (;;) {
+        const left = parent * 2 + 1
+        const right = left + 1
+        let smallest = parent
+        if (left < open.length && open[left].score < open[smallest].score) smallest = left
+        if (right < open.length && open[right].score < open[smallest].score) smallest = right
+        if (smallest === parent) break
+        ;[open[parent], open[smallest]] = [open[smallest], open[parent]]
+        parent = smallest
+      }
+    }
+    return top.node
+  }
+
+  const start = index(startX, startY)
+  const goal = index(goalX, goalY)
+  cost[start] = 0
+  push(start, heuristic(startX, startY))
+  while (open.length > 0 && !closed[goal]) {
+    const node = pop()
+    if (closed[node]) continue
+    closed[node] = 1
+    const x = (node % MAP_WIDTH) + MAP_LEFT
+    const y = Math.floor(node / MAP_WIDTH) + MAP_TOP
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((dx === 0 && dy === 0) || !walkable(x + dx, y + dy)) continue
+        if (dx !== 0 && dy !== 0 && (!walkable(x + dx, y) || !walkable(x, y + dy))) continue
+        const next = index(x + dx, y + dy)
+        const nextCost = cost[node] + (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1)
+        if (closed[next] || nextCost >= cost[next]) continue
+        cost[next] = nextCost
+        cameFrom[next] = node
+        push(next, nextCost + heuristic(x + dx, y + dy))
+      }
+    }
+  }
+  if (!closed[goal]) return 'river'
+
+  const centres: TilePoint[] = []
+  for (let node = cameFrom[goal]; node !== start && node !== -1; node = cameFrom[node]) {
+    centres.unshift({ x: (node % MAP_WIDTH) + MAP_LEFT + 0.5, y: Math.floor(node / MAP_WIDTH) + MAP_TOP + 0.5 })
+  }
+  const points = [from, ...centres, to]
+  // Straightens the tile steps: from each turn, head for the farthest point still in plain sight.
+  const way: TilePoint[] = []
+  let at = 0
+  while (at < points.length - 1) {
+    let next = points.length - 1
+    while (next > at + 1 && !clear(points[at], points[next])) next--
+    way.push(points[next])
+    at = next
+  }
+  return way
+}
+
 /** Natural places a click can send a citizen to; `spot` is the centre of the clicked tile. */
 export type NatureKind = 'tree' | 'bush' | 'stone' | 'reeds' | 'water' | 'vein'
 
@@ -595,11 +707,11 @@ export function buildLayout(seed: number): MapLayout {
     mark(RIVER_LEFT - 2, y, 2, 1, Terrain.Reeds)
   }
 
-  // Camp clearing, the trail to the gate and the heap. Trees under later buildings are hidden when they are placed.
+  // Camp clearing with the bare plot east of it, and the trail to the gate. Mirrors the server's bare ground.
   mark(12, 10, 7, 7, Terrain.Clearing)
   mark(MONUMENT.x - 1, MONUMENT.y - 1, 3, 4, Terrain.Clearing)
   mark(0, 12, 12, 3, Terrain.Clearing)
-  mark(HEAP_PLOT.x, HEAP_PLOT.y, PLOT_WIDTH, PLOT_HEIGHT, Terrain.Clearing)
+  mark(17, 12, PLOT_WIDTH, PLOT_HEIGHT, Terrain.Clearing)
   const monastery = MONASTERY.area
   mark(monastery.x, monastery.y, monastery.width, monastery.height, Terrain.Clearing)
   const bellTower = PROJECT_SITES['bell-tower']
@@ -685,9 +797,10 @@ export const RESOURCE_ICONS: Record<string, TileRef> = {
   Remedy: dungeon(115),
   ResearchPoints: dungeon(65),
   Reeds: REEDS,
-  Feathers: town(119),
+  Feathers: EXTRAS.feather,
   Flax: farm(80),
   Grain: farm(68),
+  VigorDrink: dungeon(116),
 }
 
 export const TASK_ICONS: Record<string, TileRef> = {
@@ -743,6 +856,7 @@ export const TASK_ICONS: Record<string, TileRef> = {
   explore: town(119),
   design: dungeon(65),
   'brew-remedy': dungeon(115),
+  'brew-vigor': RESOURCE_ICONS.VigorDrink,
   'lead-crew': factory(120),
   negotiate: battle(196),
   command: battle(70),

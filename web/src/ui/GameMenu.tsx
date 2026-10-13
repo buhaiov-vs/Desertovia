@@ -17,8 +17,7 @@ import { useI18n } from '../i18n'
 import type { UiKey } from '../i18n/en'
 import { BuildPanel } from './BuildPanel'
 import { CharacterSheet } from './CharacterSheet'
-import { CreateCitizenForm } from './CreateCitizenForm'
-import { LoginPanel } from './LoginPanel'
+import { JoinVillageForm } from './CreateCharacterForm'
 import { TABS, tabsFor, type MenuTab } from './menuTabs'
 import { NextAction } from './NextAction'
 import { ProjectPanel } from './ProjectPanel'
@@ -50,12 +49,11 @@ export interface MenuProps {
   isOwner: boolean
   /** Only known to the owner of a private village. */
   inviteCode: string | null
-  onToggleLive: () => void
   onNewInviteCode: () => Promise<void>
   onPlace: (definition: BuildingDefinition) => void
   onWithdraw: (plotId: string) => void
   catalog: Catalog
-  me: Me | null
+  me: Me
   citizen: Citizen | null | undefined
   now: number
   pending: boolean
@@ -66,16 +64,35 @@ export interface MenuProps {
   /** Opens the open vote, or lets the Governor call one. */
   onPoll: () => void
   onResearch: () => void
-  onLoggedIn: () => void
-  onCreated: (citizen: Citizen) => void
+  /** Reloads the account after signing out. */
+  onAccountChanged: () => void
+  /** Moves the account's character into this village. */
+  onJoin: (inviteCode: string | null) => void
+  joining: boolean
+  joinError: string | null
   feed: FeedEntry[]
 }
 
 function JoinPrompt(props: MenuProps) {
   const { t } = useI18n()
-  if (!props.me) return <LoginPanel onLoggedIn={props.onLoggedIn} />
   if (props.citizen === undefined) return <section className="card">{t('loading')}</section>
-  return <CreateCitizenForm slug={props.slug} isPrivate={props.village.isPrivate} onCreated={props.onCreated} />
+  if (props.village.isPrivate) {
+    return <JoinVillageForm joining={props.joining} error={props.joinError} onJoin={props.onJoin} />
+  }
+  return (
+    <section className="card">
+      {props.joinError ? (
+        <>
+          <p className="error">{props.joinError}</p>
+          <button className="primary" disabled={props.joining} onClick={() => props.onJoin(null)}>
+            {t('join.submit')}
+          </button>
+        </>
+      ) : (
+        t('join.joining')
+      )}
+    </section>
+  )
 }
 
 export function GameMenu(props: MenuProps) {
@@ -162,7 +179,7 @@ export function GameMenu(props: MenuProps) {
                 </div>
               )}
               {village.project && (
-                <ProjectPanel project={village.project} completed={village.completedProjects} governor={governor} />
+                <ProjectPanel project={village.project} completed={village.completedProjects} />
               )}
               {governor ? (
                 <section className="card">
@@ -218,14 +235,12 @@ export function GameMenu(props: MenuProps) {
 
           {tab === 'settings' && (
             <SettingsPanel
-              slug={props.slug}
               village={village}
               me={props.me}
               isOwner={governor}
               inviteCode={props.inviteCode}
-              onToggleLive={props.onToggleLive}
               onNewInviteCode={props.onNewInviteCode}
-              onAccountChanged={props.onLoggedIn}
+              onAccountChanged={props.onAccountChanged}
             />
           )}
 

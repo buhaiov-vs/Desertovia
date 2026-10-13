@@ -9,6 +9,7 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
 {
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<ExternalLogin> ExternalLogins => Set<ExternalLogin>();
+    public DbSet<PasswordLogin> PasswordLogins => Set<PasswordLogin>();
     public DbSet<Village> Villages => Set<Village>();
     public DbSet<Citizen> Citizens => Set<Citizen>();
     public DbSet<VillageProject> VillageProjects => Set<VillageProject>();
@@ -21,6 +22,11 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
             account.HasKey(a => a.Id);
             account.Property(a => a.DisplayName).HasMaxLength(64);
             account.HasMany(a => a.Logins).WithOne().HasForeignKey(l => l.AccountId);
+            account.OwnsOne(a => a.Character, character =>
+            {
+                character.ToJson();
+                character.OwnsOne(c => c.Appearance, appearance => appearance.Property(a => a.Gender).HasConversion<string>());
+            });
         });
 
         modelBuilder.Entity<ExternalLogin>(login =>
@@ -31,6 +37,17 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
             login.Property(l => l.ProviderUserName).HasMaxLength(128);
         });
 
+        modelBuilder.Entity<PasswordLogin>(login =>
+        {
+            login.HasKey(l => l.Email);
+            login.Property(l => l.Email).HasMaxLength(PasswordLogin.EmailMaximumLength);
+            login.Property(l => l.PasswordHash).HasMaxLength(256);
+            login.Property(l => l.RegisteredFrom).HasMaxLength(PasswordLogin.AddressMaximumLength);
+            login.HasIndex(l => l.AccountId).IsUnique();
+            login.HasIndex(l => new { l.RegisteredFrom, l.RegisteredAt });
+            login.HasOne<Account>().WithMany().HasForeignKey(l => l.AccountId);
+        });
+
         modelBuilder.Entity<Village>(village =>
         {
             village.HasKey(v => v.Id);
@@ -39,7 +56,7 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
             village.Property(v => v.Name).HasMaxLength(Village.NameMaximumLength);
             village.Property(v => v.Description).HasMaxLength(Village.DescriptionMaximumLength);
             village.Property(v => v.InviteCode).HasMaxLength(Village.InviteCodeLength);
-            village.HasIndex(v => new { v.IsPrivate, v.IsLive });
+            village.HasIndex(v => v.IsPrivate);
             village.HasOne<Account>().WithMany().HasForeignKey(v => v.OwnerAccountId);
             village.OwnsMany(v => v.Storages, storage =>
             {
@@ -90,7 +107,9 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
                 poll.Ignore(p => p.IsOpen);
                 poll.OwnsMany(p => p.Ballots);
             });
+            village.OwnsMany(v => v.Forecasts, forecast => forecast.ToJson());
             village.Property(v => v.ChosenTechnology).HasMaxLength(32);
+            village.Ignore(v => v.GovernorSpot);
             village.Property<uint>("Version").IsRowVersion();
         });
 
@@ -105,6 +124,11 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
                 load.ToJson();
                 load.Property(g => g.Kind).HasConversion<string>();
             });
+            citizen.OwnsMany(c => c.Skills, skills =>
+            {
+                skills.ToJson();
+                skills.Property(s => s.Kind).HasConversion<string>();
+            });
             citizen.OwnsOne(c => c.Appearance, appearance =>
             {
                 appearance.ToJson();
@@ -117,6 +141,7 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
             citizen.Property(c => c.CurrentSiteId).HasMaxLength(16);
             citizen.Property(c => c.CurrentTechnologyId).HasMaxLength(32);
             citizen.Ignore(c => c.RegenerationMultiplier);
+            citizen.Ignore(c => c.SleepsUnderTrees);
             citizen.Ignore(c => c.Spot);
             citizen.Ignore(c => c.IdleSpot);
             citizen.HasOne<Village>().WithMany().HasForeignKey(c => c.VillageId);

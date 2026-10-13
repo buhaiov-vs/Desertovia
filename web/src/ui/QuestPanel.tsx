@@ -14,7 +14,9 @@ import {
   type Task,
   type VillageState,
 } from '../api'
+import { useCollapsed } from '../hooks'
 import { useI18n } from '../i18n'
+import { FoldHead } from './Hud'
 
 type Translator = ReturnType<typeof useI18n>
 
@@ -33,10 +35,12 @@ const STORY_TASKS: Partial<Record<StoryQuestKind, string[]>> = {
 }
 
 function objectiveText(i18n: Translator, quest: Quest, objective: QuestObjective, governor: boolean) {
+  const resource = quest.resource ? i18n.resource(quest.resource).toLowerCase() : ''
+  if (objective.required === null) return i18n.objective(objective.id, governor, { resource })
   return i18n.objective(objective.id, governor, {
-    resource: quest.resource ? i18n.resource(quest.resource).toLowerCase() : '',
-    current: i18n.amount(Math.floor(objective.current ?? 0)),
-    required: i18n.amount(objective.required ?? 0),
+    resource,
+    current: i18n.amount(objective.current ?? 0),
+    required: i18n.amount(objective.required),
   })
 }
 
@@ -51,8 +55,8 @@ function tellLine(i18n: Translator, quest: Quest, village: VillageState, catalog
     const building = storageBuildingsFor(catalog, quest.resource)[0]
     return i18n.t(building ? 'tell.build' : 'tell.more', {
       resource: i18n.resource(quest.resource),
-      amount: Math.floor(stock?.amount ?? 0),
-      capacity: Math.floor(stock?.capacity ?? 0),
+      amount: stock?.amount ?? 0,
+      capacity: stock?.capacity ?? 0,
       building: building ? i18n.building(building.kind).name : '',
     })
   }
@@ -71,7 +75,6 @@ export function QuestPanel({
 }: {
   village: VillageState
   catalog: Catalog
-  /** Sees the needs, never the numbers. */
   governor: boolean
   citizen: Citizen | null | undefined
   disabled: boolean
@@ -102,7 +105,8 @@ export function QuestPanel({
 
   const level = (stat: string) => citizen?.stats.find((s) => s.stat === stat)?.level ?? 0
   const qualified = (task: Task) =>
-    catalog.roles.find((role) => role.id === task.roleId)?.requirements.every((r) => level(r.stat) >= r.minimum) ?? false
+    (catalog.roles.find((role) => role.id === task.roleId)?.requirements.every((r) => level(r.stat) >= r.minimum) ?? false) &&
+    (citizen?.skills.find((s) => s.skill === task.skill)?.level ?? 0) >= task.skillLevel
 
   const storyTasks = (quest: Quest) =>
     isStoryQuest(quest.kind)
@@ -178,29 +182,48 @@ export function QuestPanel({
   )
 }
 
-/** Compact list of open needs on the game screen; opens the full list on click. */
-export function QuestTracker({ village, governor, onOpen }: { village: VillageState; governor: boolean; onOpen: () => void }) {
+/** Compact list of open needs on the game screen; opens the full list on click. Starts folded on phones. */
+export function QuestTracker({
+  village,
+  governor,
+  phone,
+  onOpen,
+}: {
+  village: VillageState
+  governor: boolean
+  phone: boolean
+  onOpen: () => void
+}) {
   const i18n = useI18n()
   const { t } = i18n
+  const [collapsed, toggle] = useCollapsed('quests', phone)
   if (village.quests.length === 0) return null
   const shown = village.quests.slice(0, 3)
   return (
-    <button className="quest-tracker" onClick={onOpen} title={t('quest.title')}>
-      <strong>{t('quest.title')}</strong>
-      <ul>
-        {shown.map((quest) => {
-          const next = quest.objectives.find((o) => !o.done && (governor ? o.audience === 'Governor' : true))
-          return (
-            <li key={quest.id}>
-              <span>{i18n.quest(quest).title}</span>
-              {next && <span className="quest-next">{objectiveText(i18n, quest, next, governor)}</span>}
-            </li>
-          )
-        })}
-      </ul>
-      {village.quests.length > shown.length && (
-        <span className="small">{t('quest.more', { count: village.quests.length - shown.length })}</span>
+    <div className={`quest-tracker${collapsed ? ' collapsed' : ''}`}>
+      <FoldHead collapsed={collapsed} onToggle={toggle}>
+        <strong>{t('quest.title')}</strong>
+        {collapsed && <span className="hud-card-count">{village.quests.length}</span>}
+      </FoldHead>
+      {!collapsed && (
+        <button className="quest-tracker-body" onClick={onOpen} title={t('quest.title')}>
+          <ul>
+            {shown.map((quest) => {
+              const open = quest.objectives.filter((o) => !o.done)
+              const next = (governor ? open.find((o) => o.audience === 'Governor') : undefined) ?? open[0]
+              return (
+                <li key={quest.id}>
+                  <span>{i18n.quest(quest).title}</span>
+                  {next && <span className="quest-next">{objectiveText(i18n, quest, next, governor)}</span>}
+                </li>
+              )
+            })}
+          </ul>
+          {village.quests.length > shown.length && (
+            <span className="small">{t('quest.more', { count: village.quests.length - shown.length })}</span>
+          )}
+        </button>
       )}
-    </button>
+    </div>
   )
 }

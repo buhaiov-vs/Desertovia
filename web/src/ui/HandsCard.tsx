@@ -3,7 +3,7 @@ import { storageBuildingsFor, type Catalog, type Citizen, type VillageState } fr
 import { useI18n } from '../i18n'
 import { ResourceIcon } from './TileIcon'
 /**
- * Goods the citizen carries until they take them to storage. The game never tells the Governor storage is full;
+ * Goods the citizen carries until they take them to storage.
  * "Tell the Governor" copies a ready-made line for the player to paste into the stream chat.
  */
 export function HandsCard({
@@ -32,8 +32,8 @@ export function HandsCard({
       const building = storageBuildingsFor(catalog, good.resource)[0]
       const parameters = {
         resource: i18n.resource(good.resource),
-        amount: Math.floor(stock?.amount ?? 0),
-        capacity: Math.floor(stock?.capacity ?? 0),
+        amount: stock?.amount ?? 0,
+        capacity: stock?.capacity ?? 0,
         building: building ? i18n.building(building.kind).name : '',
       }
       return t(building ? 'tell.build' : 'tell.more', parameters)

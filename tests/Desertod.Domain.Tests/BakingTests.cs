@@ -54,7 +54,7 @@ public class BakingTests
         var report = Finish(baker, WorkContext.For(village));
 
         Assert.False(report.Overflowed);
-        Assert.Equal(0, village.Stock(ResourceKind.Grain), 6);
+        Assert.Equal(0, village.Stock(ResourceKind.Grain));
         Assert.True(village.Stock(ResourceKind.Food) > food + 2);
     }
 

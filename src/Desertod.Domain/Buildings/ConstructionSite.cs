@@ -3,8 +3,6 @@ namespace Desertod.Domain.Buildings;
 /// <summary>A blueprint the Governor placed. Citizens build it stage by stage; nothing happens on its own.</summary>
 public sealed class ConstructionSite
 {
-    private const double Epsilon = 1e-6;
-
     public BuildingKind Kind { get; set; }
 
     /// <summary>Unique within a village; identifies the site.</summary>
@@ -30,7 +28,7 @@ public sealed class ConstructionSite
 
     public bool IsFinished => Stage >= Definition.Stages.Count;
 
-    public bool HasWork => Progress.Any(p => p.Done > Epsilon) || Hands.Count > 0;
+    public bool HasWork => Progress.Any(p => p.Done > 0) || Hands.Count > 0;
 
     /// <summary>Jobs of the stage on this plot: the building's own, after felling the trees that grow here.</summary>
     public IReadOnlyList<StageJob> Jobs(int stage)
@@ -41,7 +39,7 @@ public sealed class ConstructionSite
             : jobs;
     }
 
-    public double Required(int stage, string jobId)
+    public int Required(int stage, string jobId)
     {
         var job = Jobs(stage).SingleOrDefault(j => j.JobId == jobId);
         if (job is null)
@@ -49,17 +47,17 @@ public sealed class ConstructionSite
             return 0;
         }
 
-        return BuildingCatalog.FindJob(jobId)?.Kind == JobKind.Haul ? Math.Ceiling(job.Amount * Scale) : job.Amount;
+        return BuildingCatalog.FindJob(jobId)?.Kind == JobKind.Haul ? (int)Math.Ceiling(job.Amount * Scale) : job.Amount;
     }
 
-    public double Done(int stage, string jobId) =>
+    public int Done(int stage, string jobId) =>
         Progress.SingleOrDefault(p => p.Stage == stage && p.JobId == jobId)?.Done ?? 0;
 
-    public double Remaining(int stage, string jobId) => Math.Max(0, Required(stage, jobId) - Done(stage, jobId));
+    public int Remaining(int stage, string jobId) => Math.Max(0, Required(stage, jobId) - Done(stage, jobId));
 
-    public void Record(int stage, string jobId, double amount, Guid citizenId)
+    public void Record(int stage, string jobId, int amount, Guid citizenId)
     {
-        if (amount > Epsilon)
+        if (amount > 0)
         {
             var progress = Progress.SingleOrDefault(p => p.Stage == stage && p.JobId == jobId);
             if (progress is null)
@@ -99,17 +97,17 @@ public sealed class ConstructionSite
 
         var required = hauls.Sum(j => Required(stage, j.JobId));
         var done = hauls.Sum(j => Math.Min(Done(stage, j.JobId), Required(stage, j.JobId)));
-        return required <= 0 ? 1 : done / required;
+        return required <= 0 ? 1 : (double)done / required;
     }
 
     /// <summary>Labor may not run ahead of the material: half the stones delivered allows half the stone-laying.</summary>
-    public double LaborRoom(int stage, string jobId) =>
+    public int LaborRoom(int stage, string jobId) =>
         BuildingCatalog.FindJob(jobId)?.NeedsMaterial == true
-            ? Math.Max(0, Required(stage, jobId) * MaterialShare(stage) - Done(stage, jobId))
+            ? Math.Max(0, (int)Math.Floor(Required(stage, jobId) * MaterialShare(stage) + 1e-9) - Done(stage, jobId))
             : Remaining(stage, jobId);
 
     public bool JobsDone(int stage) =>
-        Jobs(stage).All(j => Remaining(stage, j.JobId) <= Epsilon);
+        Jobs(stage).All(j => Remaining(stage, j.JobId) == 0);
 
     public static int CrewNeeded(StageDefinition stage, int recentCitizens) =>
         Math.Max(1, Math.Min(stage.Crew, recentCitizens));
@@ -130,7 +128,7 @@ public sealed class ConstructionSite
             var jobs = Jobs(index);
             var required = jobs.Sum(j => Required(index, j.JobId));
             var done = jobs.Sum(j => Math.Min(Done(index, j.JobId), Required(index, j.JobId)));
-            total += required <= 0 ? 0 : done / required * 0.99;
+            total += required <= 0 ? 0 : (double)done / required * 0.99;
         }
 
         return stages.Count == 0 ? 0 : total / stages.Count;
@@ -141,7 +139,7 @@ public sealed class JobProgress
 {
     public int Stage { get; set; }
     public required string JobId { get; set; }
-    public double Done { get; set; }
+    public int Done { get; set; }
 }
 
 public sealed class SiteHand

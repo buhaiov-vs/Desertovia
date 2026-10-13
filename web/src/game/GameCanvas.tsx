@@ -2,12 +2,14 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import type { Catalog, CitizenSummary, TileArea, TilePoint, VillageState } from '../api'
 import { useI18n } from '../i18n'
 import { VillageWorld } from './VillageWorld'
-import type { WorldTarget } from './worldMap'
+import type { WalkBlock, WorldTarget } from './worldMap'
 
 export interface GameCanvasHandle {
   say(ownerId: string, text: string): void
   /** Above 1 zooms in, below 1 zooms out, around the screen centre. */
   zoom(factor: number): void
+  /** What stops a walker from walking to a spot, in tiles; null when the way is open. */
+  wayBlock(walkerId: string, spot: TilePoint): WalkBlock | null
 }
 
 export interface Placement {
@@ -27,6 +29,8 @@ interface Props {
   onCitizenPick?: ((citizenId: string) => void) | null
   /** Called with what a citizen could work at where the map was clicked (null for nothing) and the clicked tile point; null turns clicking off. */
   onWorldPick?: ((target: WorldTarget | null, screen: { x: number; y: number }, point: TilePoint) => void) | null
+  /** Which clickable targets show the pointer cursor; null means every target. */
+  worldPickable?: ((target: WorldTarget) => boolean) | null
   /** Tiles outlined on the map. */
   selection?: TileArea | null
 }
@@ -42,6 +46,7 @@ export const GameCanvas = forwardRef<GameCanvasHandle, Props>(function GameCanva
     minimap = true,
     onCitizenPick = null,
     onWorldPick = null,
+    worldPickable = null,
     selection = null,
   },
   ref,
@@ -50,6 +55,7 @@ export const GameCanvas = forwardRef<GameCanvasHandle, Props>(function GameCanva
   const [world, setWorld] = useState<VillageWorld | null>(null)
   const { t, building, storage } = useI18n()
   const priestName = t('priest.name')
+  const governorTitle = t('hud.governor')
 
   useEffect(() => {
     const host = hostRef.current
@@ -78,6 +84,7 @@ export const GameCanvas = forwardRef<GameCanvasHandle, Props>(function GameCanva
   useEffect(() => world?.setCitizens(citizens, highlightId), [world, citizens, highlightId])
   useEffect(() => world?.setNight(night), [world, night])
   useEffect(() => world?.setPriestName(priestName), [world, priestName])
+  useEffect(() => world?.setGovernorTitle(governorTitle), [world, governorTitle])
   useEffect(
     () => world?.setBuildingNames((kind, isStorage) => (isStorage ? storage(kind) : building(kind).name)),
     [world, building, storage],
@@ -85,6 +92,7 @@ export const GameCanvas = forwardRef<GameCanvasHandle, Props>(function GameCanva
   useEffect(() => world?.setPlacement(placement?.onPick ?? null), [world, placement])
   useEffect(() => world?.setCitizenPick(onCitizenPick), [world, onCitizenPick])
   useEffect(() => world?.setWorldPick(onWorldPick), [world, onWorldPick])
+  useEffect(() => world?.setWorldPickable(worldPickable), [world, worldPickable])
   useEffect(() => world?.setSelection(selection), [world, selection])
 
   useImperativeHandle(
@@ -92,6 +100,7 @@ export const GameCanvas = forwardRef<GameCanvasHandle, Props>(function GameCanva
     () => ({
       say: (ownerId, text) => world?.say(ownerId, text),
       zoom: (factor) => world?.zoomBy(factor),
+      wayBlock: (walkerId, spot) => world?.wayBlock(walkerId, spot) ?? null,
     }),
     [world],
   )

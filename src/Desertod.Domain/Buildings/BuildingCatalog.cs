@@ -1,4 +1,5 @@
 using Desertod.Domain.Catalog;
+using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using Desertod.Domain.Storage;
 using Desertod.Domain.Technologies;
@@ -46,12 +47,13 @@ public sealed record JobDefinition(
     string Name,
     JobKind Kind,
     ResourceKind? Resource,
-    double PerCycle,
+    int PerCycle,
     Stat Primary,
     Stat Secondary,
+    Skill Skill,
     bool NeedsMaterial = false);
 
-public sealed record StageJob(string JobId, double Amount);
+public sealed record StageJob(string JobId, int Amount);
 
 /// <param name="Crew">Different citizens who must work on the stage before it is finished.</param>
 public sealed record StageDefinition(string Id, string Name, int Crew, IReadOnlyList<StageJob> Jobs);
@@ -81,18 +83,19 @@ public static class BuildingCatalog
     public const int MaximumOpenSites = 3;
 
     /// <summary>Work to fell one tree standing on a plot; every unit of it brings a share of the tree's wood.</summary>
-    public const double FellWorkPerTree = 3;
+    public const int FellWorkPerTree = 3;
 
     /// <summary>Each repeat of a building needs this much more material than the previous one.</summary>
     public const double RepeatCostGrowth = 1.15;
 
     public static readonly TimeSpan HaulBaseTime = TimeSpan.FromSeconds(45);
 
-    private static JobDefinition Haul(string id, string name, ResourceKind resource, double perCycle, Stat primary, Stat secondary) =>
-        new(id, name, JobKind.Haul, resource, perCycle, primary, secondary);
+    private static JobDefinition Haul(string id, string name, ResourceKind resource, int perCycle, Stat primary, Stat secondary) =>
+        new(id, name, JobKind.Haul, resource, perCycle, primary, secondary, Skill.Hauling);
 
-    private static JobDefinition Labor(string id, string name, Stat primary, Stat secondary, bool needsMaterial = true) =>
-        new(id, name, JobKind.Labor, null, 1, primary, secondary, needsMaterial);
+    private static JobDefinition Labor(
+        string id, string name, Stat primary, Stat secondary, bool needsMaterial = true, Skill skill = Skill.Building) =>
+        new(id, name, JobKind.Labor, null, 1, primary, secondary, skill, needsMaterial);
 
     public static IReadOnlyList<JobDefinition> Jobs { get; } =
     [
@@ -102,7 +105,7 @@ public static class BuildingCatalog
         Haul("bring-reeds", "Bring reeds", ResourceKind.Reeds, 5, Stat.Endurance, Stat.Dexterity),
         Haul("bring-hides", "Bring hides", ResourceKind.Leather, 1, Stat.Endurance, Stat.Dexterity),
         Haul("bring-planks", "Bring planks", ResourceKind.Planks, 3, Stat.Endurance, Stat.Strength),
-        Labor(FellTrees, "Fell the trees", Stat.Strength, Stat.Endurance, needsMaterial: false),
+        Labor(FellTrees, "Fell the trees", Stat.Strength, Stat.Endurance, needsMaterial: false, skill: Skill.Woodcutting),
         Labor("clear-ground", "Clear the ground", Stat.Strength, Stat.Endurance, needsMaterial: false),
         Labor("mark-outline", "Mark the outline", Stat.Intelligence, Stat.Dexterity, needsMaterial: false),
         Labor("lean-poles", "Lean the poles", Stat.Strength, Stat.Dexterity),
@@ -119,15 +122,15 @@ public static class BuildingCatalog
         Labor("bundle-thatch", "Bundle thatch", Stat.Dexterity, Stat.Intelligence),
         Labor("thatch-roof", "Thatch the roof", Stat.Dexterity, Stat.Endurance),
         Labor("hang-door", "Hang the door", Stat.Dexterity, Stat.Charisma),
-        Labor("plough-field", "Plough the field", Stat.Endurance, Stat.Strength, needsMaterial: false),
-        Labor("dig-shaft", "Dig the shaft", Stat.Strength, Stat.Endurance, needsMaterial: false),
+        Labor("plough-field", "Plough the field", Stat.Endurance, Stat.Strength, needsMaterial: false, skill: Skill.Farming),
+        Labor("dig-shaft", "Dig the shaft", Stat.Strength, Stat.Endurance, needsMaterial: false, skill: Skill.Mining),
         Labor("build-forge", "Build the forge", Stat.Strength, Stat.Dexterity),
         Labor("build-oven", "Build the oven", Stat.Dexterity, Stat.Strength),
         Labor("lay-floor", "Lay the floor", Stat.Dexterity, Stat.Strength),
         Labor(LendAHand, "Lend a hand", Stat.Endurance, Stat.Charisma, needsMaterial: false),
     ];
 
-    private static StageJob Job(string id, double amount) => new(id, amount);
+    private static StageJob Job(string id, int amount) => new(id, amount);
 
     private static StageDefinition Stage(string id, string name, int crew, params StageJob[] jobs) => new(id, name, crew, jobs);
 

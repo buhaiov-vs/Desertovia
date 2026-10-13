@@ -5,7 +5,8 @@ export const DEMO_NAME = 'Демо: Царский мост'
 
 /**
  * Every test fails on an uncaught exception or a console error. "Failed to load resource" is left out: the client
- * asks for the account and the citizen and treats 401 and 404 as "not signed in" and "not joined".
+ * asks for the account and the citizen and treats 401 and 404 as "not signed in" and "not joined", and the village
+ * prefetch fails with 401 before signing in.
  */
 export const test = base.extend<{ page: Page }>({
   page: async ({ page }, run) => {
@@ -31,8 +32,9 @@ export function uniqueName(prefix: string) {
 /** Signs in through whichever login panel is on screen. */
 export async function developmentLogin(page: Page, name: string) {
   const panel = page.locator('section.login')
-  await panel.getByPlaceholder('Any name').fill(name)
-  await panel.getByRole('button', { name: 'Sign in' }).click()
+  const form = panel.locator('form', { has: page.getByPlaceholder('Any name') })
+  await form.getByPlaceholder('Any name').fill(name)
+  await form.getByRole('button', { name: 'Sign in' }).click()
   await expect(panel).toBeHidden()
 }
 

@@ -9,20 +9,39 @@ namespace Desertod.Domain.Tests;
 public class StorageTests
 {
     private static readonly DateTimeOffset Now = TestWorld.Now;
+    private const string HeapPlot = "17,12";
 
-    private static Village NewCamp() => Village.Create("v", "V", Guid.NewGuid(), Now);
+    /// <summary>A new tribe that has built its Heap.</summary>
+    private static Village NewCamp()
+    {
+        var village = Village.Create("v", "V", Guid.NewGuid(), Now);
+        village.Storages.Add(StorageBuilding.Create(StorageKind.Heap, HeapPlot, Now));
+        return village;
+    }
 
     [Fact]
-    public void NewTribe_HasOnlyAHeapByTheFire()
+    public void NewTribe_HasNoStorage()
     {
-        var village = NewCamp();
+        var village = Village.Create("v", "V", Guid.NewGuid(), Now);
 
-        var heap = Assert.Single(village.Storages);
-        Assert.Equal(StorageKind.Heap, heap.Kind);
-        Assert.Equal(WorldMap.HeapPlot, heap.PlotId);
+        Assert.Empty(village.Storages);
         Assert.Empty(village.Structures);
         Assert.Empty(village.Sites);
-        Assert.Equal(40, village.FreeSpace(ResourceKind.Wood), 6);
+        Assert.Equal(0, village.FreeSpace(ResourceKind.Wood));
+        Assert.Equal(WorldMap.Places[WorldMap.Camp], village.DropPoint(ResourceKind.Wood, WorldMap.Places["forest"]));
+    }
+
+    [Fact]
+    public void WithoutStorage_CarryingToStorageHasNowhereToGo()
+    {
+        var village = Village.Create("v", "V", Guid.NewGuid(), Now);
+        var citizen = TestWorld.NewCitizen(village);
+        citizen.Carry(ResourceKind.Wood, 4);
+
+        Assert.Equal("hands.noRoom",
+            Assert.Throws<GameRuleException>(() =>
+                CycleEngine.Start(citizen, TestWorld.Task(GameCatalog.CarryToStorage), WorkContext.For(village), Now)).Code);
+        Assert.Equal(4, citizen.Carried(ResourceKind.Wood));
     }
 
     [Fact]
@@ -36,18 +55,18 @@ public class StorageTests
 
         Assert.Equal(0, village.FreeSpace(ResourceKind.Leather));
         Assert.Equal(0, village.Store(ResourceKind.Leather, 1));
-        Assert.Equal(9, village.FreeSpace(ResourceKind.Wood), 6);
+        Assert.Equal(9, village.FreeSpace(ResourceKind.Wood));
     }
 
     [Fact]
     public void Store_FillsSpecialisedBuildingsBeforeTheHeap()
     {
         var village = NewCamp();
-        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "plot-1", Now));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "13,5", Now));
 
         village.Store(ResourceKind.Wood, 30);
 
-        Assert.Equal(30, village.Storages.Single(s => s.Kind == StorageKind.WoodPile).Amount(ResourceKind.Wood), 6);
+        Assert.Equal(30, village.Storages.Single(s => s.Kind == StorageKind.WoodPile).Amount(ResourceKind.Wood));
         Assert.Equal(0, village.Storages.Single(s => s.Kind == StorageKind.Heap).Amount(ResourceKind.Wood));
     }
 
@@ -56,13 +75,13 @@ public class StorageTests
     {
         var village = NewCamp();
         village.Store(ResourceKind.Wood, 10);
-        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "plot-1", Now));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "13,5", Now));
         village.Store(ResourceKind.Wood, 10);
 
         village.Take(ResourceKind.Wood, 10);
 
         Assert.Equal(0, village.Storages.Single(s => s.Kind == StorageKind.Heap).Amount(ResourceKind.Wood));
-        Assert.Equal(10, village.Stock(ResourceKind.Wood), 6);
+        Assert.Equal(10, village.Stock(ResourceKind.Wood));
     }
 
     [Fact]
@@ -80,13 +99,13 @@ public class StorageTests
     {
         var village = NewCamp();
         var forest = WorldMap.Places["forest"];
-        Assert.Equal(WorldMap.Yard(WorldMap.HeapPlot), village.DropPoint(ResourceKind.Wood, forest));
+        Assert.Equal(WorldMap.Yard(HeapPlot), village.DropPoint(ResourceKind.Wood, forest));
 
-        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "plot-5", Now));
-        Assert.Equal(WorldMap.Yard("plot-5"), village.DropPoint(ResourceKind.Wood, forest));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.WoodPile, "9,11", Now));
+        Assert.Equal(WorldMap.Yard("9,11"), village.DropPoint(ResourceKind.Wood, forest));
 
         village.Store(ResourceKind.Wood, 60);
-        Assert.Equal(WorldMap.Yard(WorldMap.HeapPlot), village.DropPoint(ResourceKind.Wood, forest));
+        Assert.Equal(WorldMap.Yard(HeapPlot), village.DropPoint(ResourceKind.Wood, forest));
     }
 
     [Fact]
@@ -94,20 +113,36 @@ public class StorageTests
     {
         var village = NewCamp();
         village.Store(ResourceKind.Food, 10);
-        village.Storages.Add(StorageBuilding.Create(StorageKind.Granary, "plot-1", Now));
+        village.Storages.Add(StorageBuilding.Create(StorageKind.Granary, "13,5", Now));
         village.Store(ResourceKind.Food, 30);
         var citizen = TestWorld.NewCitizen(village);
 
-        Assert.Equal(StorageRules.TakeLimit, StorageRules.Take(citizen, village, "plot-1", ResourceKind.Food, Now), 6);
-        Assert.Equal(StorageRules.TakeLimit, citizen.Carried(ResourceKind.Food), 6);
-        Assert.Equal(10, village.Storages.Single(s => s.Kind == StorageKind.Heap).Amount(ResourceKind.Food), 6);
+        Assert.Equal(StorageRules.TakeLimit, StorageRules.Take(citizen, village, "13,5", ResourceKind.Food, 50, Now));
+        Assert.Equal(StorageRules.TakeLimit, citizen.Carried(ResourceKind.Food));
+        Assert.Equal(10, village.Storages.Single(s => s.Kind == StorageKind.Heap).Amount(ResourceKind.Food));
 
         Assert.Equal("take.handsFull",
-            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "plot-1", ResourceKind.Food, Now)).Code);
+            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "13,5", ResourceKind.Food, 1, Now)).Code);
         Assert.Equal("take.nothing",
-            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "plot-1", ResourceKind.Wood, Now)).Code);
+            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "13,5", ResourceKind.Wood, 1, Now)).Code);
         Assert.Equal("take.noStorage",
-            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "plot-9", ResourceKind.Wood, Now)).Code);
+            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "13,18", ResourceKind.Wood, 1, Now)).Code);
+    }
+
+    [Fact]
+    public void Take_TakesTheAmountAsked()
+    {
+        var village = NewCamp();
+        village.Store(ResourceKind.Food, 10);
+        var citizen = TestWorld.NewCitizen(village);
+
+        Assert.Equal(3, StorageRules.Take(citizen, village, HeapPlot, ResourceKind.Food, 3, Now));
+        Assert.Equal(3, citizen.Carried(ResourceKind.Food));
+        Assert.Equal(7, village.Stock(ResourceKind.Food));
+
+        Assert.Equal(StorageRules.TakeLimit - 3, StorageRules.Take(citizen, village, HeapPlot, ResourceKind.Food, 9, Now));
+        Assert.Equal("take.amount",
+            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, HeapPlot, ResourceKind.Food, 0, Now)).Code);
     }
 
     [Fact]
@@ -118,7 +153,7 @@ public class StorageTests
         CycleEngine.Start(citizen, TestWorld.Task("chop-wood"), WorkContext.For(village), Now);
 
         Assert.Equal("take.working",
-            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "plot-2", ResourceKind.Food, Now)).Code);
+            Assert.Throws<GameRuleException>(() => StorageRules.Take(citizen, village, "17,5", ResourceKind.Food, 1, Now)).Code);
     }
 
     [Fact]
@@ -138,6 +173,6 @@ public class StorageTests
         StorageRules.Drop(citizen, village);
 
         Assert.Equal(0, citizen.Carried(ResourceKind.Stone));
-        Assert.Equal(5, citizen.Carried(ResourceKind.Food), 6);
+        Assert.Equal(5, citizen.Carried(ResourceKind.Food));
     }
 }

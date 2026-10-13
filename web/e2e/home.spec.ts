@@ -1,20 +1,19 @@
 import { DEMO_NAME, DEMO_SLUG, developmentLogin, expect, test, uniqueName } from './fixtures.ts'
 
 test.describe('home page', () => {
-  test('shows the login and the open villages to a visitor', async ({ page }) => {
+  test('shows only the login to a visitor', async ({ page }) => {
     await page.goto('/')
 
-    await expect(page.getByRole('heading', { name: 'Desertod', level: 1 })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Desertovia', level: 1 })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Sign in to start' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Open villages' })).toBeVisible()
-    await expect(page.getByRole('link', { name: DEMO_NAME })).toHaveAttribute('href', `/v/${DEMO_SLUG}`)
+    await expect(page.getByRole('heading', { name: 'Open villages' })).toHaveCount(0)
   })
 
   test('switches the language and remembers it', async ({ page }) => {
     await page.goto('/')
 
     await page.getByRole('combobox', { name: 'Language' }).selectOption('ru')
-    await expect(page.getByRole('heading', { name: 'Открытые города' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Войдите, чтобы начать' })).toBeVisible()
 
     await page.reload()
     await expect(page.getByRole('heading', { name: 'Войдите, чтобы начать' })).toBeVisible()
@@ -28,9 +27,12 @@ test.describe('home page', () => {
     await expect(page.getByText('Signed in as')).toContainText(name)
     await expect(page.getByRole('heading', { name: 'Your villages' })).toBeVisible()
     await expect(page.getByText('You do not live anywhere yet.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Open villages' })).toBeVisible()
+    await expect(page.getByRole('link', { name: DEMO_NAME })).toHaveAttribute('href', `/v/${DEMO_SLUG}`)
 
     await page.getByRole('button', { name: 'Sign out' }).click()
     await expect(page.getByRole('heading', { name: 'Sign in to start' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Open villages' })).toHaveCount(0)
   })
 
   test('visiting an unknown village address shows an error', async ({ page }) => {
@@ -45,6 +47,7 @@ test.describe('home page', () => {
 
   test('opens a village from the open villages list', async ({ page }) => {
     await page.goto('/')
+    await developmentLogin(page, uniqueName('open'))
 
     await page.getByRole('link', { name: DEMO_NAME }).click()
 

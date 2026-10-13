@@ -25,7 +25,7 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
         </div>
         <div>
           <span className="muted small">{t('character.renown')}</span>
-          <strong>{Math.floor(citizen.renown)}</strong>
+          <strong>{citizen.renown}</strong>
         </div>
         <div>
           <span className="muted small">{t('character.streak')}</span>
@@ -40,7 +40,7 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
         <div>
           <span className="muted small">{t('character.sleeps')}</span>
           <strong>{citizen.shelterQuality < 0.6 ? t('character.underTrees') : t('character.inShelter')}</strong>
-          <span className="small muted">{t('character.rest', { percent: Math.round(citizen.shelterQuality * 100) })}</span>
+          <span className="small muted">{t('character.rest', { percent: Math.round(citizen.regenerationMultiplier * 100) })}</span>
         </div>
       </div>
       {citizen.isHungry ? (
@@ -48,7 +48,7 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
       ) : (
         <p className="small muted">{t('character.fed')}</p>
       )}
-      <p className="small muted">{t('character.eating', { amount: i18n.amount(catalog.rules.foodPerCycle) })}</p>
+      <p className="small muted">{t('character.eating', { cycles: catalog.rules.cyclesPerMeal })}</p>
       <table className="stats">
         <tbody>
           {citizen.stats.map((stat) => (
@@ -62,7 +62,7 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
                       <div style={{ width: `${(stat.experience / stat.experienceToNext) * 100}%` }} />
                     </div>
                     <span className="muted small">
-                      {Math.floor(stat.experience)} / {stat.experienceToNext}
+                      {stat.experience} / {stat.experienceToNext}
                     </span>
                   </>
                 ) : (
@@ -73,6 +73,35 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
           ))}
         </tbody>
       </table>
+      <h4>{t('character.skills')}</h4>
+      {citizen.skills.length === 0 ? (
+        <p className="small muted">{t('character.noSkills')}</p>
+      ) : (
+        <table className="stats">
+          <tbody>
+            {citizen.skills.map((skill) => (
+              <tr key={skill.skill}>
+                <td>{i18n.skill(skill.skill)}</td>
+                <td className="stat-value">{skill.level}</td>
+                <td className="stat-progress">
+                  {skill.experienceToNext > 0 ? (
+                    <>
+                      <div className="bar">
+                        <div style={{ width: `${(skill.experience / skill.experienceToNext) * 100}%` }} />
+                      </div>
+                      <span className="muted small">
+                        {skill.experience} / {skill.experienceToNext}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="muted small">{t('character.maximum')}</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
       {citizen.cycleTired && <p className="warning small">{t('character.tired')}</p>}
     </section>
   )

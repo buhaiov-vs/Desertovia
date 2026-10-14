@@ -675,6 +675,12 @@ button.hint-term {
   text-underline-offset: 3px;
 }
 
+button.hint-term.resource-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 button.hint-term:hover,
 button.hint-term.open {
   text-decoration-style: solid;

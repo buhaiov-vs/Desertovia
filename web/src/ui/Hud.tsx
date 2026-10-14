@@ -7,6 +7,7 @@ import { ProjectBanner } from './ProjectPanel'
 import { ResourceIcon } from './TileIcon'
 import { Hint } from './Hint'
 import { restHints } from './needHints'
+import { resourceHint } from './resourceHint'
 import { HUD_RESOURCES } from './texts'
 import { WeatherChip } from './WeatherChip'
 
@@ -36,9 +37,11 @@ export function TopBar({
         {HUD_RESOURCES.map((kind) => {
           const resource = village.resources.find((r) => r.kind === kind)
           return (
-            <span className="resource-chip" key={kind} title={i18n.resource(kind)}>
-              <ResourceIcon kind={kind} scale={1.5} />
-              {i18n.amount(resource?.amount ?? 0)}
+            <span className="resource-chip" key={kind}>
+              <Hint text={resourceHint(kind, village, catalog, i18n)} className="resource-hint">
+                <ResourceIcon kind={kind} scale={1.5} />
+                {i18n.amount(resource?.amount ?? 0)}
+              </Hint>
             </span>
           )
         })}

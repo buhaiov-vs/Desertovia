@@ -54,6 +54,14 @@ export const ru: Dictionary = {
     'hint.inShelter': 'У вас есть постель, {building}: силы возвращаются на {percent}% скорости.\nПостели в городе: {beds}. Лучшие достаются тем, кто поселился раньше.',
     'hint.bed': '{building} {percent}% (мест: {count})',
     'hint.noBeds': 'пока нет',
+    'hint.resourceStock': '{resource}: на складе города {amount}, места на {capacity}.',
+    'hint.resourceStockUnlimited': '{resource}: на складе города {amount}.',
+    'hint.resourceFull':
+      'Склад полон: всё, что принесут сверх того, остаётся в руках у принёсшего. Постройте ещё хранилище или потратьте запасы.',
+    'hint.resourceFood': 'Каждый съедает 1 еду раз в {cycles} дел: сначала из ноши, потом отсюда.',
+    'hint.resourceFrom': 'Откуда берётся: {tasks}.',
+    'hint.resourceFromNone': 'Как это добыть, в городе пока никто не знает.',
+    'hint.resourceUses': 'Нужно для: {uses}.',
     'hint.energy':
       'Силы: {energy} из {maximum}. Каждое дело стоит {cost}; работа под дождём на улице — дороже. Без сил дело не даёт опыта и только {tiredYield}% добычи.\nНаибольший запас сил: {base} + {perEndurance} за каждое очко Выносливости.',
     'hint.perHour':

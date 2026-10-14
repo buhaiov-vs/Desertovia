@@ -53,6 +53,14 @@ export const en = {
     'hint.inShelter': 'You have a bed in a {building}: energy comes back at {percent}% speed.\nBeds in the village: {beds}. The best beds go to whoever settled first.',
     'hint.bed': '{building} {percent}% ({count} beds)',
     'hint.noBeds': 'none yet',
+    'hint.resourceStock': '{resource}: {amount} in the village storage, room for {capacity}.',
+    'hint.resourceStockUnlimited': '{resource}: {amount} in the village storage.',
+    'hint.resourceFull':
+      'The storage is full: whatever more is brought stays in the hands of whoever brought it. Build more storage or use some up.',
+    'hint.resourceFood': 'Everyone eats 1 food every {cycles} tasks, from the hands first, then from here.',
+    'hint.resourceFrom': 'Comes from: {tasks}.',
+    'hint.resourceFromNone': 'Nobody in the village knows how to get it yet.',
+    'hint.resourceUses': 'Needed for: {uses}.',
     'hint.energy':
       'Energy: {energy} of {maximum}. Every task costs {cost}; outdoor work in the rain costs more. With no energy left a task gives no experience and only {tiredYield}% of the yield.\nMaximum energy is {base} + {perEndurance} for every point of Endurance.',
     'hint.perHour':

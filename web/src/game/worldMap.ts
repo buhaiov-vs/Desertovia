@@ -143,7 +143,7 @@ const MOSSY_PEAKS = [art('prop-mountain-peak-1-mossy'), art('prop-mountain-peak-
 const GRASS = [art('terrain-grass-plain'), art('terrain-grass-variant-1'), art('terrain-grass-variant-2')]
 const STONY_GROUND = art('terrain-stony-ground')
 export const MOUNTAIN_ROCK = art('terrain-mountain-rock')
-export const TRAMPLED_EARTH = art('terrain-trampled-earth')
+const TRAMPLED_EARTH = art('terrain-trampled-earth')
 const RIVER = [art('terrain-river-west-bank'), art('terrain-river-water'), art('terrain-river-water'), art('terrain-river-east-bank')]
 
 /**
@@ -852,6 +852,12 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
     for (let x = VEIN_OUTCROP.x; x < VEIN_OUTCROP.x + VEIN_OUTCROP.width; x++) {
       setGround(x, y, VEIN_TILES.ground)
       mark(x, y, 1, 1, Terrain.Stone)
+    }
+  }
+  // Trampled earth around the campfire.
+  for (let y = Math.floor(CAMPFIRE.y - 2); y <= CAMPFIRE.y + 2; y++) {
+    for (let x = Math.floor(CAMPFIRE.x - 3); x <= CAMPFIRE.x + 3; x++) {
+      if (((x + 0.5 - CAMPFIRE.x) / 2.6) ** 2 + ((y + 0.5 - CAMPFIRE.y) / 1.9) ** 2 <= 1) setGround(x, y, TRAMPLED_EARTH)
     }
   }
 

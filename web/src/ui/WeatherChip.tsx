@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { RAIN, type Citizen, type CitizenSummary, type Forecast, type Weather, type WeatherKind } from '../api'
 import { useI18n } from '../i18n'
 
@@ -32,6 +32,23 @@ export function WeatherChip({
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const chip = useRef<HTMLButtonElement>(null)
+  const [place, setPlace] = useState<CSSProperties>()
+
+  useLayoutEffect(() => {
+    if (!open) return
+    const measure = () => {
+      const rect = chip.current?.getBoundingClientRect()
+      if (!rect) return
+      const margin = 8
+      const width = Math.min(320, window.innerWidth - 2 * margin)
+      const left = Math.max(margin, Math.min(rect.right - width, window.innerWidth - width - margin))
+      setPlace({ top: rect.bottom + 6, left, width, maxHeight: window.innerHeight - rect.bottom - 6 - margin })
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [open])
 
   const sky = weather.kind === 'Clear' && weather.night ? t('weather.clearNight') : t(KIND_TEXT[weather.kind])
   const nameOf = (forecast: Forecast) => citizens.get(forecast.citizenId)?.name ?? t('weather.someone')
@@ -60,6 +77,7 @@ export function WeatherChip({
   return (
     <span className="weather">
       <button
+        ref={chip}
         className={`resource-chip weather-chip weather-${weather.kind.toLowerCase()}${weather.raining ? ' raining' : ''}${weather.night ? ' night' : ''}`}
         onClick={() => setOpen(!open)}
         title={t('weather.title')}
@@ -69,7 +87,7 @@ export function WeatherChip({
         {sky}
       </button>
       {open && (
-        <div className="weather-panel">
+        <div className="weather-panel" style={place}>
           <div className="weather-row">
             <strong>{t('weather.today', { sky })}</strong>
             <span className="muted small">{t(weather.night ? 'weather.dawnIn' : 'weather.nightIn', { time: changesIn })}</span>

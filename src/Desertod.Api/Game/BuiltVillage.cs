@@ -12,8 +12,8 @@ using Desertod.Infrastructure.Data;
 namespace Desertod.Api.Game;
 
 /// <summary>
-/// Development only: a village with every building, storage and project finished and every technology discovered, so
-/// their pictures can be checked side by side. It is rebuilt on every start; its Tsar is a development login.
+/// Development only: a village with every building, storage and project finished, every technology discovered and the
+/// whole land explored, so their pictures can be checked side by side. It is rebuilt on every start; its Tsar is a development login.
 /// </summary>
 public static class BuiltVillage
 {
@@ -60,10 +60,7 @@ public static class BuiltVillage
             village.Structures.Add(new Structure { Kind = BuildingKind.RopeBridge, PlotId = bridge, BuiltAt = now });
         }
 
-        foreach (var plotId in village.Storages.Select(s => s.PlotId).Concat(village.Structures.Select(s => s.PlotId)))
-        {
-            Exploration.Reveal(village.Explored, WorldMap.Yard(plotId), Exploration.BuildingSightRadius);
-        }
+        village.Explored = Enumerable.Repeat(byte.MaxValue, Exploration.Size).ToArray();
 
         FarmRules.EnsureBeds(village);
         foreach (var (bed, (crop, growth)) in village.Fields.OrderBy(b => b.Index).Zip(Beds))

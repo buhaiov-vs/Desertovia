@@ -762,7 +762,6 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
         <TopBar
           village={live.state}
           catalog={catalog}
-          tsar={tsar}
           dayNight={dayNight}
           citizen={citizen}
           citizens={live.citizens}

@@ -13,7 +13,6 @@ import { WeatherChip } from './WeatherChip'
 export function TopBar({
   village,
   catalog,
-  tsar,
   dayNight,
   citizen,
   citizens,
@@ -21,7 +20,6 @@ export function TopBar({
 }: {
   village: VillageState
   catalog: Catalog
-  tsar: boolean
   /** Development only: the toggle between daylight and night; null hides it. */
   dayNight: { night: boolean; onToggle: () => void } | null
   citizen: Citizen | null | undefined
@@ -32,13 +30,7 @@ export function TopBar({
   const { t } = i18n
   return (
     <div className="hud-top">
-      {tsar || citizen?.isGovernor ? (
-        <div className="hud-title">
-          <span className="badge">{t(tsar ? 'hud.tsar' : 'hud.governor')}</span>
-        </div>
-      ) : (
-        <div className="hud-top-spacer" />
-      )}
+      <div className="hud-top-spacer" />
       <ProjectBanner village={village} />
       <div className="hud-resources">
         {HUD_RESOURCES.map((kind) => {

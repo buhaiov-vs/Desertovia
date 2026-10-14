@@ -225,7 +225,6 @@ kbd {
   gap: 12px;
 }
 
-.hud-title,
 .hud-resources,
 .resource-chip,
 .project-banner,
@@ -236,14 +235,6 @@ kbd {
   border: 2px solid #1b1206;
   border-radius: 8px;
   box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
-}
-
-.hud-title {
-  justify-self: start;
-  padding: 0.35rem 0.7rem;
-  display: flex;
-  align-items: baseline;
-  gap: 0.6rem;
 }
 
 .project-banner {
@@ -2136,11 +2127,6 @@ textarea {
   .hud-top {
     grid-template-columns: 1fr;
     gap: 6px;
-  }
-
-  .hud-title {
-    justify-self: stretch;
-    padding: 0.25rem 0.5rem;
   }
 
   .hud-top-spacer {

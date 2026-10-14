@@ -2018,7 +2018,7 @@ export class VillageWorld {
     }
     if (this.elapsed - this.fogUpdatedAt >= FOG_SECONDS) {
       this.fogUpdatedAt = this.elapsed
-      this.fog.update(this.viewers())
+      this.fog.update(this.viewers(), this.nightAmount)
     }
     this.wildlife.update(seconds, this.elapsed, [...this.walkers.values()], hunters, sortDepth)
     this.enemies.update(seconds, now, sortDepth)

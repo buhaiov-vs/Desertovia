@@ -11,7 +11,7 @@ export interface Viewer {
 }
 
 const DARK: [number, number, number] = [12, 14, 20]
-/** Land seen before but out of sight now is dimmed this much; land never seen is fully dark. */
+/** Land seen before but out of sight now is dimmed this much at night; land never seen is fully dark. */
 const REMEMBERED_ALPHA = 0.5
 /** Tiles over which sight fades out at its edge. */
 const SIGHT_FADE = 1.5
@@ -33,6 +33,8 @@ export class Fog {
   private readonly light = new Float32Array(MAP_WIDTH * MAP_HEIGHT)
   /** Darkness of each tile before blurring, 0 to 1. */
   private readonly alpha = new Float32Array(MAP_WIDTH * MAP_HEIGHT)
+  /** 0 at full daylight, when remembered land is not dimmed, 1 deep in the night. */
+  private darkness = 1
 
   constructor() {
     this.canvas.width = MAP_WIDTH
@@ -60,7 +62,8 @@ export class Fog {
   }
 
   /** Lights the land around the viewers; whatever they see is explored from then on. */
-  update(viewers: Viewer[]) {
+  update(viewers: Viewer[], darkness: number) {
+    this.darkness = darkness
     this.light.fill(0)
     for (const viewer of viewers) {
       const left = Math.max(MAP_LEFT, Math.floor(viewer.x - viewer.radius))
@@ -109,7 +112,7 @@ export class Fog {
   private draw() {
     const alpha = this.alpha
     for (let index = 0; index < this.explored.length; index++) {
-      alpha[index] = this.explored[index] ? REMEMBERED_ALPHA * (1 - this.light[index]) : 1
+      alpha[index] = this.explored[index] ? REMEMBERED_ALPHA * this.darkness * (1 - this.light[index]) : 1
     }
     // A 3×3 blur rounds off the tile steps that stretching alone leaves along the edges.
     const data = this.image.data

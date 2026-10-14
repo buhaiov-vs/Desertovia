@@ -1,6 +1,8 @@
 # Desertod
 
-Audience village game for streamers. Game rules: [docs/game-design.md](docs/game-design.md). Progress and plans: [docs/roadmap.md](docs/roadmap.md).
+Audience village game for streamers. Game rules: [docs/game-design.md](docs/game-design.md). Progress and plans: [docs/roadmap.md](docs/roadmap.md). How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+[![CI](https://github.com/buhaiov-vs/Desertovia/actions/workflows/ci.yml/badge.svg)](https://github.com/buhaiov-vs/Desertovia/actions/workflows/ci.yml)
 
 ## Structure
 
@@ -157,5 +159,7 @@ npm run test:e2e                  # or npm run test:e2e:ui to watch them run
 ```
 
 The browser tests start their own backend (port 5181, database `desertod_e2e`, created automatically) and a production build of the client under `vite preview` (port 5191), so a running development setup is left alone. Set `DESERTOD_E2E_CONNECTION` to use another database. Failures leave screenshots and traces in `web/test-results`; `npx playwright show-report` opens the report.
+
+All three suites, the frontend lint and build, and a Docker image build run on every pull request and every push to `main` ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 While `dotnet run` holds `src/Desertod.Api/bin`, build the .NET tests elsewhere: `dotnet test Desertod.slnx --artifacts-path $env:TEMP\desertod-test-build`.

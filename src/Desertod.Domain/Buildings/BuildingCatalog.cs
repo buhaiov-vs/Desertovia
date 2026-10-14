@@ -1,4 +1,5 @@
 using Desertod.Domain.Catalog;
+using Desertod.Domain.Rules;
 using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using Desertod.Domain.Storage;
@@ -89,7 +90,7 @@ public static class BuildingCatalog
     /// <summary>Each repeat of a building needs this much more material than the previous one.</summary>
     public const double RepeatCostGrowth = 1.15;
 
-    public static readonly TimeSpan HaulBaseTime = TimeSpan.FromSeconds(45);
+    public static readonly TimeSpan HaulBaseTime = GameRules.CycleLength;
 
     private static JobDefinition Haul(string id, string name, ResourceKind resource, int perCycle, Stat primary, Stat secondary) =>
         new(id, name, JobKind.Haul, resource, perCycle, primary, secondary, Skill.Hauling);
@@ -147,7 +148,7 @@ public static class BuildingCatalog
                 Stage("frame", "Frame", 2, Job("clear-ground", 1), Job("bring-sticks", 8), Job("lean-poles", 2)),
                 Stage("cover", "Cover", 2, Job("bring-reeds", 10), Job("lay-cover", 2)),
             ],
-            Shelter: 2, ShelterQuality: 0.75),
+            Shelter: 2, ShelterQuality: 0.9),
         new(BuildingKind.WoodPile, "Wood pile", "Stacked wood stays dry and does not crowd the heap.", [],
             [Stage("pile", "Pile", 2, Job("clear-ground", 1), Job("bring-sticks", 6), Job("stack-pile", 2))],
             Storage: StorageKind.WoodPile),

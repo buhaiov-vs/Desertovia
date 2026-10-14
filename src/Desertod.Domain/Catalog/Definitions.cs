@@ -1,6 +1,7 @@
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Farming;
+using Desertod.Domain.Rules;
 using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
 using Desertod.Domain.World;
@@ -118,7 +119,7 @@ public sealed record TaskDefinition(
     IReadOnlyList<ResourceAmount> Inputs,
     string Workplace,
     BuildingKind? RequiredBuilding = null,
-    int WorkSeconds = 90,
+    int WorkSeconds = GameRules.GatherSeconds,
     HuntDefinition? Hunt = null,
     string? RequiredProject = null,
     string? RequiredTechnology = null,

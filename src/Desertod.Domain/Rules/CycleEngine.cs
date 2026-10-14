@@ -167,7 +167,7 @@ public static class CycleEngine
             ? SkillRules.WorkTime(citizen, job.Skill, 0, BuildingCatalog.HaulBaseTime) + WorldMap.Walk(
                 citizen.Carried(job.Resource!.Value) > 0 ? WorldMap.Places[WorldMap.Camp] : village.PickupPoint(job.Resource.Value, yard),
                 yard)
-            : SkillRules.WorkTime(citizen, job.Skill, 0, GameRules.CycleLength) + WorldMap.Walk(WorldMap.Places[WorldMap.Camp], yard);
+            : SkillRules.WorkTime(citizen, job.Skill, 0, GameRules.CraftLength) + WorldMap.Walk(WorldMap.Places[WorldMap.Camp], yard);
 
         Begin(citizen, job.Id, duration, WeatherRules.EnergyCost(village, true, now), village, now);
         citizen.CurrentSiteId = plotId;
@@ -181,7 +181,7 @@ public static class CycleEngine
         var (technology, plotId) = TechnologyRules.CheckResearch(context.Village, citizen);
 
         Begin(citizen, TechnologyCatalog.ResearchTaskId,
-            SkillRules.WorkTime(citizen, SkillRules.Research, 0, GameRules.CycleLength)
+            SkillRules.WorkTime(citizen, SkillRules.Research, 0, GameRules.CraftLength)
             + WorldMap.Walk(WorldMap.Places[WorldMap.Camp], WorldMap.Yard(plotId)),
             WeatherRules.EnergyCost(context.Village, false, now), context.Village, now);
         citizen.CurrentTechnologyId = technology.Id;

@@ -6,6 +6,7 @@ public readonly record struct ExperienceResult(int LevelsGained, int RenownGaine
 
 public static class Progression
 {
+    /// <summary>Experience from a stat level to the next one: a share of the skill curve.</summary>
     public static int ExperienceToNext(int level)
     {
         if (level < GameRules.StatMinimum || level >= GameRules.StatMaximum)
@@ -13,10 +14,10 @@ public static class Progression
             return 0;
         }
 
-        return Curve(level);
+        return (int)Math.Round(GameRules.StatCurveShare * Curve(level), MidpointRounding.AwayFromZero);
     }
 
-    /// <summary>Experience from <paramref name="level"/> to the next one, shared by stats and skills.</summary>
+    /// <summary>Experience from a skill level to the next one.</summary>
     public static int Curve(int level)
     {
         if (level == 0)
@@ -24,7 +25,7 @@ public static class Progression
             return GameRules.FirstLevelExperience;
         }
 
-        return (int)Math.Round(GameRules.ExperienceCurveBase * Math.Pow(level, GameRules.ExperienceCurveExponent));
+        return (int)Math.Round(GameRules.ExperienceCurveBase + GameRules.ExperienceCurvePerLevel * level);
     }
 
     /// <summary>

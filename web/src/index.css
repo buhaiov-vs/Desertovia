@@ -279,9 +279,17 @@ kbd {
   font-variant-numeric: tabular-nums;
 }
 
+/* Development only: on the left edge, outside the interface, and left visible when the interface is hidden. */
 .night-toggle {
-  padding: 0.15rem 0.6rem;
+  position: absolute;
+  z-index: 2;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
   font-weight: 700;
+  opacity: 0.75;
 }
 
 .weather {
@@ -1817,7 +1825,15 @@ input[aria-invalid='true'] {
     padding-right: 248px;
   }
 
+  /* Fixed columns: without a running project the banner is not rendered, and the chips must stay on the right. */
+  .project-banner {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
   .hud-resources {
+    grid-row: 1;
+    grid-column: 3;
     display: grid;
     grid-template-columns: repeat(var(--columns), auto);
     padding: 0;

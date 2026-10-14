@@ -647,17 +647,18 @@ button.quest-tracker-body:active {
   font-weight: 700;
 }
 
+/* Actions sit at the right edge, under the thumb on phones and the mouse hand on desktops. */
 .hud-bottom {
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
 }
 
 .hud-left {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 6px;
   min-width: 0;
 }
@@ -665,6 +666,7 @@ button.quest-tracker-body:active {
 .hud-needs {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
 }
 
@@ -704,6 +706,7 @@ button.quest-tracker-body:active {
 .hud-status {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.6rem;
   padding: 0.45rem 0.7rem;
   min-width: min(440px, 100%);
@@ -1480,8 +1483,11 @@ input[aria-invalid='true'] {
   padding-left: 1.1rem;
 }
 
+/* Reversed, so the first button in the markup, the main one, lands at the right edge. */
 .done-actions {
   display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
   gap: 0.4rem;
   padding: 0.6rem 0.9rem 0.8rem;
   flex-wrap: wrap;

@@ -1,6 +1,6 @@
-import { Container, Graphics, GraphicsContext } from 'pixi.js'
+import { Container, Graphics, GraphicsContext, Sprite } from 'pixi.js'
 import type { AnimalKind, Herd } from '../api'
-import { TILE } from './sheets'
+import { TILE, art, type AnimationName, type ArtName, type TileSet } from './sheets'
 import { CAMPFIRE, MAP_HEIGHT, MAP_LEFT, MAP_TOP, MAP_WIDTH, MONASTERY, Terrain } from './worldMap'
 
 interface AnimalLook {
@@ -16,12 +16,13 @@ interface AnimalLook {
   rest: [number, number]
   /** Height of the hops while moving, in world pixels. */
   hop: number
-  /** Drawn facing right, one character per world pixel; `.` is empty. */
-  pixels: string[]
-  colors: Record<string, number>
+  /** Drawn facing right, 16 × 16, feet on the bottom row; the first frame is the animal at rest. */
+  frames: AnimationName
+  /** Limp, as a hunter carries it home. */
+  carried: ArtName
+  /** Half the width of the shadow under the feet, in world pixels. */
+  shadow: number
 }
-
-const EYE = 0x1b1206
 
 const LOOKS: Record<AnimalKind, AnimalLook> = {
   Rabbit: {
@@ -31,16 +32,9 @@ const LOOKS: Record<AnimalKind, AnimalLook> = {
     speed: 22,
     rest: [2, 6],
     hop: 2.5,
-    pixels: [
-      '.....ee..',
-      '.....ee..',
-      '....hhhh.',
-      '.bbbhhkhn',
-      'tbbbbbbb.',
-      '.bbbbbbb.',
-      '..f...f..',
-    ],
-    colors: { e: 0xa88866, h: 0x9a7a58, b: 0x8f6f4f, k: EYE, n: 0xe0a0a0, t: 0xf2ede4, f: 0x6e5236 },
+    frames: 'character-rabbit',
+    carried: 'character-rabbit-carried',
+    shadow: 4,
   },
   Deer: {
     shown: 12,
@@ -49,21 +43,9 @@ const LOOKS: Record<AnimalKind, AnimalLook> = {
     speed: 14,
     rest: [4, 10],
     hop: 0.8,
-    pixels: [
-      '.........a.a',
-      '.........aa.',
-      '........hhh.',
-      '........hhkh',
-      '........hhhn',
-      '.......hh...',
-      't.bbbbbbbb..',
-      'bbbbbbbbbb..',
-      '.bbwwwwbbb..',
-      '.l.l...l.l..',
-      '.l.l...l.l..',
-      '.d.d...d.d..',
-    ],
-    colors: { a: 0xd8c8a0, h: 0xa8683c, b: 0x9c5f36, w: 0xd8b48a, t: 0xf2ede4, k: EYE, n: 0x2b1d0e, l: 0x7a4a26, d: 0x3a2a1a },
+    frames: 'character-deer',
+    carried: 'character-deer-carried',
+    shadow: 5.5,
   },
   Bird: {
     shown: 24,
@@ -72,14 +54,9 @@ const LOOKS: Record<AnimalKind, AnimalLook> = {
     speed: 40,
     rest: [1.5, 5],
     hop: 6,
-    pixels: [
-      '...hh.',
-      '..hhky',
-      'twwrr.',
-      '.wwrr.',
-      '..l...',
-    ],
-    colors: { h: 0x5a4636, k: EYE, y: 0xe8a33a, t: 0x4a3a2a, w: 0x6e5440, r: 0xc8643c, l: 0x3a2a1a },
+    frames: 'character-bird',
+    carried: 'character-bird-carried',
+    shadow: 3,
   },
 }
 
@@ -97,14 +74,15 @@ const CAMP_CLEARANCE = 10
 /** In the last seconds of a chase the prey tires and slows down, so the hunter reaches it in time. */
 const TIRING_SECONDS = 20
 const MINIMUM_STAMINA = 0.2
-/** Top of a citizen's head above their feet, in world pixels. */
-const CARRY_HEIGHT = 17
+/** Where a carried animal rests above a citizen's feet: on the shoulders, in world pixels. */
+const CARRY_HEIGHT = 12
 
 const BLOCKING: number[] = [Terrain.Water, Terrain.Reeds, Terrain.Mountain, Terrain.Ravine, Terrain.Thicket, Terrain.Rockfall]
 
 interface Animal {
   kind: AnimalKind
-  view: Graphics
+  view: Container
+  body: Sprite
   homeX: number
   homeY: number
   x: number
@@ -127,19 +105,6 @@ export interface WildlifeCitizen {
 /** Where a hunter runs: the prey, or nothing more to chase once it is caught. */
 export type Chase = { caught: false; x: number; y: number } | { caught: true }
 
-function drawLook(look: AnimalLook): GraphicsContext {
-  const context = new GraphicsContext()
-  const width = Math.max(...look.pixels.map((row) => row.length))
-  const height = look.pixels.length
-  context.ellipse(0, 0, width * 0.45, 1.5).fill({ color: 0x1b1206, alpha: 0.25 })
-  look.pixels.forEach((row, y) =>
-    [...row].forEach((cell, x) => {
-      const color = look.colors[cell]
-      if (color !== undefined) context.rect(x - width / 2, y - height, 1, 1).fill({ color })
-    }),
-  )
-  return context
-}
 
 /**
  * Game animals living all over the wild land. How many are drawn follows the herds on the server,
@@ -147,21 +112,23 @@ function drawLook(look: AnimalLook): GraphicsContext {
  * and always catch it when their chase time is up.
  */
 export class WildlifeLayer {
-  private readonly contexts = new Map<AnimalKind, GraphicsContext>()
+  private readonly shadows = new Map<AnimalKind, GraphicsContext>()
   private readonly animals: Animal[] = []
   private readonly layer: Container
+  private readonly tiles: TileSet
   private terrain: Uint8Array | null = null
   private herds: Herd[] = []
   /** Prey each hunter is after. */
   private readonly chases = new Map<string, Animal>()
   /** Caught animals, carried by their hunter until the cycle ends. */
-  private readonly carried = new Map<string, { kind: AnimalKind; view: Graphics }>()
+  private readonly carried = new Map<string, Sprite>()
 
   /** Whether anyone sees a point of the world, in world pixels; animals out of sight are hidden. */
   private seen: (worldX: number, worldY: number) => boolean = () => true
 
-  constructor(layer: Container) {
+  constructor(layer: Container, tiles: TileSet) {
     this.layer = layer
+    this.tiles = tiles
   }
 
   setSight(seen: (worldX: number, worldY: number) => boolean) {
@@ -202,7 +169,7 @@ export class WildlifeLayer {
       // Joining in the middle of the cycle after the catch: the hunter already holds the prey.
       prey = secondsLeft > 0 ? this.pickPrey(kind, x, y) : undefined
       if (!prey) {
-        this.carry(hunterId, kind, new Graphics(this.context(kind)))
+        this.carry(hunterId, kind)
         return { caught: true }
       }
       this.chases.set(hunterId, prey)
@@ -211,7 +178,8 @@ export class WildlifeLayer {
     if (secondsLeft <= 0) {
       this.chases.delete(hunterId)
       this.animals.splice(this.animals.indexOf(prey), 1)
-      this.carry(hunterId, kind, prey.view)
+      prey.view.destroy({ children: true })
+      this.carry(hunterId, kind)
       return { caught: true }
     }
     prey.stamina = Math.max(MINIMUM_STAMINA, Math.min(1, secondsLeft / TIRING_SECONDS))
@@ -239,7 +207,7 @@ export class WildlifeLayer {
     const prey = this.chases.get(hunterId)
     if (prey) prey.stamina = 1
     this.chases.delete(hunterId)
-    this.carried.get(hunterId)?.view.destroy()
+    this.carried.get(hunterId)?.destroy()
     this.carried.delete(hunterId)
   }
 
@@ -277,18 +245,23 @@ export class WildlifeLayer {
         animal.moveAt = elapsed + look.rest[0] + Math.random() * (look.rest[1] - look.rest[0])
       }
 
-      const hop = this.moving(animal) ? Math.abs(Math.sin(animal.phase)) * -look.hop : 0
-      animal.view.position.set(Math.round(animal.x), Math.round(animal.y + hop))
+      const moving = this.moving(animal)
+      const hop = moving ? Math.abs(Math.sin(animal.phase)) * -look.hop : 0
+      // One pass through the frames per hop; at rest the animal shows its first frame.
+      const frames = this.tiles.animation(look.frames)
+      const stride = moving ? Math.floor(((animal.phase % Math.PI) / Math.PI) * frames.length) : 0
+      animal.body.texture = frames[Math.min(frames.length - 1, stride)]
+      animal.body.y = Math.round(hop)
+      animal.view.position.set(Math.round(animal.x), Math.round(animal.y))
       animal.view.visible = this.seen(animal.x, animal.y)
       if (sortDepth) animal.view.zIndex = animal.y
       animal.view.alpha = Math.min(1, animal.view.alpha + seconds)
     }
 
-    // Carried upside down above the hunter's head; flipped, the drawing hangs down from its position.
-    for (const [hunterId, { kind, view }] of this.carried) {
+    for (const [hunterId, view] of this.carried) {
       const hunter = citizens.find((citizen) => citizen.id === hunterId)
       if (!hunter) continue
-      view.position.set(Math.round(hunter.x), Math.round(hunter.y - CARRY_HEIGHT - LOOKS[kind].pixels.length))
+      view.position.set(Math.round(hunter.x), Math.round(hunter.y - CARRY_HEIGHT))
       if (sortDepth) view.zIndex = hunter.y + 1
     }
   }
@@ -343,11 +316,11 @@ export class WildlifeLayer {
     return (free.length > 0 ? free : candidates).sort((a, b) => distance(a) - distance(b))[0]
   }
 
-  private carry(hunterId: string, kind: AnimalKind, view: Graphics) {
-    view.alpha = 1
-    view.scale.y = -1
+  private carry(hunterId: string, kind: AnimalKind) {
+    const view = new Sprite(this.tiles.get(art(LOOKS[kind].carried)))
+    view.anchor.set(0.5, 1)
     this.layer.addChild(view)
-    this.carried.set(hunterId, { kind, view })
+    this.carried.set(hunterId, view)
   }
 
   /** Tile in world pixels is dry land outside the camp and the monastery. */
@@ -402,11 +375,11 @@ export class WildlifeLayer {
     return fallback
   }
 
-  private context(kind: AnimalKind) {
-    let context = this.contexts.get(kind)
+  private shadow(kind: AnimalKind) {
+    let context = this.shadows.get(kind)
     if (!context) {
-      context = drawLook(LOOKS[kind])
-      this.contexts.set(kind, context)
+      context = new GraphicsContext().ellipse(0, 0, LOOKS[kind].shadow, 1.5).fill({ color: 0x1b1206, alpha: 0.25 })
+      this.shadows.set(kind, context)
     }
     return context
   }
@@ -415,13 +388,17 @@ export class WildlifeLayer {
     const spot = this.spawnSpot(look)
     if (!spot) return
     // Not cullable: the world is culled only when the camera moves, and animals walk into view on their own.
-    const view = new Graphics(this.context(kind))
+    const view = new Container()
+    const body = new Sprite(this.tiles.animation(look.frames)[0])
+    body.anchor.set(0.5, 1)
+    view.addChild(new Graphics(this.shadow(kind)), body)
     view.alpha = 0
     view.zIndex = spot.y
     this.layer.addChild(view)
     this.animals.push({
       kind,
       view,
+      body,
       homeX: spot.x / TILE,
       homeY: spot.y / TILE,
       x: spot.x,

@@ -75,6 +75,12 @@ public static class GameRules
     public const double EnergyFullRegenerationHours = 24;
     public const double EnergyCostPerCycle = 1;
 
+    /// <summary>Playtest: everyone has full energy in this window, then regeneration resumes from the stored snapshot.</summary>
+    public static readonly DateTimeOffset FreeEnergyFrom = new(2026, 10, 14, 0, 0, 0, TimeSpan.FromHours(-4));
+    public static readonly DateTimeOffset FreeEnergyUntil = FreeEnergyFrom.AddDays(1);
+
+    public static bool IsFreeEnergy(DateTimeOffset at) => at >= FreeEnergyFrom && at < FreeEnergyUntil;
+
     /// <summary>A vigor drink gives this much energy, at most once per cooldown, so the energy pool still limits play.</summary>
     public const double VigorDrinkEnergy = 8;
     public static readonly TimeSpan VigorDrinkCooldown = TimeSpan.FromHours(2);

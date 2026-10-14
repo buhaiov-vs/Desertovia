@@ -227,6 +227,11 @@ public sealed class Citizen
 
     public double CurrentEnergy(DateTimeOffset now, Village village)
     {
+        if (GameRules.IsFreeEnergy(now))
+        {
+            return MaximumEnergy;
+        }
+
         var hours = Math.Max(0, (now - EnergyUpdatedAt).TotalHours);
         if (SleepsUnderTrees)
         {

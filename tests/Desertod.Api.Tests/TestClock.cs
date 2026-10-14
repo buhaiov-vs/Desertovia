@@ -1,3 +1,5 @@
+using Desertod.Domain.Rules;
+
 namespace Desertod.Api.Tests;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Desertod.Api.Tests;
 /// </summary>
 public sealed class TestClock : TimeProvider
 {
-    private long offsetTicks;
+    private long offsetTicks = SkipFreeEnergy(System.GetUtcNow()).Ticks;
 
     public override DateTimeOffset GetUtcNow() => System.GetUtcNow() + TimeSpan.FromTicks(Interlocked.Read(ref offsetTicks));
 
@@ -16,4 +18,8 @@ public sealed class TestClock : TimeProvider
         ArgumentOutOfRangeException.ThrowIfLessThan(by, TimeSpan.Zero);
         Interlocked.Add(ref offsetTicks, by.Ticks);
     }
+
+    /// <summary>Tests check energy spending, which a playtest window of free energy would hide.</summary>
+    private static TimeSpan SkipFreeEnergy(DateTimeOffset now) =>
+        GameRules.IsFreeEnergy(now) ? GameRules.FreeEnergyUntil - now : TimeSpan.Zero;
 }

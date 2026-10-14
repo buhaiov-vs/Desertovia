@@ -1,5 +1,5 @@
 import { plotPosition, type AnimalKind, type Catalog, type TileArea, type TilePoint, type VillageState, type Wilds } from '../api'
-import { EXTRAS, art, artNames, battle, dungeon, factory, farm, isArt, town, type ArtName, type TileRef } from './sheets'
+import { EXTRAS, battle, dungeon, factory, farm, rogue, town, type TileRef } from './sheets'
 
 /**
  * The camp area (tiles 0…43 × 0…25) matches the server's coordinates; the wild land extends around it
@@ -87,15 +87,14 @@ export const FOREST_AREA: TileArea = { x: 0, y: 0, width: 30, height: 26 }
 export const inForestArea = (x: number, y: number) =>
   x >= FOREST_AREA.x && y >= FOREST_AREA.y && x < FOREST_AREA.x + FOREST_AREA.width && y < FOREST_AREA.y + FOREST_AREA.height
 
-/** Tall birch, young birch, tall spruce, young spruce, oak; the tall ones reach into the tile above. */
 const TREE_TILES: Array<Omit<PlacedTile, 'x' | 'y'>> = [
-  { tile: art('prop-tree-variant-3') },
-  { tile: art('prop-tree-variant-4') },
-  { tile: art('prop-tree-variant-1') },
-  { tile: art('prop-tree-variant-3') },
-  { tile: art('prop-tree-variant-2') },
-  { tile: art('prop-tree-variant-5') },
-  { tile: art('prop-tree-variant-1') },
+  { tile: town(16), top: town(4) },
+  { tile: town(28) },
+  { tile: town(16), top: town(4) },
+  { tile: town(28) },
+  { tile: town(15), top: town(3) },
+  { tile: town(27) },
+  { tile: town(5) },
 ]
 
 /** A tree from the server, whose look is picked from its tile so it stays the same between updates. */
@@ -105,11 +104,12 @@ export function treeAt(x: number, y: number): PlacedTile {
   return { ...TREE_TILES[((value ^ (value >>> 13)) >>> 0) % TREE_TILES.length], x, y }
 }
 
-/** A sprite standing on the tile (`x`, `y`); a taller one reaches up into the tiles above. */
 export interface PlacedTile {
   tile: TileRef
   x: number
   y: number
+  /** Upper half of a two-tile sprite, drawn one tile above `tile`. */
+  top?: TileRef
 }
 
 /** What covers a tile, for the minimap. */
@@ -136,30 +136,17 @@ export const Terrain = {
 } as const
 export type Terrain = (typeof Terrain)[keyof typeof Terrain]
 
-/** Rocky peaks of the mountain ridges, two tiles wide and high: bare grey ones and grey ones overgrown with moss. */
-const MOUNTAIN_PEAKS = [art('prop-mountain-peak-1'), art('prop-mountain-peak-2'), art('prop-mountain-peak-3')]
-const MOSSY_PEAKS = [art('prop-mountain-peak-1-mossy'), art('prop-mountain-peak-2-mossy'), art('prop-mountain-peak-3-mossy')]
-
-const GRASS = [art('terrain-grass-plain'), art('terrain-grass-variant-1'), art('terrain-grass-variant-2')]
-const STONY_GROUND = art('terrain-stony-ground')
-export const MOUNTAIN_ROCK = art('terrain-mountain-rock')
-const TRAMPLED_EARTH = art('terrain-trampled-earth')
-const RIVER = [art('terrain-river-west-bank'), art('terrain-river-water'), art('terrain-river-water'), art('terrain-river-east-bank')]
-
-/**
- * Pond tile for the water corners around it, as a corner autotile mask: bit 0 north-west, bit 1 north-east,
- * bit 2 south-east, bit 3 south-west. A corner is water when all four tiles meeting there are pond.
- */
-const pondTile = (mask: number) => art(`terrain-pond-shore-${mask.toString(2).padStart(4, '0')}` as ArtName)
+/** Rocky peaks of the mountain ridges: bare grey ones and grey ones overgrown with moss. */
+const MOUNTAIN_PEAKS = [rogue(1251), rogue(1252), rogue(1253)]
+const MOSSY_PEAKS = [rogue(1308), rogue(1309), rogue(1310)]
 
 export interface MapLayout {
   /** Rows from MAP_TOP, columns from MAP_LEFT. */
   ground: TileRef[][]
   decor: PlacedTile[]
-  /** Young trees in the meadows; they stand in nobody's way. */
-  saplings: Array<{ x: number; y: number }>
   bushes: Array<{ x: number; y: number }>
   reeds: Array<{ x: number; y: number }>
+  ponds: Array<{ x: number; y: number; radiusX: number; radiusY: number }>
   /** Mountain tiles with the peak drawn over each. */
   mountains: Array<{ x: number; y: number; peak: TileRef }>
   /** Wet tiles around the ponds. */
@@ -201,51 +188,128 @@ export const PRIEST_SPOT = { x: 13.6, y: 12.6 }
 /** One tile, or several drawn over each other from the first: a gable's eave over the wall that shows through it. */
 export type BuildingCell = TileRef | TileRef[]
 
-const buildingSlug = (kind: string) => kind.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()
-
-/** Picture of a finished building, standing on the bottom middle of its 3×3 area; wide ones reach past it. */
-export function buildingArt(kind: string): TileRef | null {
-  const name = `building-${buildingSlug(kind)}`
-  return kind !== 'Farm' && isArt(name) ? art(name) : null
+/**
+ * Finished buildings drawn from tiles, each with its own roof, walls and props so the Tsar can tell them apart.
+ * Shelters and racks of the wild age and the open stage are drawn as shapes instead.
+ */
+export const BUILDING_TILES: Record<string, BuildingCell[][]> = {
+  /** Orange gable, plaster walls. */
+  Hut: [
+    [rogue(1217), rogue(1222), rogue(1218)],
+    [[rogue(873), rogue(1331)], [rogue(873), rogue(1276)], [rogue(873), rogue(1332)]],
+    [rogue(869), [rogue(868), rogue(89)], rogue(871)],
+  ],
+  /** Cream gable with a round window, plaster walls, banners by an arched door. */
+  TownHall: [
+    [rogue(1210), rogue(1215), rogue(1211)],
+    [[rogue(873), rogue(1324)], [rogue(873), rogue(1269), rogue(101)], [rogue(873), rogue(1325)]],
+    [[rogue(869), rogue(222)], [rogue(868), rogue(32)], [rogue(871), rogue(222)]],
+  ],
+  /** Open shed under a long brown roof. */
+  Woodyard: [
+    [rogue(1231), rogue(1236), rogue(1232)],
+    [[rogue(1235), rogue(1288)], [rogue(1236), rogue(1293)], [rogue(1237), rogue(1289)]],
+    [[rogue(150), rogue(1117)], rogue(150), [rogue(150), rogue(1117)]],
+  ],
+  /** Battlemented grey stone wall with a dark gateway. */
+  StoneYard: [
+    [rogue(819), rogue(820), rogue(821)],
+    [rogue(879), rogue(880), rogue(881)],
+    [rogue(876), [rogue(875), rogue(150), rogue(994)], rogue(878)],
+  ],
+  /** Brown gable, timber walls, sacks of grain by the door. */
+  Granary: [
+    [rogue(1231), rogue(1236), rogue(1232)],
+    [[rogue(894), rogue(1345)], [rogue(894), rogue(1290)], [rogue(894), rogue(1346)]],
+    [[rogue(890), rogue(139)], [rogue(889), rogue(90)], [rogue(892), rogue(140)]],
+  ],
+  /** Cream gable, timber walls, a double door and a crate of goods. */
+  Storehouse: [
+    [rogue(1210), rogue(1215), rogue(1211)],
+    [[rogue(894), rogue(1324)], [rogue(894), rogue(1269)], [rogue(894), rogue(1325)]],
+    [[rogue(890), rogue(315)], [rogue(889), rogue(316)], [rogue(892), rogue(413)]],
+  ],
+  /** Long grey roof over blue stone, a barred door between heaps of gold. */
+  Treasury: [
+    [rogue(1224), rogue(1229), rogue(1225)],
+    [[rogue(1228), rogue(1281)], [rogue(1229), rogue(1286)], [rogue(1230), rogue(1282)]],
+    [[rogue(883), rogue(613)], [rogue(882), rogue(204)], [rogue(885), rogue(672)]],
+  ],
+  /** Three dry beds; wet soil and crops are drawn over them from the village's fields. */
+  Farm: [
+    [farm(60), farm(61), farm(63)],
+    [farm(60), farm(61), farm(63)],
+    [farm(60), farm(61), farm(63)],
+  ],
+  /** A dark shaft in the rock, rails coming out of it, ore and a cart beside them. */
+  Mine: [
+    [rogue(177), rogue(177), rogue(177)],
+    [rogue(177), [rogue(150), rogue(994)], rogue(177)],
+    [rogue(671), [rogue(150), rogue(1238)], rogue(69)],
+  ],
+  /** Grey gable over brick, an anvil and a glowing forge. */
+  Smithy: [
+    [rogue(1224), rogue(1229), rogue(1225)],
+    [[rogue(120), rogue(1338)], [rogue(120), rogue(1283)], [rogue(120), rogue(1339)]],
+    [[rogue(120), rogue(15)], [rogue(120), rogue(89)], [rogue(120), rogue(511)]],
+  ],
+  /** Long cream roof over plank walls, a window and a crate of tools. */
+  Workshop: [
+    [rogue(1210), rogue(1215), rogue(1211)],
+    [[rogue(1214), rogue(1267)], [rogue(1215), rogue(1272)], [rogue(1216), rogue(1268)]],
+    [[rogue(1003), rogue(331)], [rogue(1004), rogue(90)], [rogue(1005), rogue(414)]],
+  ],
+  /** Grey gable with a rose window over blue stone, tall arched windows. */
+  Library: [
+    [rogue(1224), rogue(1229), rogue(1225)],
+    [[rogue(887), rogue(1338)], [rogue(887), rogue(1283), rogue(102)], [rogue(887), rogue(1339)]],
+    [[rogue(883), rogue(159)], [rogue(882), rogue(32)], [rogue(885), rogue(159)]],
+  ],
+  /** Long orange roof over timber walls, a lit window and a barrel by the door. */
+  Tavern: [
+    [rogue(1217), rogue(1222), rogue(1218)],
+    [[rogue(1221), rogue(1274)], [rogue(1222), rogue(1279)], [rogue(1223), rogue(1275)]],
+    [[rogue(890), rogue(331)], [rogue(889), rogue(90)], [rogue(892), rogue(23)]],
+  ],
+  /** Orange gable over grey stone, a sack of flour and the oven. */
+  Bakery: [
+    [rogue(1217), rogue(1222), rogue(1218)],
+    [[rogue(880), rogue(1331)], [rogue(880), rogue(1276)], [rogue(880), rogue(1332)]],
+    [[rogue(876), rogue(141)], [rogue(875), rogue(89)], [rogue(878), rogue(453)]],
+  ],
+  /** A striped stall with goods on the counter, crates and sacks in front. */
+  Market: [
+    [rogue(68), rogue(11), rogue(125)],
+    [rogue(296), rogue(240), rogue(353)],
+    [rogue(413), rogue(141), rogue(24)],
+  ],
+  /** Battlemented plaster wall, war banners and an iron gate. */
+  Barracks: [
+    [rogue(812), rogue(813), rogue(814)],
+    [[rogue(872), rogue(50)], rogue(873), [rogue(874), rogue(50)]],
+    [rogue(869), [rogue(868), rogue(203)], rogue(871)],
+  ],
 }
-
-/** Pictures of a building under construction, from cleared ground to the last stage before it is finished. */
-export function constructionArt(kind: string): TileRef[] {
-  const prefix = `construction-${buildingSlug(kind)}-`
-  return artNames(prefix)
-    .sort((a, b) => parseInt(a.slice(prefix.length)) - parseInt(b.slice(prefix.length)))
-    .map(art)
-}
-
-/** The farm: three dry beds; wet soil and crops are drawn over them from the village's fields. */
-export const FARM_TILES: BuildingCell[][] = [0, 1, 2].map(() => [
-  art('terrain-dry-bed-left'),
-  art('terrain-dry-bed-middle'),
-  art('terrain-dry-bed-right'),
-])
 
 /** A wet farm bed: darker soil over the dry one. */
-export const WET_BED: TileRef[] = [art('terrain-wet-bed-left'), art('terrain-wet-bed-middle'), art('terrain-wet-bed-right')]
-
-const cropStages = (crop: 'turnip' | 'carrot' | 'cabbage' | 'flax' | 'rye'): TileRef[] =>
-  [art(`prop-${crop}-sprout`), art(`prop-${crop}-young`), art(`prop-${crop}-ripe`)]
+export const WET_BED: TileRef[] = [farm(48), farm(49), farm(51)]
 
 /** Growth stages of each crop in a farm bed: sprout, young plant, ripe plant. */
 export const CROP_STAGES: Record<string, TileRef[]> = {
-  Turnip: cropStages('turnip'),
-  Carrot: cropStages('carrot'),
-  Cabbage: cropStages('cabbage'),
-  Flax: cropStages('flax'),
-  Rye: cropStages('rye'),
+  Turnip: [farm(16), farm(17), farm(18)],
+  Carrot: [farm(4), farm(5), farm(6)],
+  Cabbage: [farm(52), farm(53), farm(54)],
+  Flax: [farm(64), farm(65), farm(80)],
+  Rye: [farm(64), farm(65), farm(66)],
 }
 
 /** What the crop looks like once gathered. */
 export const CROP_ICONS: Record<string, TileRef> = {
-  Turnip: art('icon-turnip-harvested'),
-  Carrot: art('icon-carrot-harvested'),
-  Cabbage: art('icon-cabbage-harvested'),
-  Flax: art('icon-flax-harvested'),
-  Rye: art('icon-rye-harvested'),
+  Turnip: farm(20),
+  Carrot: farm(8),
+  Cabbage: farm(56),
+  Flax: farm(80),
+  Rye: farm(68),
 }
 
 /** Below this growth a bed shows sprouts. */
@@ -257,50 +321,52 @@ export const cropTile = (crop: string, growth: number, ripe: boolean) =>
 
 /** Icon of each building in the interface. */
 export const BUILDING_SIGNS: Record<string, TileRef> = {
-  Heap: art('icon-building-heap'),
-  LeanTo: art('icon-building-lean-to'),
-  WoodPile: art('icon-building-wood-pile'),
-  StonePile: art('icon-building-stone-pile'),
-  DryingRack: art('icon-building-drying-rack'),
-  Hut: art('icon-building-hut'),
-  TownHall: art('icon-building-town-hall'),
-  Woodyard: art('icon-building-woodyard'),
-  StoneYard: art('icon-building-stone-yard'),
-  Granary: art('icon-building-granary'),
-  Storehouse: art('icon-building-storehouse'),
-  Treasury: art('icon-building-treasury'),
-  Farm: art('icon-building-farm'),
-  Mine: art('icon-building-mine'),
-  Smithy: art('icon-building-smithy'),
-  Workshop: art('icon-building-workshop'),
-  Library: art('icon-building-library'),
-  Tavern: art('icon-building-tavern'),
-  Bakery: art('icon-building-bakery'),
-  Stage: art('icon-building-stage'),
-  Market: art('icon-building-market'),
-  Barracks: art('icon-building-barracks'),
+  Heap: town(92),
+  LeanTo: farm(2),
+  WoodPile: town(106),
+  StonePile: farm(89),
+  DryingRack: town(29),
+  Hut: town(83),
+  TownHall: battle(52),
+  Woodyard: town(127),
+  StoneYard: town(115),
+  Granary: farm(71),
+  Storehouse: dungeon(89),
+  Treasury: town(93),
+  Farm: farm(68),
+  Mine: factory(98),
+  Smithy: dungeon(74),
+  Workshop: factory(123),
+  Library: dungeon(63),
+  Tavern: dungeon(82),
+  Bakery: farm(125),
+  Stage: battle(70),
+  Market: farm(74),
+  Barracks: dungeon(104),
   RopeBridge: town(73),
-}
-
-/** Icon of each village project in the interface. */
-export const PROJECT_SIGNS: Record<string, TileRef> = {
-  'tsar-monument': art('icon-tsar-s-monument'),
-  'fishing-pier': art('icon-fishing-pier'),
-  palisade: art('icon-palisade'),
-  'tsar-bridge': art('icon-tsar-bridge'),
-  granary: art('icon-great-granary'),
-  'bell-tower': art('icon-bell-tower'),
 }
 
 /** The old monastery on the far bank: the Tsar Bridge is meant to reach it. Scenery, not part of the village. */
 export const MONASTERY = {
-  /** The church covers 3×4 tiles from its top-left tile, a cell 3×3. */
-  church: { x: 37, y: 7, tile: art('building-monastery-church') },
+  church: {
+    x: 37,
+    y: 7,
+    tiles: [
+      [town(48), town(49), town(50)],
+      [town(60), town(61), town(62)],
+      [town(76), town(77), town(79)],
+      [town(88), town(90), town(88)],
+    ] as TileRef[][],
+  },
   cells: [
     { x: 34, y: 8 },
     { x: 40.5, y: 8 },
   ],
-  cell: art('building-monk-cell'),
+  cell: [
+    [town(52), town(53), town(54)],
+    [town(64), town(65), town(66)],
+    [town(84), town(85), town(84)],
+  ] as TileRef[][],
   area: { x: 34, y: 5, width: 10, height: 9 },
 }
 
@@ -310,26 +376,11 @@ export const MONUMENT = {
   id: 'tsar-monument',
   x: 16,
   y: 9,
-  pedestal: art('prop-monument-pedestal'),
-  rough: art('prop-monument-rough-block'),
-  statue: art('prop-tsar-statue'),
+  pedestal: dungeon(54),
+  rough: dungeon(65),
+  statue: dungeon(86),
+  stone: 0xb9bec7,
 }
-
-/** Marks the corners of a project being laid out and the line of one still to build. */
-export const SURVEY_PEG = art('prop-survey-peg')
-/** Stands by every project and construction site while work goes on. */
-export const SIGNBOARD = art('prop-construction-signboard')
-export const PALLET = art('prop-storage-pallet')
-export const BLUEPRINT_GROUND = art('terrain-blueprint-ground')
-
-export const PIER_TILES = { deck: art('prop-pier-deck'), pole: art('prop-pier-pole') }
-export const BRIDGE_TILES = {
-  deck: art('prop-bridge-deck'),
-  railing: [art('prop-bridge-railing-left'), art('prop-bridge-railing-middle'), art('prop-bridge-railing-right')],
-}
-
-/** A nugget spot on the gold vein outcrop, and the bare rock left once its gold is dug out. */
-export const VEIN_TILES = { ground: art('prop-gold-vein-rock'), nugget: art('prop-gold-nugget-in-rock'), depleted: art('prop-depleted-vein-spot') }
 
 /** The gold vein in the hills on the far bank, reached over the Tsar Bridge. Size mirrors the server's rules. */
 export const VEIN_OUTCROP = { x: 39, y: 16, width: 3, height: 2, size: 150 }
@@ -351,15 +402,14 @@ export const PALISADE = (() => {
   const side = (from: number, to: number, step: number, tile: (y: number) => TileRef) => {
     for (let y = from; step > 0 ? y <= to : y >= to; y += step) pieces.push({ tile: tile(y), x: left, y })
   }
-  const stake = art('prop-palisade-stake-vertical')
   const rail = (y: number, corner: TileRef) => {
     pieces.push({ tile: corner, x: left, y })
-    for (let x = left + 1; x <= end; x++) pieces.push({ tile: art(x === end ? 'prop-palisade-end' : 'prop-palisade-rail-horizontal'), x, y })
+    for (let x = left + 1; x <= end; x++) pieces.push({ tile: town(x === end ? 82 : 45), x, y })
   }
-  side(gate.from - 1, top + 1, -1, (y) => (y === gate.from - 1 ? art('prop-palisade-gate-post-north') : stake))
-  rail(top, art('prop-palisade-corner-north-west'))
-  side(gate.to + 1, bottom - 1, 1, (y) => (y === gate.to + 1 ? art('prop-palisade-gate-post-south') : stake))
-  rail(bottom, art('prop-palisade-corner-south-west'))
+  side(gate.from - 1, top + 1, -1, (y) => town(y === gate.from - 1 ? 71 : 56))
+  rail(top, town(44))
+  side(gate.to + 1, bottom - 1, 1, (y) => town(y === gate.to + 1 ? 47 : 56))
+  rail(bottom, town(68))
   return { id: 'palisade', pieces, yard: { x: 2.5, y: 10.5 } }
 })()
 
@@ -572,10 +622,18 @@ export type WorldTarget = { area: TileArea | null } & (
   | { kind: NatureKind; spot: TilePoint }
 )
 
-/** Great Granary 4×3 tiles, Bell Tower 3×4, from the top-left tile in `PROJECT_SITES`. */
-export const PROJECT_BUILDINGS: Record<string, TileRef> = {
-  granary: art('building-great-granary'),
-  'bell-tower': art('building-bell-tower'),
+export const PROJECT_BUILDINGS: Record<string, TileRef[][]> = {
+  granary: [
+    [town(52), town(53), town(53), town(54)],
+    [town(64), town(65), town(65), town(66)],
+    [town(84), town(86), town(87), town(84)],
+  ],
+  'bell-tower': [
+    [town(48), town(49), town(50)],
+    [town(60), town(61), town(62)],
+    [town(76), town(77), town(79)],
+    [town(88), town(90), town(88)],
+  ],
 }
 
 function random(seed: number) {
@@ -651,11 +709,9 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
   const stoneNoise = valueNoise(seed + 3, 7)
   const ground: TileRef[][] = []
   const decor: PlacedTile[] = []
-  const saplings: MapLayout['saplings'] = []
   const bushes: MapLayout['bushes'] = []
   const reeds: MapLayout['reeds'] = []
-  const ponds: Array<{ x: number; y: number; radiusX: number; radiusY: number }> = []
-  const pondTiles = new Set<number>()
+  const ponds: MapLayout['ponds'] = []
   const mountains: MapLayout['mountains'] = []
   const terrain = new Uint8Array(MAP_WIDTH * MAP_HEIGHT)
   const index = (x: number, y: number) => (y - MAP_TOP) * MAP_WIDTH + (x - MAP_LEFT)
@@ -678,7 +734,7 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
     const row: TileRef[] = []
     for (let x = MAP_LEFT; x < MAP_RIGHT; x++) {
       const roll = next()
-      row.push(GRASS[roll < 0.06 ? 1 : roll < 0.09 ? 2 : 0])
+      row.push(town(roll < 0.06 ? 1 : roll < 0.09 ? 2 : 0))
     }
     ground.push(row)
   }
@@ -738,7 +794,10 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
   // The river runs the whole height of the map.
   for (let y = MAP_TOP; y < MAP_BOTTOM; y++) {
     const left = Math.round(riverCenter(y, seed) - 1.5)
-    RIVER.forEach((tile, column) => setGround(left + column, y, tile))
+    setGround(left, y, battle(36))
+    setGround(left + 1, y, battle(37))
+    setGround(left + 2, y, battle(37))
+    setGround(left + 3, y, battle(38))
     mark(left, y, 4, 1, Terrain.Water)
     // Reeds grow on the west bank wherever the land is low.
     if (!inCore(left, y) && detailNoise(left, y) > 0.55 && !occupied.has(index(left - 1, y))) {
@@ -764,9 +823,7 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
     ponds.push({ x: x + 0.5, y: y + 0.5, radiusX, radiusY })
     for (let row = Math.floor(y - radiusY); row <= y + radiusY; row++) {
       for (let column = Math.floor(x - radiusX); column <= x + radiusX; column++) {
-        if (((column - x) / radiusX) ** 2 + ((row - y) / radiusY) ** 2 > 1) continue
-        mark(column, row, 1, 1, Terrain.Water)
-        pondTiles.add(index(column, row))
+        if (((column - x) / radiusX) ** 2 + ((row - y) / radiusY) ** 2 <= 1) mark(column, row, 1, 1, Terrain.Water)
       }
     }
     // A ring of reeds around some ponds.
@@ -780,18 +837,6 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
         }
       }
     }
-  }
-
-  const pond = (x: number, y: number) => inside(x, y) && pondTiles.has(index(x, y))
-  const waterCorner = (x: number, y: number) => pond(x - 1, y - 1) && pond(x, y - 1) && pond(x - 1, y) && pond(x, y)
-  for (const tile of pondTiles) {
-    const x = (tile % MAP_WIDTH) + MAP_LEFT
-    const y = Math.floor(tile / MAP_WIDTH) + MAP_TOP
-    const mask = [waterCorner(x, y), waterCorner(x + 1, y), waterCorner(x + 1, y + 1), waterCorner(x, y + 1)].reduce(
-      (bits, water, bit) => bits | (water ? 1 << bit : 0),
-      0,
-    )
-    setGround(x, y, mask === 15 ? art('terrain-pond-water') : pondTile(mask))
   }
 
   // Marsh spreads around some of the ponds where the ground is low.
@@ -813,7 +858,7 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
 
   // Loose stones on the hillside north of the camp.
   for (const [x, y] of [[9, 1], [10, 1], [11, 1], [9, 2], [10, 3], [11, 2], [12, 2], [8, 3], [12, 4]]) {
-    setGround(x, y, STONY_GROUND)
+    setGround(x, y, town(43))
     mark(x, y, 1, 1, Terrain.Stone)
   }
 
@@ -850,14 +895,8 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
   mark(VEIN_OUTCROP.x - 1, VEIN_OUTCROP.y - 1, VEIN_OUTCROP.width + 2, VEIN_OUTCROP.height + 2, Terrain.Clearing)
   for (let y = VEIN_OUTCROP.y; y < VEIN_OUTCROP.y + VEIN_OUTCROP.height; y++) {
     for (let x = VEIN_OUTCROP.x; x < VEIN_OUTCROP.x + VEIN_OUTCROP.width; x++) {
-      setGround(x, y, VEIN_TILES.ground)
+      setGround(x, y, town(43))
       mark(x, y, 1, 1, Terrain.Stone)
-    }
-  }
-  // Trampled earth around the campfire.
-  for (let y = Math.floor(CAMPFIRE.y - 2); y <= CAMPFIRE.y + 2; y++) {
-    for (let x = Math.floor(CAMPFIRE.x - 3); x <= CAMPFIRE.x + 3; x++) {
-      if (((x + 0.5 - CAMPFIRE.x) / 2.6) ** 2 + ((y + 0.5 - CAMPFIRE.y) / 1.9) ** 2 <= 1) setGround(x, y, TRAMPLED_EARTH)
     }
   }
 
@@ -865,7 +904,6 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
   // Long ridges keep a pass through them, so a ridge never walls off the land behind it.
   const raiseMountain = (x: number, y: number) => {
     mark(x, y, 1, 1, Terrain.Mountain)
-    setGround(x, y, MOUNTAIN_ROCK)
     const looks = next() < 0.3 ? MOSSY_PEAKS : MOUNTAIN_PEAKS
     mountains.push({ x, y, peak: looks[Math.floor(next() * looks.length)] })
   }
@@ -965,20 +1003,18 @@ export function buildLayout(seed: number, wilds: Wilds | null): MapLayout {
       const stone = stoneNoise(x, y)
       const roll = next()
       if (stone > 0.74 && forest < 0.55) {
-        setGround(x, y, STONY_GROUND)
+        setGround(x, y, town(43))
         mark(x, y, 1, 1, Terrain.Stone)
       } else if (forest > 0.56 ? roll < 0.85 : forest > 0.48 ? roll < 0.3 : roll < 0.03) {
         plantTree(x, y)
       } else if (forest > 0.4 && forest < 0.5 && roll > 0.97) {
         bushes.push({ x: x + 0.5, y: y + 0.6 })
         mark(x, y, 1, 1, Terrain.Bush)
-      } else if (forest > 0.4 && forest < 0.48 && roll < 0.08) {
-        saplings.push({ x, y })
       }
     }
   }
 
-  return { ground, decor, saplings, bushes, reeds, mountains, marsh, trail, terrain }
+  return { ground, decor, bushes, reeds, ponds, mountains, marsh, trail, terrain }
 }
 
 /** Villager sprites from Tiny Dungeon (the hooded monk, 111, is reserved for the elder). */
@@ -988,29 +1024,29 @@ export const PRIEST_SPRITE = 111
 const HAMMER = factory(122)
 const PICKAXE = town(115)
 const STICK = farm(2)
-const REEDS = art('item-reeds')
-const POST = SURVEY_PEG
-const CAMPFIRE_ICON = art('icon-task-tend-fire')
+const ROCKS = farm(89)
+const REEDS = farm(65)
+const POST = town(47)
 
 export const RESOURCE_ICONS: Record<string, TileRef> = {
-  Wood: art('item-wood'),
-  Stone: art('item-stone'),
-  Food: art('item-food'),
-  Coal: art('item-coal'),
-  IronOre: art('item-iron-ore'),
-  IronIngot: art('item-iron-ingot'),
-  Planks: art('item-planks'),
-  Leather: art('item-leather'),
-  Gold: art('item-gold'),
-  Chain: art('item-chain'),
-  Mechanism: art('item-mechanism'),
-  Remedy: art('item-remedy'),
-  ResearchPoints: art('item-research-points'),
+  Wood: town(106),
+  Stone: ROCKS,
+  Food: town(29),
+  Coal: EXTRAS.coal,
+  IronOre: dungeon(41),
+  IronIngot: dungeon(102),
+  Planks: town(73),
+  Leather: dungeon(66),
+  Gold: town(93),
+  Chain: factory(115),
+  Mechanism: factory(114),
+  Remedy: dungeon(115),
+  ResearchPoints: dungeon(65),
   Reeds: REEDS,
-  Feathers: art('item-feathers'),
-  Flax: art('item-flax'),
-  Grain: art('item-grain'),
-  VigorDrink: art('item-vigor-drink'),
+  Feathers: EXTRAS.feather,
+  Flax: farm(80),
+  Grain: farm(68),
+  VigorDrink: dungeon(116),
   Spear: dungeon(130),
   Bow: town(119),
   Arrows: EXTRAS.feather,
@@ -1020,15 +1056,15 @@ export const RESOURCE_ICONS: Record<string, TileRef> = {
 }
 
 export const TASK_ICONS: Record<string, TileRef> = {
-  'chop-wood': art('icon-task-chop-wood'),
-  'quarry-stone': art('icon-task-quarry-stone'),
-  forage: art('icon-task-forage'),
-  'cut-reeds': art('icon-task-cut-reeds'),
-  hunt: art('icon-task-hunt'),
-  'hunt-birds': art('icon-task-hunt-birds'),
-  'tend-fire': CAMPFIRE_ICON,
+  'chop-wood': town(127),
+  'quarry-stone': PICKAXE,
+  forage: town(29),
+  'cut-reeds': farm(88),
+  hunt: town(118),
+  'hunt-birds': town(119),
+  'tend-fire': EXTRAS.campfire,
   'carry-to-storage': town(92),
-  'track-game': art('icon-task-track-game'),
+  'track-game': town(118),
   'tend-fields': farm(66),
   'sow-turnips': farm(21),
   'sow-carrots': farm(9),
@@ -1053,8 +1089,8 @@ export const TASK_ICONS: Record<string, TileRef> = {
   'deliver-iron': RESOURCE_ICONS.IronIngot,
   build: HAMMER,
   expedition: town(119),
-  roam: art('icon-task-forage'),
-  'tell-stories': CAMPFIRE_ICON,
+  roam: town(29),
+  'tell-stories': EXTRAS.campfire,
   'study-plants': farm(80),
   'explore-land': town(119),
   'research-technology': dungeon(63),
@@ -1073,8 +1109,8 @@ export const TASK_ICONS: Record<string, TileRef> = {
   'forge-chain': RESOURCE_ICONS.Chain,
   'build-mechanism': RESOURCE_ICONS.Mechanism,
   explore: town(119),
-  design: RESOURCE_ICONS.ResearchPoints,
-  'brew-remedy': RESOURCE_ICONS.Remedy,
+  design: dungeon(65),
+  'brew-remedy': dungeon(115),
   'brew-vigor': RESOURCE_ICONS.VigorDrink,
   'lead-crew': factory(120),
   negotiate: battle(196),

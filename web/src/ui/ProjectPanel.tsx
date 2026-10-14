@@ -1,7 +1,6 @@
 import type { Project, VillageState } from '../api'
 import { useI18n } from '../i18n'
-import { PROJECT_SIGNS } from '../game/worldMap'
-import { ResourceIcon, TileIcon } from './TileIcon'
+import { ResourceIcon } from './TileIcon'
 function Bar({ value, maximum, tone }: { value: number; maximum: number; tone?: string }) {
   const percent = maximum > 0 ? Math.min(100, (value / maximum) * 100) : 0
   return (
@@ -43,11 +42,10 @@ export function ProjectPanel({ project, completed }: { project: Project | null; 
   }
 
   const names = i18n.project(project.definitionId)
-  const sign = PROJECT_SIGNS[project.definitionId]
   return (
     <section className="card project">
       <h3>
-        {sign && <TileIcon tile={sign} scale={2} />} {names.name} <span className="muted">— {i18n.phase(project.phase)}</span>
+        {names.name} <span className="muted">— {i18n.phase(project.phase)}</span>
       </h3>
       <p className="muted small">{names.description}</p>
       <Bar value={project.progress} maximum={1} tone="gold" />

@@ -819,6 +819,16 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
           phone={phone}
           onSend={live.sendChat}
         />
+        {(citizen || tsar) && (
+          <button
+            className="minimap-locate"
+            onClick={() => canvas.current?.locate(citizen?.id ?? TSAR_ID)}
+            title={i18n.t('hud.locate')}
+            aria-label={i18n.t('hud.locate')}
+          >
+            <LocateIcon />
+          </button>
+        )}
         {!phone && (
           <div className="zoom-controls">
             <button onClick={() => canvas.current?.zoom(ZOOM_STEP)} title={`${i18n.t('hud.zoomIn')} (+)`} aria-label={i18n.t('hud.zoomIn')}>
@@ -1021,6 +1031,17 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
         </ServerClock>
       )}
     </div>
+  )
+}
+
+/** Crosshair over a dot: the view jumps to the player's own figure. */
+function LocateIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2" fill="currentColor" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+    </svg>
   )
 }
 

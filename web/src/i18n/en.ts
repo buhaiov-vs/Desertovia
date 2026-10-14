@@ -96,6 +96,7 @@ export const en = {
     'hud.zoomOut': 'Zoom out',
     'hud.hideInterface': 'Hide the interface: only the map and what you click on',
     'hud.showInterface': 'Show the interface',
+    'hud.locate': 'Find me on the map',
     'hud.expand': 'Expand',
     'hud.collapse': 'Collapse',
     'feed.built': 'Built: {project}!',

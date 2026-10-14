@@ -97,6 +97,7 @@ export const ru: Dictionary = {
     'hud.zoomOut': 'Отдалить',
     'hud.hideInterface': 'Скрыть интерфейс: только карта и то, на что вы нажмёте',
     'hud.showInterface': 'Показать интерфейс',
+    'hud.locate': 'Найти себя на карте',
     'hud.expand': 'Развернуть',
     'hud.collapse': 'Свернуть',
     'feed.built': 'Построено: {project}!',

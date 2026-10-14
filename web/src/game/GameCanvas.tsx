@@ -8,6 +8,8 @@ export interface GameCanvasHandle {
   say(ownerId: string, text: string, seconds?: number): void
   /** Above 1 zooms in, below 1 zooms out, around the screen centre. */
   zoom(factor: number): void
+  /** Centres the view on a walker. */
+  locate(walkerId: string): void
   /** What stops a walker from walking to a spot, in tiles; null when the way is open. */
   wayBlock(walkerId: string, spot: TilePoint): WalkBlock | null
 }
@@ -104,6 +106,7 @@ export const GameCanvas = forwardRef<GameCanvasHandle, Props>(function GameCanva
     () => ({
       say: (ownerId, text, seconds) => world?.say(ownerId, text, seconds),
       zoom: (factor) => world?.zoomBy(factor),
+      locate: (walkerId) => void world?.locate(walkerId),
       wayBlock: (walkerId, spot) => world?.wayBlock(walkerId, spot) ?? null,
     }),
     [world],

@@ -1855,6 +1855,38 @@ input[aria-invalid='true'] {
   padding: 0;
 }
 
+/* Over the bottom right corner of the minimap. */
+.minimap-locate {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + 144px);
+  right: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.minimap-locate svg {
+  width: 18px;
+  height: 18px;
+}
+
+@media (max-width: 720px) {
+  .minimap-locate {
+    top: 182px;
+    right: 14px;
+    width: 26px;
+    height: 26px;
+  }
+
+  .minimap-locate svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
 .ui-toggle svg {
   width: 22px;
   height: 22px;

@@ -1698,6 +1698,15 @@ export class VillageWorld {
     this.placeAt(tileX * TILE, tileY * TILE, width / 2, height / 2)
   }
 
+  /** Centres the view on a walker; false when there is no such walker. */
+  locate(walkerId: string): boolean {
+    const walker = this.walkers.get(walkerId)
+    if (!walker) return false
+    this.cameraMoved = true
+    this.centerOn(walker.x / TILE, walker.y / TILE)
+    return true
+  }
+
   /** Visible part of the map in tiles. */
   private visibleArea() {
     const topLeft = this.world.toLocal({ x: 0, y: 0 })

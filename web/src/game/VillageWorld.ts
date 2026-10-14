@@ -16,6 +16,7 @@ import {
   PIER_TILES,
   SIGNBOARD,
   SURVEY_PEG,
+  TRAMPLED_EARTH,
   VEIN_TILES,
   buildingArt,
   constructionArt,
@@ -387,7 +388,7 @@ export class VillageWorld {
         .rect(x - 0.5, bottom - 2, TILE + 1, 2)
         .fill({ color: 0x7a5c3e })
     }
-    ground.addChild(water)
+    ground.addChild(water, this.trampledEarth())
     ground.cacheAsTexture(true)
     this.groundLayer.addChild(ground)
 
@@ -1497,6 +1498,24 @@ export class VillageWorld {
     g.position.set(x * TILE, y * TILE)
     g.zIndex = (y + 1) * TILE - 1
     return g
+  }
+
+  /** An oval of bare earth around the campfire, cut out of whole earth tiles so its edge is round. */
+  private trampledEarth(): Container {
+    const radiusX = 2.6
+    const radiusY = 1.9
+    const view = new Container()
+    for (let y = Math.floor(CAMPFIRE.y - radiusY); y < CAMPFIRE.y + radiusY; y++) {
+      for (let x = Math.floor(CAMPFIRE.x - radiusX); x < CAMPFIRE.x + radiusX; x++) {
+        const sprite = new Sprite(this.tiles.get(TRAMPLED_EARTH))
+        sprite.position.set(x * TILE, y * TILE)
+        view.addChild(sprite)
+      }
+    }
+    const mask = new Graphics().ellipse(CAMPFIRE.x * TILE, CAMPFIRE.y * TILE, radiusX * TILE, radiusY * TILE).fill(0xffffff)
+    view.addChild(mask)
+    view.mask = mask
+    return view
   }
 
   /** Stones and logs centred on the campfire, with the flames playing over them. */

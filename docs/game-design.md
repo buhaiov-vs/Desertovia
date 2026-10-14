@@ -69,8 +69,8 @@ Three tiers. A task's skill level is its only gate besides the village's buildin
 | Tier | Craft level | Typical time to reach (primary experience) |
 |---|---|---|
 | Basic (Laborer) | — | immediately |
-| Journeyman | 3 | ~0.7 active hours |
-| Master | 7 | ~6.6 active hours |
+| Journeyman | 3 | ~0.9 active hours |
+| Master | 7 | ~8.8 active hours |
 
 | Craft | Journeyman (3) | Master (7) | Work by required level |
 |---|---|---|---|
@@ -175,25 +175,58 @@ Experience is tracked per stat. At level 10 the stat is maxed and further experi
 
 **Pacing rule:** every technology (a profession tier, a story project) should be reachable in a few hours of play, about two in four hours. Citizens start with every stat at 0.
 
-### 5.3 Pacing (calculated, primary stat only)
+### 5.3 Pacing (calculated)
 
-One active hour = 40 cycles = 400 experience at full efficiency.
+Calculated by `dotnet run tools/Balance/balance.cs` from the live catalogs. Assumptions: the player renews within 5 seconds, is fed, switches crafts before the challenge rule bites, has no streak, morale or tool bonus, and drops goods at the camp (no storage building nearby).
 
-| Level | XP to next | Cumulative XP | Active hours | Casual (4 h/week) | Regular (10 h/week) |
-|---|---|---|---|---|---|
-| 0 | 50 | 0 | 0 | — | — |
-| 1 | 60 | 50 | 0.1 | — | — |
-| 2 | 170 | 110 | 0.3 | 0.1 wk | — |
-| 3 | 312 | 280 | 0.7 | 0.2 wk | 0.1 wk |
-| 4 | 480 | 592 | 1.5 | 0.4 wk | 0.15 wk |
-| 5 | 671 | 1 072 | 2.7 | 0.7 wk | 0.3 wk |
-| 6 | 882 | 1 743 | 4.4 | 1.1 wk | 0.4 wk |
-| 7 | 1 111 | 2 625 | 6.6 | 1.6 wk | 0.7 wk |
-| 8 | 1 358 | 3 736 | 9.3 | 2.3 wk | 0.9 wk |
-| 9 | 1 620 | 5 094 | 12.7 | 3.2 wk | 1.3 wk |
-| 10 | — | 6 714 | 16.8 | 4.2 wk | 1.7 wk |
+**One cycle in real time.** Work (90 s) + a one-way walk to where the goods are dropped + renewing. Gathering takes 119–123 s, so **one active hour ≈ 30 cycles ≈ 300 primary experience**. Work at the camp (tend the fire, build, deliver) has no walk: 95 s, 38 per hour.
 
-Skills use the same curve. A Journeyman (craft 3) takes about 0.7 hours of its craft; a Master (craft 7) about 6.6 hours, by which time the primary stat is near 7 as well, so the stat gate (section 3.1) only holds back a craft whose stats are spent elsewhere. The talent cap (30 stat points in total) still keeps a citizen from mastering everything, and the challenge rule (section 5.4) keeps them from farming trivial tasks. The energy-capped minimum times of the old, slower curve no longer apply and have not been recalculated.
+| Level | XP to next | Cumulative XP | Full cycles | Active hours |
+|---|---|---|---|---|
+| 1 | 60 | 50 | 5 | 0.2 |
+| 2 | 170 | 110 | 11 | 0.4 |
+| 3 | 312 | 280 | 28 | 0.9 |
+| 4 | 480 | 592 | 60 | 2.0 |
+| 5 | 671 | 1 072 | 108 | 3.6 |
+| 6 | 882 | 1 743 | 175 | 5.8 |
+| 7 | 1 111 | 2 625 | 263 | 8.8 |
+| 8 | 1 358 | 3 736 | 374 | 12.5 |
+| 9 | 1 620 | 5 094 | 510 | 17.0 |
+| 10 | — | 6 714 | 672 | 22.4 |
+
+The talent cap costs about 670 full cycles (22 active hours) spread as 6 in every stat, or about 1 550 (52 hours) as 10/10/10; a full cycle gives 10 primary and 3 secondary experience.
+
+**Energy sets the daily budget** (full-experience cycles per day, section 5.5; beds from section 4 of [cooperative-building.md](cooperative-building.md)):
+
+| Endurance | Pool | Under the trees (× 0.5) | Lean-to (× 0.75) | Hut (× 1) |
+|---|---|---|---|---|
+| 0 | 60 | 36 (1.2 h) | 54 (1.8 h) | 72 (2.4 h) |
+| 4 | 92 | 55 (1.8 h) | 83 (2.8 h) | 110 (3.7 h) |
+| 10 | 140 | 84 (2.8 h) | 126 (4.2 h) | 168 (5.6 h) |
+
+A fresh citizen has about two active hours before the pool is empty.
+
+**Calendar time** (sleeping in a hut; under the trees only slows the daily 3 h and longer players):
+
+| Player | Level 4 | Level 5 | Master craft (7) | Level 10 |
+|---|---|---|---|---|
+| One 3 h stream a week | day 1 | day 8 | day 22 | day 50 (8 streams) |
+| Three 3 h streams a week | day 1 | day 3 | day 8 | day 17 |
+| 1 h every day | day 2 | day 4 | day 9 | day 23 |
+| 8 h every day | day 1 | day 2 | day 3 | day 7 |
+| Bot, 24 h a day | day 1 | day 1 | day 3 | day 6 |
+
+**Discoveries.** A fresh citizen qualifies as a researcher in 0.4 active hours for the Camp era, 0.9–2 hours for the Village era (Mining, Strength 4, is the slowest) and 2.3–6.1 hours for the Town era (Mechanics and Forging). Research itself is 5.4 person-hours for the whole tree; the buildings it needs are 13–20 person-hours.
+
+**Village work** (person-hours with gathering the material, stats 0 to 3): a hut, granary, library or barracks 1.6–2.8 each; palisade 4–7; Bell Tower 7–9; Great Granary 8–13; Tsar Bridge 9–14; the whole story chain 35–52.
+
+Findings:
+
+- Content runs out long before citizens stop growing: the story chain and the discovery tree together are 50–70 person-hours, about three streams for ten regular players, while one citizen grows for 22–52 active hours.
+- Tired work still counts for the village: results round to whole units with a minimum of 1, so a tired, weak citizen does a full unit of construction labor, building, survey or research per cycle. Tiredness bites only on gathering, where it costs about half.
+- The pool caps a weekly stream at about two hours of experience; the rest of the stream earns none.
+- A vigor drink every 2 hours gives up to +80 energy over an 8-hour day, more than an Endurance 0 citizen regenerates in a hut.
+- Short tasks (birds 45 s, carry to storage 15 s) exceed 40 cycles per hour; energy still costs 1 per cycle, so experience stays bounded.
 
 ### 5.4 Challenge: no farming trivial tasks
 
@@ -367,7 +400,7 @@ Applied to the yield of everyone working on the same project.
 | Farming the easiest task | Same base experience for all tasks + Challenge multiplier |
 | Grinding useless resources | Storage caps + Overflow multiplier |
 | One player carrying everything | Talent cap (30 total stat levels), project contribution cap (20%) |
-| Rushing levels | Energy pool and challenge multiplier; the curve itself is gentle on purpose (stat 10 in about 17 active hours) so technologies stay reachable in a few hours |
+| Rushing levels | Energy pool and challenge multiplier; the curve itself is gentle on purpose (stat 10 in about 22 active hours) so technologies stay reachable in a few hours |
 | Daily reset exploits / timezones | Continuous energy regeneration instead of daily reset |
 | Multiple accounts | One Citizen per Account per Village; Accounts are tied to a verified identity (platform login or streamer invite) |
 | Suspicious automation patterns | Server heuristic: very low variance in renewal delay over hours → flag for the streamer, optional confirmation challenge |

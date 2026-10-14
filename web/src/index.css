@@ -1805,10 +1805,16 @@ input[aria-invalid='true'] {
   height: 100%;
 }
 
-/* The minimap and the interface toggle take the top right corner; the top bar and the guide keep clear of them. */
+/* The minimap takes the top right corner with the resources in two rows beside it; the guide keeps clear of it. */
 @media (min-width: 721px) {
   .hud-top {
-    padding-right: 300px;
+    padding-right: 248px;
+  }
+
+  .hud-resources {
+    display: grid;
+    grid-template-columns: repeat(var(--columns), auto);
+    padding: 0;
   }
 
   .hud-side {
@@ -1829,12 +1835,12 @@ input[aria-invalid='true'] {
   }
 }
 
-/* Left of the minimap; stays where it is when the rest of the interface is hidden, so it is found again. */
+/* Under the minimap; stays where it is when the rest of the interface is hidden, so it is found again. */
 .ui-toggle {
   position: absolute;
   z-index: 2;
-  top: max(10px, env(safe-area-inset-top));
-  right: 260px;
+  top: calc(max(10px, env(safe-area-inset-top)) + 186px);
+  right: 12px;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { isInjured, type Catalog, type Citizen, type CitizenSummary, type Structure, type VillageState } from '../api'
 import { useI18n } from '../i18n'
 import { TABS, tabsFor, type MenuTab } from './menuTabs'
@@ -32,7 +32,7 @@ export function TopBar({
     <div className="hud-top">
       <div className="hud-top-spacer" />
       <ProjectBanner village={village} />
-      <div className="hud-resources">
+      <div className="hud-resources" style={{ '--columns': Math.ceil((HUD_RESOURCES.length + (dayNight ? 3 : 2)) / 2) } as CSSProperties}>
         {HUD_RESOURCES.map((kind) => {
           const resource = village.resources.find((r) => r.kind === kind)
           return (

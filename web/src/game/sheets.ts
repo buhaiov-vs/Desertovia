@@ -43,7 +43,7 @@ export const tileKey = (tile: TileRef) => ('art' in tile ? tile.art : `${tile.sh
 export function tileSize(tile: TileRef) {
   if (!('art' in tile)) return { width: TILE, height: TILE }
   const { w, h } = atlas.frames[tile.art].frame
-  return { width: w, height: h }
+  return { width: w / atlas.meta.scale, height: h / atlas.meta.scale }
 }
 
 export class TileSet {
@@ -101,6 +101,7 @@ export function tileStyle(tile: TileRef, scale: number): CSSProperties {
   if ('art' in tile) {
     const { x, y, w, h } = atlas.frames[tile.art].frame
     const size = atlas.meta.size
+    scale /= atlas.meta.scale
     return {
       ...common,
       width: w * scale,

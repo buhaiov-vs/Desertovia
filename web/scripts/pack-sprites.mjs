@@ -1,6 +1,7 @@
 // Packs the game-size exports of art/generated into one atlas for PixiJS: src/assets/sprites.png and sprites.json.
 // Frames are named after their export file, without the folder, the extension and a trailing "-v2".
 // An export with numbered frames beside it ("name-frame-1.png", ...) is packed as those frames and listed as an animation.
+// The atlas holds every frame at twice its size in world pixels, from the "name-2x.png" files of reshrink-sprites.mjs.
 // Run with `npm run sprites` after adding or regenerating art.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
@@ -13,7 +14,9 @@ const output = resolve(here, '../src/assets')
 const CATALOGS = ['catalog.json', 'construction-catalog.json', 'pond-catalog.json', 'scenery-variants-catalog.json']
 /** Citizens, the Tsar and the Elder wait for skins that keep the recolouring of the character creator. */
 const SKIPPED = /^character-(citizen|tsar|elder)/
-const ATLAS_WIDTH = 512
+const ATLAS_WIDTH = 1024
+/** Atlas pixels per world pixel. */
+const SCALE = 2
 /** Transparent pixels between frames, so a zoomed view never samples a neighbour. */
 const GAP = 2
 
@@ -40,7 +43,9 @@ for (const catalog of CATALOGS) {
 
 const images = await Promise.all(
   [...files].map(async ([name, file]) => {
-    const { data, info } = await sharp(join(art, file)).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+    const doubled = file.replace(/\.png$/, '-2x.png')
+    if (!existsSync(join(art, doubled))) throw new Error(`${doubled} is missing: run node scripts/reshrink-sprites.mjs`)
+    const { data, info } = await sharp(join(art, doubled)).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
     return { name, data, width: info.width, height: info.height }
   }),
 )
@@ -74,6 +79,6 @@ await sharp({ create: { width: ATLAS_WIDTH, height, channels: 4, background: { r
   .png({ compressionLevel: 9, palette: false })
   .toFile(join(output, 'sprites.png'))
 
-const atlas = { frames, animations, meta: { image: 'sprites.png', format: 'RGBA8888', size: { w: ATLAS_WIDTH, h: height }, scale: 1 } }
+const atlas = { frames, animations, meta: { image: 'sprites.png', format: 'RGBA8888', size: { w: ATLAS_WIDTH, h: height }, scale: SCALE } }
 writeFileSync(join(output, 'sprites.json'), `${JSON.stringify(atlas, null, 1)}\n`)
 console.log(`${images.length} frames, ${Object.keys(animations).length} animations, ${ATLAS_WIDTH}x${height}`)

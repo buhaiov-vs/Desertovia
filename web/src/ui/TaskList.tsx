@@ -183,7 +183,6 @@ export function TaskCard({
           <span className="task-meta task-danger">
             {t('task.danger', {
               enemies: task.danger.enemies.map((kind) => i18n.enemy(kind).toLowerCase()).join(', '),
-              percent: i18n.amount(task.danger.chance * 100),
             })}
           </span>
         )}

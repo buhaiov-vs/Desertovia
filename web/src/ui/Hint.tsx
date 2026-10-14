@@ -3,7 +3,19 @@ import { createPortal } from 'react-dom'
 
 const MARGIN = 8
 
-let closeOpenHint: (() => void) | null = null
+let closeOpenPopup: (() => void) | null = null
+
+/** One top-bar popup is open at a time: opening this one closes whichever was open before. */
+export function useSinglePopup(open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return
+    closeOpenPopup?.()
+    closeOpenPopup = close
+    return () => {
+      if (closeOpenPopup === close) closeOpenPopup = null
+    }
+  }, [open])
+}
 
 /**
  * A game term the player can click or tap to read how it works.
@@ -15,12 +27,11 @@ export function Hint({ text, children, className }: { text: ReactNode; children:
   const termRef = useRef<HTMLButtonElement>(null)
   const popupRef = useRef<HTMLSpanElement>(null)
   const id = useId()
+  useSinglePopup(open, () => setOpen(false))
 
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
-    closeOpenHint?.()
-    closeOpenHint = close
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node
       if (!termRef.current?.contains(target) && !popupRef.current?.contains(target)) close()
@@ -34,7 +45,6 @@ export function Hint({ text, children, className }: { text: ReactNode; children:
     window.addEventListener('keydown', onKeyDown, true)
     window.addEventListener('resize', close)
     return () => {
-      if (closeOpenHint === close) closeOpenHint = null
       document.removeEventListener('pointerdown', onPointerDown, true)
       window.removeEventListener('keydown', onKeyDown, true)
       window.removeEventListener('resize', close)

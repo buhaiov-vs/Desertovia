@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { RAIN, type Citizen, type CitizenSummary, type Forecast, type Weather, type WeatherKind } from '../api'
 import { useI18n } from '../i18n'
+import { useSinglePopup } from './Hint'
 
 const percent = (multiplier: number) => Math.round(Math.abs(multiplier - 1) * 100)
 
@@ -34,6 +35,7 @@ export function WeatherChip({
   const [error, setError] = useState<string | null>(null)
   const chip = useRef<HTMLButtonElement>(null)
   const [place, setPlace] = useState<CSSProperties>()
+  useSinglePopup(open, () => setOpen(false))
 
   useLayoutEffect(() => {
     if (!open) return

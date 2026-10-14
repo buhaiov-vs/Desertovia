@@ -32,11 +32,13 @@ export function TopBar({
   const { t } = i18n
   return (
     <div className="hud-top">
-      <div className="hud-title">
-        <span className="village-name">{village.name}</span>
-        {tsar && <span className="badge">{t('hud.tsar')}</span>}
-        {citizen?.isGovernor && <span className="badge">{t('hud.governor')}</span>}
-      </div>
+      {tsar || citizen?.isGovernor ? (
+        <div className="hud-title">
+          <span className="badge">{t(tsar ? 'hud.tsar' : 'hud.governor')}</span>
+        </div>
+      ) : (
+        <div className="hud-top-spacer" />
+      )}
       <ProjectBanner village={village} />
       <div className="hud-resources">
         {HUD_RESOURCES.map((kind) => {

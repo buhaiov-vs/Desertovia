@@ -246,10 +246,6 @@ kbd {
   gap: 0.6rem;
 }
 
-.village-name {
-  font-weight: 700;
-}
-
 .project-banner {
   padding: 0.4rem 0.9rem 0.55rem;
   min-width: min(420px, 60vw);
@@ -2106,6 +2102,10 @@ textarea {
   .hud-title {
     justify-self: stretch;
     padding: 0.25rem 0.5rem;
+  }
+
+  .hud-top-spacer {
+    display: none;
   }
 
   .project-banner {

@@ -189,7 +189,7 @@ export class VillageWorld {
   private readonly lookTextures = new Map<string, Texture>()
   private readonly world = new Container()
   private readonly objects = new Container()
-  private readonly wildlife: WildlifeLayer
+  private readonly wildlife = new WildlifeLayer(this.objects)
   private readonly enemies = new EnemyLayer(this.objects)
   /** Guards ran out to meet an attack and must be sent back to their posts once it is over. */
   private guardsOut = false
@@ -274,7 +274,6 @@ export class VillageWorld {
     this.app = app
     this.tiles = tiles
     this.painter = painter
-    this.wildlife = new WildlifeLayer(this.objects, tiles)
 
     this.objects.sortableChildren = true
     this.projectLayer.sortableChildren = true

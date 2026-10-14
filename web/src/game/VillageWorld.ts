@@ -62,6 +62,7 @@ const WORLD_HEIGHT = MAP_HEIGHT * TILE
 const WALK_SPEED = 26
 /** Hunters run after their prey; near the end of the chase they go faster if they must to reach it in time. */
 const RUN_SPEED = 44
+const LONG_PRESS_MS = 500
 const INJURED_ICON = 'injured'
 const INJURED_TINT = 0xffa898
 const HUNTER_HOLD_DISTANCE = TILE * 0.9
@@ -1716,6 +1717,8 @@ export class VillageWorld {
   private bindPointer() {
     const canvas = this.app.canvas
     canvas.style.touchAction = 'none'
+    canvas.style.userSelect = 'none'
+    canvas.style.setProperty('-webkit-touch-callout', 'none')
     const pointers = new Map<number, { x: number; y: number }>()
     let pinchDistance = 0
     const local = (event: PointerEvent) => {
@@ -1731,16 +1734,35 @@ export class VillageWorld {
       }
     }
 
+    /** Walks to the point, even onto a tree or a building. */
+    const walkTo = (screen: { x: number; y: number }) => {
+      if (this.onPick) return
+      const point = this.world.toLocal(screen)
+      this.onWorldPick?.(null, screen, { x: point.x / TILE, y: point.y / TILE })
+    }
+    let longPress = 0
+
     canvas.addEventListener('pointerdown', (event) => {
       pointers.set(event.pointerId, local(event))
       canvas.setPointerCapture(event.pointerId)
+      window.clearTimeout(longPress)
       if (pointers.size === 2) {
         // Two fingers: pinch zoom takes over, and the gesture never counts as a click on a plot.
         pinchDistance = pinch().distance
         if (this.dragging) this.dragging.moved = true
         return
       }
-      this.dragging = { x: event.clientX, y: event.clientY, panX: this.panX, panY: this.panY, moved: false }
+      const press = { x: event.clientX, y: event.clientY, panX: this.panX, panY: this.panY, moved: false }
+      this.dragging = press
+      if (event.pointerType === 'mouse') return
+      // Touch has no right click: holding a finger still walks there instead.
+      const screen = local(event)
+      longPress = window.setTimeout(() => {
+        if (this.dragging !== press || press.moved || pointers.size !== 1) return
+        press.moved = true
+        navigator.vibrate?.(30)
+        walkTo(screen)
+      }, LONG_PRESS_MS)
     })
     canvas.addEventListener('pointermove', (event) => {
       if (!pointers.has(event.pointerId)) return
@@ -1751,6 +1773,7 @@ export class VillageWorld {
       pinchDistance = current.distance
     })
     const release = (event: PointerEvent) => {
+      window.clearTimeout(longPress)
       pointers.delete(event.pointerId)
       pinchDistance = 0
       if (pointers.size === 1 && this.dragging) {
@@ -1770,11 +1793,7 @@ export class VillageWorld {
     canvas.addEventListener('pointerup', (event) => {
       if (!this.dragging || this.dragging.moved) return
       if (event.button === 2) {
-        // Right click always walks, even onto a tree or a building.
-        if (this.onPick) return
-        const screen = local(event)
-        const point = this.world.toLocal(screen)
-        this.onWorldPick?.(null, screen, { x: point.x / TILE, y: point.y / TILE })
+        walkTo(local(event))
         return
       }
       if (!this.onPick) {

@@ -1842,6 +1842,15 @@ input[aria-invalid='true'] {
   .hud-side {
     padding-right: 252px;
   }
+
+  /* In the bottom left corner, level with the bottom bar on the right. */
+  .chat-panel {
+    position: absolute;
+    left: 12px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    margin: 0;
+    width: min(400px, 32vw);
+  }
 }
 
 @media (max-width: 720px) {

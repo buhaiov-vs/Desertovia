@@ -22,7 +22,7 @@ export function WeatherChip({
   onForecast,
 }: {
   weather: Weather
-  /** The player's citizen; null for the Governor and watchers. */
+  /** The player's citizen; null for the Tsar and watchers. */
   citizen: Citizen | null | undefined
   citizens: Map<string, CitizenSummary>
   onForecast: (rain: boolean) => Promise<void>

@@ -10,11 +10,11 @@ import {
   visitEveryTab,
 } from './fixtures.ts'
 
-test.describe('governor', () => {
+test.describe('tsar', () => {
   test('founds a village and opens every panel', async ({ page }) => {
     test.slow()
     await page.goto('/new')
-    await developmentLogin(page, uniqueName('governor'))
+    await developmentLogin(page, uniqueName('tsar'))
 
     await expect(page.getByRole('heading', { name: 'Found a village' })).toBeVisible()
     const submit = page.getByRole('button', { name: 'Found the village' })
@@ -25,7 +25,7 @@ test.describe('governor', () => {
 
     await expect(page).toHaveURL(/\/v\/[\w-]+$/)
     await expectVillageView(page)
-    await expect(page.locator('.hud-top .badge', { hasText: 'Governor' })).toBeVisible()
+    await expect(page.locator('.hud-top .badge', { hasText: 'Tsar' })).toBeVisible()
 
     await openMenu(page)
     await visitEveryTab(page, ['Village', 'Build', 'Tech', 'Settings'])

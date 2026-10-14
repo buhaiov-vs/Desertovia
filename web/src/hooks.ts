@@ -57,7 +57,7 @@ export interface LiveVillageHandlers {
 
 /**
  * Loads a village and keeps it live through the SignalR hub.
- * `resident`: the player has a citizen here; with the Governor, the only ones who get the chat.
+ * `resident`: the player has a citizen here; with the Tsar, the only ones who get the chat.
  */
 export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVillageHandlers = {}) {
   const [state, setState] = useState<VillageState | null>(null)

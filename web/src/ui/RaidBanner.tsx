@@ -53,7 +53,7 @@ export function RaidBanner({
   citizens: Map<string, CitizenSummary>
   catalog: Catalog
   now: number
-  /** The guard task the player's citizen can take; null for the Governor and visitors. */
+  /** The guard task the player's citizen can take; null for the Tsar and visitors. */
   watch: Task | null
   pending: boolean
   onWatch: (task: Task) => void
@@ -85,7 +85,7 @@ export function RaidBanner({
   )
 }
 
-/** The Governor's control of the undead event, with the record of the last raids. */
+/** The Tsar's control of the undead event, with the record of the last raids. */
 export function UndeadPanel({
   village,
   pending,

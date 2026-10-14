@@ -14,15 +14,12 @@ import { WeatherChip } from './WeatherChip'
 export function TopBar({
   village,
   catalog,
-  dayNight,
   citizen,
   citizens,
   onForecast,
 }: {
   village: VillageState
   catalog: Catalog
-  /** Development only: the toggle between daylight and night; null hides it. */
-  dayNight: { night: boolean; onToggle: () => void } | null
   citizen: Citizen | null | undefined
   citizens: Map<string, CitizenSummary>
   onForecast: (rain: boolean) => Promise<void>
@@ -33,7 +30,7 @@ export function TopBar({
     <div className="hud-top">
       <div className="hud-top-spacer" />
       <ProjectBanner village={village} />
-      <div className="hud-resources" style={{ '--columns': Math.ceil((HUD_RESOURCES.length + (dayNight ? 3 : 2)) / 2) } as CSSProperties}>
+      <div className="hud-resources" style={{ '--columns': Math.ceil((HUD_RESOURCES.length + 2) / 2) } as CSSProperties}>
         {HUD_RESOURCES.map((kind) => {
           const resource = village.resources.find((r) => r.kind === kind)
           return (
@@ -60,11 +57,6 @@ export function TopBar({
           </Hint>
         </span>
         <WeatherChip village={village} catalog={catalog} citizen={citizen} citizens={citizens} onForecast={onForecast} />
-        {dayNight && (
-          <button className="night-toggle" onClick={dayNight.onToggle} title={t('hud.dayNightTitle')} aria-pressed={dayNight.night}>
-            {dayNight.night ? t('hud.day') : t('hud.night')}
-          </button>
-        )}
       </div>
     </div>
   )

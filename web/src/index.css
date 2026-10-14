@@ -2237,3 +2237,20 @@ textarea {
     display: none;
   }
 }
+
+.update-prompt {
+  position: fixed;
+  left: 50%;
+  top: calc(12px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: calc(100vw - 16px);
+  padding: 0.5rem 0.75rem;
+  background: var(--parchment);
+  border: 2px solid var(--wood-dark);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}

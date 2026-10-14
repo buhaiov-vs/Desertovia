@@ -8,6 +8,9 @@ export const ru: Dictionary = {
     host: 'ведущий',
     toHome: 'На главную',
     language: 'Язык',
+    'update.ready': 'Готова новая версия игры.',
+    'update.reload': 'Обновить',
+    'update.later': 'Позже',
 
     'hud.moraleTitle': 'Дух города',
     'hud.menu': 'Меню',

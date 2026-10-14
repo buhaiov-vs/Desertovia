@@ -7,6 +7,9 @@ export const en = {
     host: 'host',
     toHome: 'Back to home',
     language: 'Language',
+    'update.ready': 'A new version of the game is ready.',
+    'update.reload': 'Reload',
+    'update.later': 'Later',
 
     'hud.moraleTitle': 'Village morale',
     'hud.menu': 'Menu',

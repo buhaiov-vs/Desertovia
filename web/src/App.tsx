@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router'
 import { useI18n } from './i18n'
 import { CreateVillagePage } from './pages/CreateVillagePage'
 import { HomePage } from './pages/HomePage'
+import { UpdatePrompt } from './ui/UpdatePrompt'
 
 // The map pages carry the PixiJS renderer; the home page does not wait for it.
 const GamePage = lazy(() => import('./pages/GamePage').then((module) => ({ default: module.GamePage })))
@@ -24,6 +25,7 @@ export function App() {
           <Route path="/v/:slug/dungeon/:runId" element={<DungeonPage />} />
         </Routes>
       </Suspense>
+      <UpdatePrompt />
     </BrowserRouter>
   )
 }

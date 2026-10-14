@@ -180,6 +180,22 @@ function pseudo(seed: number, salt: number): number {
   return (hash(`${seed}:${salt}`) % 10000) / 10000
 }
 
+/** Largest shift, in pixels, of a plant away from the middle of its tile, sideways and up or down. */
+const SCATTER_X = 5
+const SCATTER_Y = 4
+
+/**
+ * Whole-pixel shift of the plant growing on the tile, so woods and meadows do not look like a grid. It depends only on
+ * the tile, so a tree, its stump and the tree growing back all stand on the same spot.
+ */
+function scatter(x: number, y: number): { dx: number; dy: number } {
+  const value = hash(`scatter:${Math.floor(x)},${Math.floor(y)}`)
+  return {
+    dx: Math.round(((value & 0xffff) / 0xffff - 0.5) * 2 * SCATTER_X),
+    dy: Math.round(((value >>> 16) / 0xffff - 0.5) * 2 * SCATTER_Y),
+  }
+}
+
 /** Depth of a building drawn on the plot whose top row is `y`: a rope bridge lies flat, so walkers cross on top of it. */
 const groundLevel = (kind: string, y: number) => (kind === ROPE_BRIDGE ? y * TILE : (y + 3) * TILE)
 
@@ -400,14 +416,20 @@ export class VillageWorld {
       this.objects.addChild(cull(view))
       this.scenery.push({ view, x: Math.floor(x), y: Math.floor(y) })
     }
-    for (const placed of layout.decor) addScenery(this.tileSprite(placed.tile, placed.x, placed.y), placed.x, placed.y)
+    for (const placed of layout.decor) {
+      addScenery(this.scatteredSprite(this.tileSprite(placed.tile, placed.x, placed.y), placed.x, placed.y), placed.x, placed.y)
+    }
     for (const mountain of layout.mountains) addScenery(this.peakView(mountain.peak, mountain.x, mountain.y), mountain.x, mountain.y)
     if (wilds) {
       addScenery(this.caveView(wilds.caveX, wilds.caveY), wilds.caveX, wilds.caveY)
       addScenery(this.lookoutView(wilds.lookoutX, wilds.lookoutY), wilds.lookoutX, wilds.lookoutY)
     }
-    for (const sapling of layout.saplings) addScenery(this.tileSprite(art('prop-sapling'), sapling.x, sapling.y), sapling.x, sapling.y)
-    for (const bush of layout.bushes) addScenery(this.standingSprite(art('prop-berry-bush'), bush.x, bush.y + 0.3), bush.x, bush.y)
+    for (const sapling of layout.saplings) {
+      addScenery(this.scatteredSprite(this.tileSprite(art('prop-sapling'), sapling.x, sapling.y), sapling.x, sapling.y), sapling.x, sapling.y)
+    }
+    for (const bush of layout.bushes) {
+      addScenery(this.scatteredSprite(this.standingSprite(art('prop-berry-bush'), bush.x, bush.y + 0.3), bush.x, bush.y), bush.x, bush.y)
+    }
     for (const reed of layout.reeds) this.objects.addChild(cull(this.standingSprite(art('prop-reeds'), reed.x, reed.y)))
     const church = MONASTERY.church
     this.objects.addChild(this.tileSprite(church.tile, church.x, church.y + 3))
@@ -433,7 +455,7 @@ export class VillageWorld {
       const [x, y] = key.split(',').map(Number)
       terrain[tileIndex(x, y)] = Terrain.Grass
       changed = true
-      const stump = this.tileSprite(art('prop-tree-stump'), x, y)
+      const stump = this.scatteredSprite(this.tileSprite(art('prop-tree-stump'), x, y), x, y)
       stump.cullable = true
       this.objects.addChild(stump)
       this.stumps.set(key, stump)
@@ -444,7 +466,7 @@ export class VillageWorld {
       if (this.trees.has(key)) continue
       this.stumps.get(key)?.destroy()
       this.stumps.delete(key)
-      const view = this.tileSprite(treeAt(tree.x, tree.y).tile, tree.x, tree.y)
+      const view = this.scatteredSprite(this.tileSprite(treeAt(tree.x, tree.y).tile, tree.x, tree.y), tree.x, tree.y)
       view.cullable = true
       this.objects.addChild(view)
       this.trees.set(key, view)
@@ -1427,6 +1449,14 @@ export class VillageWorld {
     const sprite = new Sprite(this.tiles.get(tile))
     sprite.position.set(x * TILE, (y + 1) * TILE - tileSize(tile).height)
     sprite.zIndex = (y + 1) * TILE
+    return sprite
+  }
+
+  /** A plant standing on its tile, shifted off the middle by the tile's own `scatter`. */
+  private scatteredSprite(sprite: Sprite, x: number, y: number): Sprite {
+    const { dx, dy } = scatter(x, y)
+    sprite.position.set(sprite.x + dx, sprite.y + dy)
+    sprite.zIndex += dy
     return sprite
   }
 

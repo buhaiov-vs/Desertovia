@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { RAIN, type Citizen, type CitizenSummary, type Forecast, type Weather, type WeatherKind } from '../api'
 import { useI18n } from '../i18n'
 import { useSinglePopup } from './Hint'
@@ -35,7 +35,17 @@ export function WeatherChip({
   const [error, setError] = useState<string | null>(null)
   const chip = useRef<HTMLButtonElement>(null)
   const [place, setPlace] = useState<CSSProperties>()
+  const root = useRef<HTMLSpanElement>(null)
   useSinglePopup(open, () => setOpen(false))
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    return () => document.removeEventListener('pointerdown', onPointerDown, true)
+  }, [open])
 
   useLayoutEffect(() => {
     if (!open) return
@@ -77,7 +87,7 @@ export function WeatherChip({
   }
 
   return (
-    <span className="weather">
+    <span ref={root} className="weather">
       <button
         ref={chip}
         className={`resource-chip weather-chip weather-${weather.kind.toLowerCase()}${weather.raining ? ' raining' : ''}${weather.night ? ' night' : ''}`}
@@ -122,7 +132,7 @@ export function WeatherChip({
           {synoptic && (
             <div className="weather-synoptic">
               <p className="small">
-                {t('weather.synoptic', { percent: Math.round((synoptic.forecastReliability ?? 0) * 100) })}
+                {t('weather.synoptic')}
               </p>
               {weather.next ? null : rested ? (
                 <div className="weather-buttons">

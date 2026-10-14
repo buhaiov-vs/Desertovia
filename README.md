@@ -65,6 +65,26 @@ docker compose -f deploy/docker-compose.yml up -d --build
 - Only Caddy publishes ports (80 and 443). PostgreSQL is on an internal network without internet access.
 - Stop with `docker compose -f deploy/docker-compose.yml down`. Data stays in Docker volumes; `down -v` deletes it.
 
+### Redeploy from main
+
+`/opt/desertod` on the server is a checkout of `main`. A restricted SSH key can redeploy it and nothing else: whatever command the caller sends, the server runs `/usr/local/bin/desertod-redeploy` (a root-owned copy of `deploy/redeploy-main.sh`), which fetches `main` and runs `docker compose up -d --build`.
+
+```powershell
+ssh -i $HOME\.ssh\desertod-redeploy deploy@91-98-8-14.sslip.io
+```
+
+Give someone redeploy rights (run from the repository root with your own unrestricted key; the `.pub` file is their public key):
+
+```powershell
+scp deploy/redeploy-main.sh deploy/setup-redeploy.sh $HOME\.ssh\desertod-redeploy.pub deploy@91-98-8-14.sslip.io:/tmp/
+ssh deploy@91-98-8-14.sslip.io "sh /tmp/setup-redeploy.sh /tmp/desertod-redeploy.pub"
+```
+
+- The first run creates the server's read-only GitHub key and prints it; add it under the repository's Settings → Deploy keys and run the script again.
+- Run the script again after changing `deploy/redeploy-main.sh`: the server keeps its own copy, so a merged change does not alter what restricted keys can do until the owner installs it.
+- Files that are tracked in git are overwritten on every redeploy; keep server settings in `deploy/.env` only.
+- Take the rights back by deleting the key's line from `~/.ssh/authorized_keys` on the server.
+
 ### Database backups
 
 The `postgres-backup` service dumps the database every day at `BACKUP_TIME` (UTC) into `BACKUP_DIR` (default `deploy/backups/`) as `desertod-YYYY-MM-DD_HHMM.dump` and deletes dumps older than `BACKUP_KEEP_DAYS` (default 30). The folder is on the server disk, so the Hetzner server backup carries the dumps too; set `BACKUP_TIME` before the Hetzner backup window.

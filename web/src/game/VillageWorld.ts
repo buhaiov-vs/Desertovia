@@ -1,4 +1,4 @@
-import { Application, CanvasSource, ColorMatrixFilter, Container, Culler, Graphics, Sprite, Text, Texture, type Ticker } from 'pixi.js'
+import { AnimatedSprite, Application, CanvasSource, Container, Culler, Graphics, Sprite, Text, Texture, type Ticker } from 'pixi.js'
 import { Minimap, type MinimapMarkers } from './Minimap'
 import { isRipe, plotPosition, type AnimalKind, type Appearance, type BuildingDefinition, type Catalog, type CitizenSummary, type FieldBed, type Site, type Storage, type StorageDefinition, type TileArea, type TilePoint, type Tsar, type VillageState, type Wilds } from '../api'
 import { WildlifeLayer } from './animals'
@@ -6,10 +6,19 @@ import { EnemyLayer } from './enemies'
 import { CharacterPainter, appearanceKey } from './appearance'
 import { darknessAt } from './daylight'
 import { Fog, type Viewer } from './fog'
-import { TILE, TileSet, battle, dungeon, tileKey, town, type TileRef } from './sheets'
+import { TILE, TileSet, art, dungeon, tileKey, tileSize, town, type TileRef } from './sheets'
 import {
-  BUILDING_TILES,
+  BLUEPRINT_GROUND,
+  BRIDGE_TILES,
   CAMPFIRE,
+  FARM_TILES,
+  PALLET,
+  PIER_TILES,
+  SIGNBOARD,
+  SURVEY_PEG,
+  VEIN_TILES,
+  buildingArt,
+  constructionArt,
   MAP_HEIGHT,
   MAP_LEFT,
   MONASTERY,
@@ -52,7 +61,6 @@ import {
   WET_BED,
   type BuildingCell,
   type NatureKind,
-  type PlacedTile,
   type WalkBlock,
   type WorldTarget,
 } from './worldMap'
@@ -97,7 +105,8 @@ const FOG_SECONDS = 0.1
 const BUILDING_SIGHT = 4
 /** Until the catalog arrives; the server sends the real radius with the rules. */
 const DEFAULT_SIGHT = 6
-const PEAK_SCALE = 2
+/** Frames per second of the campfire flames. */
+const FLAME_SPEED = 8
 
 const NATURE: Partial<Record<number, NatureKind>> = {
   [Terrain.Tree]: 'tree',
@@ -187,7 +196,6 @@ export class VillageWorld {
   private readonly projectLayer = new Container()
   private readonly night = new Graphics()
   private readonly lights = new Graphics()
-  private readonly flames = new Graphics()
   private readonly fog = new Fog()
   private fogUpdatedAt = Number.NEGATIVE_INFINITY
   private readonly screen = new Container()
@@ -245,6 +253,8 @@ export class VillageWorld {
   private scenery: Array<{ view: Container; x: number; y: number }> = []
   /** Standing trees of the forest area by "x,y"; they come and go with the village state. */
   private readonly trees = new Map<string, Container>()
+  /** Stumps of the trees felled while this view was open, by "x,y"; a tree growing back replaces its stump. */
+  private readonly stumps = new Map<string, Container>()
   /** Standing thickets and rockfalls, by tile. */
   private readonly obstacles = new Map<string, Container>()
   /** Kind of the building being placed: a rope bridge goes over the ravine, everything else on the camp land. */
@@ -338,23 +348,6 @@ export class VillageWorld {
       }),
     )
     const water = new Graphics()
-    for (const pond of layout.ponds) {
-      water
-        .ellipse(pond.x * TILE, pond.y * TILE, (pond.radiusX + 0.35) * TILE, (pond.radiusY + 0.35) * TILE)
-        .fill({ color: 0xd8f4ff })
-        .ellipse(pond.x * TILE, pond.y * TILE, pond.radiusX * TILE, pond.radiusY * TILE)
-        .fill({ color: 0x5ac8f0 })
-        .ellipse(pond.x * TILE - pond.radiusX * 3, pond.y * TILE - pond.radiusY * 3, pond.radiusX * 4, pond.radiusY * 2)
-        .fill({ color: 0x8adcf8, alpha: 0.6 })
-    }
-    // Bare rock under the mountain peaks.
-    for (const mountain of layout.mountains) {
-      water
-        .rect(mountain.x * TILE - 1, mountain.y * TILE - 1, TILE + 2, TILE + 2)
-        .fill({ color: 0x8d857b })
-        .rect(mountain.x * TILE + 3, mountain.y * TILE + 4, 4, 3)
-        .fill({ color: 0x7a7268 })
-    }
     // Wet ground with puddles and sedge.
     for (const wet of layout.marsh) {
       const x = wet.x * TILE
@@ -393,12 +386,6 @@ export class VillageWorld {
         .rect(x - 0.5, bottom - 2, TILE + 1, 2)
         .fill({ color: 0x7a5c3e })
     }
-    // Trampled earth around the campfire.
-    water
-      .ellipse(CAMPFIRE.x * TILE, CAMPFIRE.y * TILE, 2.6 * TILE, 1.9 * TILE)
-      .fill({ color: 0x8a6a3f, alpha: 0.55 })
-      .ellipse(CAMPFIRE.x * TILE, CAMPFIRE.y * TILE, 1.6 * TILE, 1.1 * TILE)
-      .fill({ color: 0x7a5a32, alpha: 0.5 })
     ground.addChild(water)
     ground.cacheAsTexture(true)
     this.groundLayer.addChild(ground)
@@ -411,17 +398,18 @@ export class VillageWorld {
       this.objects.addChild(cull(view))
       this.scenery.push({ view, x: Math.floor(x), y: Math.floor(y) })
     }
-    for (const placed of layout.decor) addScenery(this.decorView(placed), placed.x, placed.y)
+    for (const placed of layout.decor) addScenery(this.tileSprite(placed.tile, placed.x, placed.y), placed.x, placed.y)
     for (const mountain of layout.mountains) addScenery(this.peakView(mountain.peak, mountain.x, mountain.y), mountain.x, mountain.y)
     if (wilds) {
       addScenery(this.caveView(wilds.caveX, wilds.caveY), wilds.caveX, wilds.caveY)
       addScenery(this.lookoutView(wilds.lookoutX, wilds.lookoutY), wilds.lookoutX, wilds.lookoutY)
     }
-    for (const bush of layout.bushes) addScenery(this.bushView(bush.x, bush.y), bush.x, bush.y)
-    for (const reed of layout.reeds) this.objects.addChild(cull(this.reedView(reed.x, reed.y)))
+    for (const sapling of layout.saplings) addScenery(this.tileSprite(art('prop-sapling'), sapling.x, sapling.y), sapling.x, sapling.y)
+    for (const bush of layout.bushes) addScenery(this.standingSprite(art('prop-berry-bush'), bush.x, bush.y + 0.3), bush.x, bush.y)
+    for (const reed of layout.reeds) this.objects.addChild(cull(this.standingSprite(art('prop-reeds'), reed.x, reed.y)))
     const church = MONASTERY.church
-    this.objects.addChild(this.buildingView(church.tiles, church.x, church.y, 'blue'))
-    for (const cell of MONASTERY.cells) this.objects.addChild(this.buildingView(MONASTERY.cell, cell.x, cell.y))
+    this.objects.addChild(this.tileSprite(church.tile, church.x, church.y + 3))
+    for (const cell of MONASTERY.cells) this.objects.addChild(this.tileSprite(MONASTERY.cell, cell.x, cell.y + 2))
     this.terrain = layout.terrain
     this.minimap?.setTerrain(layout.terrain)
     this.wildlife.setTerrain(layout.terrain)
@@ -443,11 +431,18 @@ export class VillageWorld {
       const [x, y] = key.split(',').map(Number)
       terrain[tileIndex(x, y)] = Terrain.Grass
       changed = true
+      const stump = this.tileSprite(art('prop-tree-stump'), x, y)
+      stump.cullable = true
+      this.objects.addChild(stump)
+      this.stumps.set(key, stump)
+      this.cullDirty = true
     }
     for (const tree of trees) {
       const key = `${tree.x},${tree.y}`
       if (this.trees.has(key)) continue
-      const view = this.decorView(treeAt(tree.x, tree.y))
+      this.stumps.get(key)?.destroy()
+      this.stumps.delete(key)
+      const view = this.tileSprite(treeAt(tree.x, tree.y).tile, tree.x, tree.y)
       view.cullable = true
       this.objects.addChild(view)
       this.trees.set(key, view)
@@ -993,8 +988,9 @@ export class VillageWorld {
 
   /** A finished building in the 3×3 area of a plot. Storage kinds share names with their building kinds. */
   private finishedView(kind: string, x: number, y: number): Container {
-    const tiles = BUILDING_TILES[kind]
-    if (tiles) return this.buildingView(tiles, x, y)
+    const picture = buildingArt(kind)
+    if (picture) return this.plotSprite(picture, x, y)
+    if (kind === 'Farm') return this.buildingView(FARM_TILES, x, y)
     const view = this.wildView(kind)
     view.position.set(x * TILE, y * TILE)
     view.zIndex = groundLevel(kind, y)
@@ -1019,58 +1015,22 @@ export class VillageWorld {
     return view
   }
 
-  /** Buildings without walls (first-age shelters and racks, the stage), drawn as shapes and loose tiles within a 3×3 tile area. */
+  /** A picture standing on the bottom middle of the 3×3 building area whose top-left tile is (`x`, `y`). */
+  private plotSprite(tile: TileRef, x: number, y: number): Sprite {
+    const sprite = new Sprite(this.tiles.get(tile))
+    sprite.anchor.set(0.5, 1)
+    sprite.position.set((x + PLOT_WIDTH / 2) * TILE, (y + 3) * TILE)
+    sprite.zIndex = (y + 3) * TILE
+    return sprite
+  }
+
+  /** Buildings without a picture (the rope bridge), drawn as shapes within a 3×3 tile area. */
   private wildView(kind: string): Container {
     const view = new Container()
     const g = new Graphics()
     const T = TILE
     const pole = 0x6b4423
-    const reed = 0xc9b458
     switch (kind) {
-      case 'Heap':
-        g.ellipse(1.5 * T, 2.4 * T, 1.4 * T, 0.55 * T).fill({ color: 0x8a6a3f, alpha: 0.7 })
-        for (const [px, py] of [[0.2, 1.7], [2.6, 1.7], [0.4, 2.6], [2.4, 2.6]]) {
-          view.addChild(this.localSprite(town(47), px - 0.5, py - 0.9))
-        }
-        break
-      case 'LeanTo':
-        g.ellipse(1.5 * T, 2.85 * T, 1.4 * T, 0.25 * T).fill({ color: 0x3a2a1a, alpha: 0.35 })
-        g.poly([0.2 * T, 2.9 * T, 2.2 * T, 0.6 * T, 2.8 * T, 0.9 * T, 2.8 * T, 2.9 * T]).fill({ color: reed })
-        for (let line = 0; line < 6; line++) {
-          const t = line / 6
-          g.moveTo((0.3 + t * 2) * T, (2.85 - t * 2.2) * T).lineTo((0.3 + t * 2 + 0.5) * T, 2.9 * T).stroke({ color: 0x9c8a3a, width: 1 })
-        }
-        g.moveTo(0.1 * T, 2.95 * T).lineTo(2.3 * T, 0.45 * T).stroke({ color: pole, width: 3 })
-        g.moveTo(2.8 * T, 2.95 * T).lineTo(2.8 * T, 0.8 * T).stroke({ color: pole, width: 3 })
-        break
-      case 'WoodPile':
-        for (let row = 0; row < 3; row++) {
-          for (let column = 0; column < 3 - row; column++) {
-            view.addChild(this.localSprite(town(106), 0.1 + column * 0.95 + row * 0.47, 1.9 - row * 0.55))
-          }
-        }
-        break
-      case 'StonePile':
-        for (const [px, py] of [[0.2, 1.9], [1, 2.05], [1.8, 1.9], [0.6, 1.4], [1.4, 1.4], [1, 0.9], [2.1, 1.35]]) {
-          view.addChild(this.localSprite(RESOURCE_ICONS.Stone, px, py))
-        }
-        break
-      case 'Stage':
-        for (let column = 0; column < 3; column++) view.addChild(this.localSprite(town(73), column, 1.9))
-        for (const px of [0, 2]) {
-          view.addChild(this.localSprite(town(47), px, 1))
-          view.addChild(this.localSprite(battle(70), px, 0.15))
-        }
-        break
-      case 'DryingRack':
-        g.moveTo(0.4 * T, 2.9 * T).lineTo(0.4 * T, 1 * T).stroke({ color: pole, width: 3 })
-        g.moveTo(2.6 * T, 2.9 * T).lineTo(2.6 * T, 1 * T).stroke({ color: pole, width: 3 })
-        g.moveTo(0.2 * T, 1.1 * T).lineTo(2.8 * T, 1.1 * T).stroke({ color: pole, width: 2 })
-        g.poly([0.3 * T, 0.95 * T, 1.5 * T, 0.5 * T, 2.7 * T, 0.95 * T]).fill({ color: reed })
-        for (const [hx, color] of [[0.8, 0xa0522d], [1.3, 0xd2b48c], [1.8, 0xa0522d], [2.2, 0xc04040]] as const) {
-          g.rect(hx * T - 3, 1.15 * T, 6, 0.7 * T).fill({ color })
-        }
-        break
       case 'RopeBridge':
         // Posts on both rims, a plank deck over the ravine rows, and a hand rope on each side.
         for (let plank = 0; plank < 7; plank++) {
@@ -1082,10 +1042,18 @@ export class VillageWorld {
         }
         break
       default:
-        view.addChild(this.localSprite(town(83), 1, 1.8))
+        view.addChild(this.localSprite(SIGNBOARD, 1, 1.8))
     }
     view.addChildAt(g, 0)
     return view
+  }
+
+  /** The lower `fraction` of a view whose bottom edge is at `bottom` (between `left` and `right`), as if rising from the ground. */
+  private rising(view: Container, left: number, right: number, bottom: number, fraction: number): [Container, Graphics] {
+    const height = view.height * fraction
+    const mask = new Graphics().rect(left, bottom - height, right - left, height + 2).fill({ color: 0xffffff })
+    view.mask = mask
+    return [view, mask]
   }
 
   private localSprite(tile: TileRef, x: number, y: number): Sprite {
@@ -1094,28 +1062,32 @@ export class VillageWorld {
     return sprite
   }
 
-  /** Construction site: a faint blueprint, the building rising from the ground, corner pegs and the delivered material. */
+  /**
+   * Construction site: the picture of its current stage, or else a faint blueprint with the building rising from the
+   * ground; corner pegs and the delivered material.
+   */
   private siteView(site: Site, x: number, y: number): Container {
     const view = new Container()
     view.position.set(x * TILE, y * TILE)
     view.zIndex = groundLevel(site.kind, y)
 
-    view.addChild(new Graphics().rect(0, 0, PLOT_WIDTH * TILE, 3 * TILE).fill({ color: 0x7a5a32, alpha: 0.35 }))
-    const ghost = this.finishedView(site.kind, 0, 0)
-    ghost.alpha = 0.22
-    view.addChild(ghost)
-
     const fraction = Math.min(1, site.progress)
-    if (fraction > 0) {
-      const rising = this.finishedView(site.kind, 0, 0)
-      const height = 3 * TILE * fraction
-      const mask = new Graphics().rect(-TILE, 3 * TILE - height, (PLOT_WIDTH + 2) * TILE, height + 2).fill({ color: 0xffffff })
-      rising.mask = mask
-      view.addChild(rising, mask)
+    const stages = constructionArt(site.kind)
+    if (stages.length > 0) {
+      const stage = stages.length === site.stages.length ? site.stage : Math.floor(fraction * stages.length)
+      view.addChild(this.plotSprite(stages[Math.min(stages.length - 1, stage)], 0, 0))
+    } else {
+      for (let row = 0; row < 3; row++) {
+        for (let column = 0; column < PLOT_WIDTH; column++) view.addChild(this.localSprite(BLUEPRINT_GROUND, column, row))
+      }
+      const ghost = this.finishedView(site.kind, 0, 0)
+      ghost.alpha = 0.22
+      view.addChild(ghost)
+      if (fraction > 0) view.addChild(...this.rising(this.finishedView(site.kind, 0, 0), -TILE, (PLOT_WIDTH + 1) * TILE, 3 * TILE, fraction))
     }
 
     for (const [px, py] of [[-0.35, -0.3], [2.35, -0.3], [-0.35, 2.3], [2.35, 2.3]]) {
-      view.addChild(this.localSprite(town(47), px, py))
+      view.addChild(this.localSprite(SURVEY_PEG, px, py))
     }
 
     // Material waiting in the yard for the current stage.
@@ -1158,7 +1130,11 @@ export class VillageWorld {
     const floorY = (y + 3.85) * TILE
     for (let index = 0; index < definition.slots; index++) {
       const centerX = (x + spacing * (index + 0.5)) * TILE
-      yard.addChild(new Graphics().rect(centerX - spacing * TILE * 0.4, floorY - 2, spacing * TILE * 0.8, 3).fill({ color: 0x7a5230 }))
+      const pallet = new Sprite(this.tiles.get(PALLET))
+      pallet.anchor.set(0.5, 1)
+      pallet.scale.set(Math.min(1, spacing))
+      pallet.position.set(centerX, floorY + 2)
+      yard.addChild(pallet)
       const slot = storage.slots[index]
       const icon = slot ? RESOURCE_ICONS[slot.kind] : undefined
       if (!slot || !icon) continue
@@ -1223,23 +1199,24 @@ export class VillageWorld {
       const x = RIVER_LEFT + column
       if (column < builtColumns) {
         for (const y of [ROAD_TOP, ROAD_TOP + 1]) {
-          const deck = this.tileSprite(town(73), x, y)
+          const deck = this.tileSprite(BRIDGE_TILES.deck, x, y)
           deck.zIndex = 0
           add(deck)
         }
-        add(this.tileSprite(town(column === 0 ? 80 : column === RIVER_RIGHT - RIVER_LEFT ? 82 : 81), x, ROAD_TOP - 0.55))
-        add(this.tileSprite(town(column === 0 ? 80 : column === RIVER_RIGHT - RIVER_LEFT ? 82 : 81), x, ROAD_TOP + 1.5))
+        const railing = BRIDGE_TILES.railing[column === 0 ? 0 : column === RIVER_RIGHT - RIVER_LEFT ? 2 : 1]
+        add(this.tileSprite(railing, x, ROAD_TOP - 0.55))
+        add(this.tileSprite(railing, x, ROAD_TOP + 1.5))
       } else if (bridgeActive) {
         const surveyed = project.surveyDone / Math.max(project.surveyRequired, 1)
         const showPost = project.phase === 'Construction' || column < Math.ceil(surveyed * (RIVER_RIGHT - RIVER_LEFT + 1))
         if (showPost) {
-          add(this.tileSprite(town(47), x, ROAD_TOP - 0.3))
-          add(this.tileSprite(town(47), x, ROAD_TOP + 1.2))
+          add(this.tileSprite(SURVEY_PEG, x, ROAD_TOP - 0.3))
+          add(this.tileSprite(SURVEY_PEG, x, ROAD_TOP + 1.2))
         }
       }
     }
     if (bridgeActive) {
-      add(this.tileSprite(town(83), RIVER_LEFT - 1, ROAD_TOP - 1.2))
+      add(this.tileSprite(SIGNBOARD, RIVER_LEFT - 1, ROAD_TOP - 1.2))
     }
 
     // Tsar's monument: pegs, then the pedestal, then the statue rising on it.
@@ -1249,18 +1226,13 @@ export class VillageWorld {
       const base = MONUMENT.y + 1
       if (fraction > 0) add(this.tileSprite(MONUMENT.pedestal, MONUMENT.x, base))
       if (fraction >= 1) {
-        const statue = this.tileSprite(MONUMENT.statue, MONUMENT.x, MONUMENT.y + 0.15)
-        const stone = new ColorMatrixFilter()
-        stone.desaturate()
-        statue.filters = [stone]
-        statue.tint = MONUMENT.stone
-        add(statue)
+        add(this.tileSprite(MONUMENT.statue, MONUMENT.x, MONUMENT.y + 0.15))
       } else if (fraction >= 0.5) {
         add(this.tileSprite(MONUMENT.rough, MONUMENT.x, MONUMENT.y + 0.2))
       }
       if (monumentActive) {
-        for (const dx of [-0.7, 0.7]) add(this.tileSprite(town(47), MONUMENT.x + dx, base + 0.4))
-        add(this.tileSprite(town(83), MONUMENT.x + 1.4, base))
+        for (const dx of [-0.7, 0.7]) add(this.tileSprite(SURVEY_PEG, MONUMENT.x + dx, base + 0.4))
+        add(this.tileSprite(SIGNBOARD, MONUMENT.x + 1.4, base))
       }
     }
 
@@ -1272,14 +1244,14 @@ export class VillageWorld {
       for (let step = 0; step < PIER.length; step++) {
         const x = PIER.x + step
         if (step < planks) {
-          const deck = this.tileSprite(town(73), x, PIER.y)
+          const deck = this.tileSprite(PIER_TILES.deck, x, PIER.y)
           deck.zIndex = 0
           add(deck)
         } else if (pierActive) {
-          add(this.tileSprite(town(47), x, PIER.y - 0.2))
+          add(this.tileSprite(PIER_TILES.pole, x, PIER.y - 0.2))
         }
       }
-      if (pierActive) add(this.tileSprite(town(83), PIER.x - 1, PIER.y - 1))
+      if (pierActive) add(this.tileSprite(SIGNBOARD, PIER.x - 1, PIER.y - 1))
     }
 
     // Palisade: stakes go up piece by piece; pegs every few tiles mark the line still to build.
@@ -1289,41 +1261,37 @@ export class VillageWorld {
       const standing = Math.floor(fraction * PALISADE.pieces.length + 1e-6)
       PALISADE.pieces.forEach((piece, index) => {
         if (index < standing) add(this.tileSprite(piece.tile, piece.x, piece.y))
-        else if (palisadeActive && index % 4 === 0) add(this.tileSprite(town(47), piece.x, piece.y))
+        else if (palisadeActive && index % 4 === 0) add(this.tileSprite(SURVEY_PEG, piece.x, piece.y))
       })
-      if (palisadeActive) add(this.tileSprite(town(83), PALISADE.yard.x - 1, PALISADE.yard.y - 1))
+      if (palisadeActive) add(this.tileSprite(SIGNBOARD, PALISADE.yard.x - 1, PALISADE.yard.y - 1))
     }
 
     // Gold vein: nuggets in the outcrop thin out as it is dug; an empty vein is bare grey rock.
     const nuggets = Math.ceil((state.goldVeinRemaining / VEIN_OUTCROP.size) * VEIN_NUGGETS.length)
     VEIN_NUGGETS.forEach(([dx, dy], index) => {
-      const nugget = this.tileSprite(RESOURCE_ICONS.Gold, VEIN_OUTCROP.x + dx, VEIN_OUTCROP.y + dy)
-      nugget.scale.set(0.6)
-      if (index >= nuggets) {
-        const rock = new ColorMatrixFilter()
-        rock.desaturate()
-        nugget.filters = [rock]
-        nugget.tint = 0xc4c8cf
-      }
-      add(nugget)
+      add(this.tileSprite(index < nuggets ? VEIN_TILES.nugget : VEIN_TILES.depleted, VEIN_OUTCROP.x + dx, VEIN_OUTCROP.y + dy))
     })
 
     // Other projects: finished buildings, or rising walls on their site.
     for (const [id, site] of Object.entries(PROJECT_SITES)) {
-      const tiles = PROJECT_BUILDINGS[id]
-      const dome = id === 'bell-tower' ? 'gold' : undefined
+      const tile = PROJECT_BUILDINGS[id]
+      const size = tileSize(tile)
+      const width = size.width / TILE
+      const rows = size.height / TILE
       if (completed.has(id)) {
-        add(this.buildingView(tiles, site.x, site.y, dome))
+        add(this.tileSprite(tile, site.x, site.y + rows - 1))
       } else if (project?.definitionId === id) {
         const fraction = project.phase === 'Construction' ? project.buildDone / project.buildRequired : 0
-        const rows = Math.floor(fraction * tiles.length)
-        const partial = tiles.slice(tiles.length - rows)
-        if (partial.length > 0) add(this.buildingView(partial, site.x, site.y + tiles.length - rows))
-        const width = tiles[0].length
-        for (const [dx, dy] of [[-0.5, -0.5], [width - 0.5, -0.5], [-0.5, tiles.length - 0.5], [width - 0.5, tiles.length - 0.5]]) {
-          add(this.tileSprite(town(47), site.x + dx, site.y + dy))
+        if (fraction > 0) {
+          const building = this.tileSprite(tile, site.x, site.y + rows - 1)
+          const [view, mask] = this.rising(building, site.x * TILE, (site.x + width) * TILE, (site.y + rows) * TILE, fraction)
+          add(view)
+          add(mask)
         }
-        add(this.tileSprite(town(83), site.x - 1, site.y + tiles.length - 1))
+        for (const [dx, dy] of [[-0.5, -0.5], [width - 0.5, -0.5], [-0.5, rows - 0.5], [width - 0.5, rows - 0.5]]) {
+          add(this.tileSprite(SURVEY_PEG, site.x + dx, site.y + dy))
+        }
+        add(this.tileSprite(SIGNBOARD, site.x - 1, site.y + rows - 1))
       }
     }
 
@@ -1452,30 +1420,26 @@ export class VillageWorld {
     return walker
   }
 
+  /** A sprite standing on the bottom of tile (`x`, `y`) from its left edge; a taller one reaches into the tiles above. */
   private tileSprite(tile: TileRef, x: number, y: number): Sprite {
     const sprite = new Sprite(this.tiles.get(tile))
-    sprite.position.set(x * TILE, y * TILE)
+    sprite.position.set(x * TILE, (y + 1) * TILE - tileSize(tile).height)
     sprite.zIndex = (y + 1) * TILE
     return sprite
   }
 
-  private decorView(placed: PlacedTile): Container {
-    const sprite = this.tileSprite(placed.tile, placed.x, placed.y)
-    if (!placed.top) return sprite
-    const view = new Container()
-    view.zIndex = sprite.zIndex
-    view.addChild(this.tileSprite(placed.top, placed.x, placed.y - 1), sprite)
-    return view
-  }
-
-  /** A mountain peak twice the size of a tile, standing on its tile and reaching into the one above. */
-  private peakView(tile: TileRef, x: number, y: number): Sprite {
+  /** A sprite whose bottom middle stands on a point of the world, in tiles. */
+  private standingSprite(tile: TileRef, x: number, y: number): Sprite {
     const sprite = new Sprite(this.tiles.get(tile))
     sprite.anchor.set(0.5, 1)
-    sprite.scale.set(PEAK_SCALE)
-    sprite.position.set((x + 0.5) * TILE, (y + 1) * TILE)
-    sprite.zIndex = (y + 1) * TILE
+    sprite.position.set(Math.round(x * TILE), Math.round(y * TILE))
+    sprite.zIndex = y * TILE
     return sprite
+  }
+
+  /** A mountain peak two tiles wide and high, standing on its tile and reaching into the ones around it. */
+  private peakView(tile: TileRef, x: number, y: number): Sprite {
+    return this.standingSprite(tile, x + 0.5, y + 1)
   }
 
   /** Dense brambles filling a tile, thorny twigs sticking out. */
@@ -1534,64 +1498,23 @@ export class VillageWorld {
     return g
   }
 
-  private bushView(x: number, y: number): Graphics {
-    const g = new Graphics()
-      .ellipse(0, 0, 6, 4.5)
-      .fill({ color: 0x2f6b2a })
-      .ellipse(-2, -1.5, 3.5, 2.5)
-      .fill({ color: 0x3f8a36 })
-    for (const [bx, by] of [[-3, 0], [2, -1], [0, 2], [4, 1.5]]) {
-      g.circle(bx, by, 1.2).fill({ color: 0xc8283c })
-    }
-    g.position.set(x * TILE, y * TILE)
-    g.zIndex = y * TILE + 4
-    return g
-  }
-
-  private reedView(x: number, y: number): Graphics {
-    const g = new Graphics()
-    for (const [dx, height] of [[-3, 10], [0, 13], [3, 9], [5, 11]]) {
-      g.moveTo(dx, 0).lineTo(dx + 0.5, -height).stroke({ color: 0x6b8f3a, width: 1.2 })
-      g.rect(dx - 0.5, -height - 1, 2, 4).fill({ color: 0x7a4a24 })
-    }
-    g.position.set(x * TILE, y * TILE)
-    g.zIndex = y * TILE
-    return g
-  }
-
+  /** Stones and logs centred on the campfire, with the flames playing over them. */
   private campfireView(): Container {
     const view = new Container()
-    const stones = new Graphics()
-    for (let index = 0; index < 8; index++) {
-      const angle = (index / 8) * Math.PI * 2
-      stones.ellipse(Math.cos(angle) * 8, Math.sin(angle) * 4.5, 2.6, 2).fill({ color: index % 2 ? 0x8d8d8d : 0x6f6f6f })
-    }
-    const logs = new Graphics()
-      .moveTo(-6, 2)
-      .lineTo(6, -2)
-      .stroke({ color: 0x5a3a1c, width: 3 })
-      .moveTo(-6, -2)
-      .lineTo(6, 2)
-      .stroke({ color: 0x6b4423, width: 3 })
-    view.addChild(stones, logs, this.flames)
+    const base = new Sprite(this.tiles.get(art('prop-campfire-stones-and-logs')))
+    base.anchor.set(0.5, 0.6)
+    const flames = new AnimatedSprite(this.tiles.animation('effect-campfire-flames'))
+    flames.anchor.set(0.5, 1)
+    flames.position.set(0, 2)
+    flames.animationSpeed = FLAME_SPEED / 60
+    flames.play()
+    view.addChild(base, flames)
     view.position.set(CAMPFIRE.x * TILE, CAMPFIRE.y * TILE)
     view.zIndex = CAMPFIRE.y * TILE + 5
     return view
   }
 
-  private drawFlames() {
-    const flicker = (salt: number) => Math.sin(this.elapsed * (7 + salt) + salt * 1.7) * 1.5
-    this.flames
-      .clear()
-      .poly([-5, 0, -1 + flicker(1), -11 + flicker(2), 5, 0])
-      .fill({ color: 0xe8541e })
-      .poly([-3, 0, 1 + flicker(3), -8 + flicker(4), 3, 0])
-      .fill({ color: 0xffa62b })
-      .poly([-1.5, 0, flicker(5) * 0.5, -4.5, 1.5, 0])
-      .fill({ color: 0xfff1a8 })
-  }
-
-  private buildingView(tiles: BuildingCell[][], x: number, y: number, dome?: 'gold' | 'blue'): Container {
+  private buildingView(tiles: BuildingCell[][], x: number, y: number): Container {
     const view = new Container()
     tiles.forEach((row, rowIndex) =>
       row.forEach((cell, column) => {
@@ -1602,46 +1525,9 @@ export class VillageWorld {
         }
       }),
     )
-    if (dome) {
-      view.addChild(this.domeView(dome, (tiles[0].length * TILE) / 2))
-    }
     view.position.set(x * TILE, y * TILE)
     view.zIndex = (y + tiles.length) * TILE
     return view
-  }
-
-  /** Onion dome with a cross, drawn as 2-pixel blocks so it matches the 16-pixel tiles. */
-  private domeView(kind: 'gold' | 'blue', centerX: number): Graphics {
-    const shape = [
-      '...c...',
-      '..ccc..',
-      '...c...',
-      '...o...',
-      '..ooo..',
-      '.ooooo.',
-      'ooohooo',
-      'ooohooo',
-      '.ooooo.',
-      '..ddd..',
-      '..dwd..',
-      '..ddd..',
-    ]
-    const colors: Record<string, number> = {
-      c: 0xf4d35e,
-      o: kind === 'gold' ? 0xe9b949 : 0x3d6fb6,
-      h: kind === 'gold' ? 0xfff1a8 : 0x8fb8f0,
-      d: 0xd9d4c7,
-      w: 0x3a2a1a,
-    }
-    const block = 3
-    const graphics = new Graphics()
-    shape.forEach((line, row) =>
-      [...line].forEach((cell, column) => {
-        if (cell === '.') return
-        graphics.rect(centerX + (column - 3.5) * block, (row - shape.length) * block + 3, block, block).fill({ color: colors[cell] })
-      }),
-    )
-    return graphics
   }
 
   /** The furthest zoom still fills the screen with map, so nothing beyond its edges is ever shown. */
@@ -1891,7 +1777,6 @@ export class VillageWorld {
     const seconds = Math.min(ticker.deltaMS / 1000, 0.1)
     this.elapsed += seconds
 
-    this.drawFlames()
     this.placementLayer.alpha = 0.65 + Math.sin(this.elapsed * 4) * 0.35
     const now = Date.now()
     const nightTarget =

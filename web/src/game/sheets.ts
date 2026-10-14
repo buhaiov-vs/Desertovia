@@ -36,11 +36,6 @@ const extras = (index: number): TileRef => ({ sheet: 'extras', index })
 /** Tiles of `extras.png`, made for this game in the style of the Kenney sheets. */
 export const EXTRAS = { coal: extras(0), campfire: extras(1), feather: extras(2) }
 
-export const isArt = (name: string): name is ArtName => name in atlas.frames
-
-/** Frames of the game's own art whose names start with `prefix`. */
-export const artNames = (prefix: string) => (Object.keys(atlas.frames) as ArtName[]).filter((name) => name.startsWith(prefix))
-
 /** Tells two tiles apart, for keys that decide when a view is redrawn. */
 export const tileKey = (tile: TileRef) => ('art' in tile ? tile.art : `${tile.sheet}:${tile.index}`)
 

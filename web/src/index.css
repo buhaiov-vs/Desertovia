@@ -415,7 +415,6 @@ button.weather-chip {
   font-size: 0.75rem;
 }
 
-/* Short screens keep the minimap at the left edge clear. */
 .chat-lines {
   list-style: none;
   margin: 0;
@@ -1796,9 +1795,8 @@ input[aria-invalid='true'] {
 
 .minimap {
   position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 12px;
+  top: max(10px, env(safe-area-inset-top));
   width: 240px;
   aspect-ratio: 120 / 90;
   border: 2px solid var(--gold);
@@ -1816,12 +1814,21 @@ input[aria-invalid='true'] {
   height: 100%;
 }
 
-@media (max-width: 640px) {
+/* The minimap and the interface toggle take the top right corner; the top bar and the guide keep clear of them. */
+@media (min-width: 721px) {
+  .hud-top {
+    padding-right: 300px;
+  }
+
+  .hud-side {
+    padding-right: 252px;
+  }
+}
+
+@media (max-width: 720px) {
   .minimap {
-    left: auto;
     right: 8px;
     top: 128px;
-    transform: none;
     width: 112px;
   }
 
@@ -1829,6 +1836,38 @@ input[aria-invalid='true'] {
   .hud-side {
     padding-right: 124px;
   }
+}
+
+/* Left of the minimap; stays where it is when the rest of the interface is hidden, so it is found again. */
+.ui-toggle {
+  position: absolute;
+  z-index: 2;
+  top: max(10px, env(safe-area-inset-top));
+  right: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.ui-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (max-width: 720px) {
+  /* Under the minimap, in the column the guide keeps clear. */
+  .ui-toggle {
+    top: 218px;
+    right: 8px;
+  }
+}
+
+.game-root.ui-hidden .hud,
+.game-root.ui-hidden .minimap {
+  display: none;
 }
 
 .zoom-controls button {

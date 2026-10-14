@@ -86,6 +86,8 @@ export const en = {
     'notify.builtBody': 'The tribe finished it together. Come and see.',
     'hud.zoomIn': 'Zoom in',
     'hud.zoomOut': 'Zoom out',
+    'hud.hideInterface': 'Hide the interface: only the map and what you click on',
+    'hud.showInterface': 'Show the interface',
     'hud.expand': 'Expand',
     'hud.collapse': 'Collapse',
     'feed.built': 'Built: {project}!',

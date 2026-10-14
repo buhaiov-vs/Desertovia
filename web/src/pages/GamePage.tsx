@@ -58,6 +58,7 @@ const RAID_CLOCK_MS = 5_000
 const seenPollKey = (slug: string) => `desertod.poll-seen.${slug}`
 /** The village page sends the player to a run once; coming back from it leaves them in the village. */
 const sentToDungeonKey = (runId: string) => `desertod.dungeon-sent.${runId}`
+const UI_HIDDEN_KEY = 'desertod.ui-hidden'
 /** Long enough to read a chat line over the author's head: 4 s plus about one second per 15 characters. */
 const chatBubbleSeconds = (text: string) => Math.min(12, 4 + text.length / 15)
 
@@ -117,6 +118,14 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
   const [pollError, setPollError] = useState<string | null>(null)
   /** Development only: the day-night toggle forces daylight or night; null follows the village sky. */
   const [nightOverride, setNightOverride] = useState<boolean | null>(null)
+  /** Everything but the map and the popups of clicked objects is hidden. */
+  const [uiHidden, setUiHidden] = useState(() => localStorage.getItem(UI_HIDDEN_KEY) === '1')
+  const toggleUi = () => {
+    const hidden = !uiHidden
+    localStorage.setItem(UI_HIDDEN_KEY, hidden ? '1' : '0')
+    setUiHidden(hidden)
+    if (hidden) setPanel((current) => (current === 'menu' || current === 'inventory' ? 'none' : current))
+  }
   const phone = useMediaQuery('(max-width: 720px)')
   const pollClock = useServerNow(serverOffset, POLL_CLOCK_MS)
   const canvas = useRef<GameCanvasHandle>(null)
@@ -685,7 +694,7 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
     : null
 
   return (
-    <div className="game-root">
+    <div className={uiHidden ? 'game-root ui-hidden' : 'game-root'}>
       <GameCanvas
         ref={canvas}
         village={live.state}
@@ -699,6 +708,16 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
         worldPickable={worldPickable}
         selection={showPicked || showWatched ? picked.target.area : null}
       />
+
+      <button
+        className="ui-toggle"
+        onClick={toggleUi}
+        title={i18n.t(uiHidden ? 'hud.showInterface' : 'hud.hideInterface')}
+        aria-label={i18n.t(uiHidden ? 'hud.showInterface' : 'hud.hideInterface')}
+        aria-pressed={uiHidden}
+      >
+        <EyeIcon closed={uiHidden} />
+      </button>
 
       {showWatched && (
         <ServerClock offsetMs={serverOffset}>
@@ -1003,5 +1022,16 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
         </ServerClock>
       )}
     </div>
+  )
+}
+
+/** Open eye while the interface shows, crossed out while it is hidden. */
+function EyeIcon({ closed }: { closed: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {closed && <path d="M3 3l18 18" />}
+    </svg>
   )
 }

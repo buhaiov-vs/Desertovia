@@ -87,6 +87,8 @@ export const ru: Dictionary = {
     'notify.builtBody': 'Племя построило это вместе. Приходите посмотреть.',
     'hud.zoomIn': 'Приблизить',
     'hud.zoomOut': 'Отдалить',
+    'hud.hideInterface': 'Скрыть интерфейс: только карта и то, на что вы нажмёте',
+    'hud.showInterface': 'Показать интерфейс',
     'hud.expand': 'Развернуть',
     'hud.collapse': 'Свернуть',
     'feed.built': 'Построено: {project}!',

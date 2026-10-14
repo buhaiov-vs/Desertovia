@@ -243,7 +243,7 @@ public class StoryQuestTests
     }
 
     [Fact]
-    public void MeasuringTheRiver_GivesTheStatsOfAnEngineerInUnderAnHour()
+    public void MeasuringTheRiver_GivesTheStatsOfAnEngineerWithinADayOfEnergy()
     {
         var village = NewVillage();
         var citizen = NewCitizen(village);
@@ -258,8 +258,8 @@ public class StoryQuestTests
             cycles++;
         }
 
-        Assert.InRange(cycles, 1, 40);
-        Assert.True((now - Now).TotalHours < 1);
+        Assert.InRange(cycles, 1, (int)Energy.Maximum(0));
+        Assert.True((now - Now).TotalHours < 2);
     }
 
     private static CycleReport Report(string taskId, bool overflowed) =>

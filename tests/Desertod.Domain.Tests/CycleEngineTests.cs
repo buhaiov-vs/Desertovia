@@ -25,7 +25,7 @@ public class CycleEngineTests
         var citizen = CharacterCreation.Create(Guid.NewGuid(), Guid.NewGuid(), "Bob", Now);
 
         Assert.Equal(0, citizen.Stats.Total);
-        Assert.Equal(GameRules.FirstLevelExperience, Progression.ExperienceToNext(0));
+        Assert.Equal(GameRules.FirstLevelExperience, Progression.Curve(0));
         Assert.Throws<GameRuleException>(() => CharacterCreation.Create(Guid.NewGuid(), Guid.NewGuid(), " ", Now));
     }
 

@@ -611,7 +611,7 @@ story quests are goals.
 | Type | Name | Description | Currently drawn by | Prompt |
 | --- | --- | --- | --- | --- |
 | icon | Energy | Lightning bolt or flame; spent by every cycle, regained by sleeping. | Not drawn (bar and text in `web/src/ui/CharacterSheet.tsx`, `web/src/ui/Hud.tsx`) | 16×16 icon: yellow lightning bolt. |
-| icon | Morale | Happy face or a raised fist; village spirit. | Not drawn (text in `web/src/ui/Hud.tsx`) | 16×16 icon: smiling sun-like face. |
+| icon | **New** Morale | Happy face or a raised fist; village spirit. Shown before the morale number (0-100, no percent sign) in the top bar. | `web/src/ui/Hud.tsx` `TopBar` — text "☺" placeholder | 16×16 icon: smiling sun-like face. |
 | icon | Renown | Laurel or a star medal; reward for helping the village. | Not drawn (text in `web/src/ui/CharacterSheet.tsx`) | 16×16 icon: gold medal with a star on a red ribbon. |
 | icon | Streak | Chain of flames; renewing cycles on time. | Not drawn (text) | 16×16 icon: orange flame with three small linked dots under it. |
 | icon | Experience / level up | Upward arrow with a star. | Not drawn (text in `web/src/ui/TaskDonePanel.tsx`) | 16×16 icon: green upward arrow with a small star. |
@@ -704,6 +704,40 @@ it. The cave and the lookout sit in the mountain ridges. None of these is drawn 
 | prop | Lookout cairn | A stone cairn with a ribbon on a pole, raised on the lookout once someone has climbed it. | Not drawn (planned) | 16×32 prop: small cairn of stacked flat grey stones with a thin wooden pole rising from it and a red ribbon fluttering at the top. |
 | terrain | Mountain trail | Flat stone steps up the lookout; the only mountain tile walkers may climb. | Not drawn (planned) | 16×16 terrain tile: three flat grey stone steps rising from the bottom to the top edge, rough rock on both sides, seamless top and bottom. |
 
+## 23. Dungeon: Dead Lands (24)
+
+The first dungeon, a 48 × 32 tile map of dead land the Tsar leads the heroes into
+(`src/Desertod.Domain/Dungeons/DungeonCatalog.cs`). Everything is code-drawn today in `web/src/game/DungeonWorld.ts` and
+`web/src/game/enemies.ts`. Every row is **New**: generate it. Foes face right like the raiders of section 9; the client
+mirrors them.
+
+| Type | Name | Description | Currently drawn by | Prompt |
+| --- | --- | --- | --- | --- |
+| terrain | **New** Dead earth (3 variants) | Bare grey-brown ground covering most of the map (`Ground`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | Three 16×16 seamless terrain tiles: dry cracked grey-brown earth `#4a4238` with dark grit specks; variant 2 with a thin crack, variant 3 with a few pebbles. No grass. |
+| terrain | **New** Withered grass | Patches of dead grass between the graves (`DeadGrass`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 seamless terrain tile: the dead earth with four or five tufts of dry straw-yellow `#8a7a50` grass bent over, no green. |
+| terrain | **New** Bone-strewn ground | Old bones lying in the dirt (`Bones`); walkable. | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 terrain tile: the dead earth with a scattered thigh bone, two ribs and a small cracked skull, bones off-white `#d8d0b8`. |
+| terrain | **New** Entrance path | Trodden track at the west edge where the heroes come in (`Entrance`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 terrain tile, seamless left and right: packed lighter brown path `#6a5e4c` with wheel ruts along it and grit at the edges. |
+| prop | **New** Dead tree (2 variants) | Bare blackened tree; blocks walkers (`DeadTree`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | Two 16×16 props: a leafless dead tree with a dark grey-brown trunk and crooked bare branches reaching up, a small shadow at the foot; variant 2 split by lightning with one branch hanging. Transparent around it. |
+| prop | **New** Grave | Leaning headstone with a cross; blocks walkers (`Grave`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 prop: a weathered grey rounded headstone leaning slightly, a carved cross, moss at its foot, a low mound of earth in front. |
+| prop | **New** Broken fence | Rotten graveyard fence; blocks walkers (`Fence`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 prop, seamless left and right: two dark rotten wooden rails on crooked posts, one rail broken and hanging. |
+| prop | **New** Barrow mound | Earth mound of an old chieftain's grave; blocks walkers (`Mound`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 prop: a round grassless earth mound with a small grey standing stone on top. |
+| prop | **New** Grey boulder | Big boulder; blocks walkers (`Rock`). | `web/src/game/DungeonWorld.ts` `drawTile` — code-drawn | 16×16 prop: a large rounded grey boulder with a lighter top-left face and a dark crack, filling most of the tile. |
+| character | **New** Grave rat | Fast, weak rat that comes in packs. | `web/src/game/enemies.ts` `LOOKS.Rat` — code-drawn pixels | Strip of 4 frames, each 16×16 character, facing right: a mangy grey-brown rat with red eyes and a bald pink tail; frames 1-3 scurrying, frame 4 lying dead on its back. Body about 10 pixels long. |
+| character | **New** Imp | Small hopping red devil. | `web/src/game/enemies.ts` `LOOKS.Imp` — code-drawn pixels | Strip of 4 frames, each 16×16 character, facing right: a small red imp with stubby black horns, yellow eyes, bat wings and a pointed tail; frames 1-3 hopping, frame 4 lying slain. About 9 pixels tall. |
+| character | **New** Ghoul | Hunched corpse-eater with long claws. | `web/src/game/enemies.ts` `LOOKS.Ghoul` — code-drawn pixels | Strip of 4 frames, each 16×16 character, facing right: a hunched grey-green ghoul in rags with yellow eyes, long bone-white claws reaching forward; frames 1-3 shambling, frame 4 collapsed. About 11 pixels tall. |
+| character | **New** Wraith | Floating pale ghost. | `web/src/game/enemies.ts` `LOOKS.Wraith` — code-drawn pixels | Strip of 4 frames, each 16×16 character, facing right: a floating pale blue-grey hooded ghost with dark empty eyes and a ragged trailing hem, semi-transparent edges; frames 1-3 bobbing, frame 4 fading into wisps. |
+| character | **New** Barrow King | The boss: a crowned skeleton lord with a sword. | `web/src/game/enemies.ts` `LOOKS.BarrowKing` — code-drawn pixels | Strip of 4 frames, each 16×24 character, facing right: a tall skeleton king with a rusty gold crown, green glowing eyes, a tattered dark green cloak and a notched sword; frames 1-3 striding, frame 4 crumbled into bones with the crown on top. |
+| icon | **New** Class: Brawler | Bare fists; anyone can fight this way. | Not drawn (text in `web/src/ui/Dungeon.tsx`) | 16×16 icon: a clenched fist with a cloth wrap around the knuckles. |
+| icon | **New** Class: Spearman | Fights with a spear from storage. | Not drawn (text) | 16×16 icon: a wooden spear with an iron head, diagonal. |
+| icon | **New** Class: Swordsman | Fights with a sword from storage. | Not drawn (text) | 16×16 icon: an iron sword with a leather-wrapped hilt, point up. |
+| icon | **New** Class: Archer | Shoots with a bow and arrows. | Not drawn (text) | 16×16 icon: a curved yew bow with an arrow nocked. |
+| icon | **New** Class: Shieldbearer | Holds a shield; more health, softer blows. | Not drawn (text) | 16×16 icon: a round wooden shield with an iron boss and rim. |
+| icon | **New** Class: Healer | Heals allies with a remedy. | Not drawn (text) | 16×16 icon: a small cloth satchel with a red cross and a sprig of herbs. |
+| icon | **New** Class: Voivode | The Tsar at the head of the host. | Not drawn (text) | 16×16 icon: a gold Russian crown with fur trim and a small cross on top. |
+| effect | **New** Skull bubble | Over a fallen hero running for the exit. | `web/src/game/DungeonWorld.ts` `drawSkullBubble` — code-drawn | 16×16 effect: parchment `#fff8e7` speech bubble with a dark brown border and a tail at the bottom middle, a small black skull inside. |
+| effect | **New** Arrow in flight | An archer's shot between hero and foe. | `web/src/game/DungeonWorld.ts` `arrow` — code-drawn line | 16×16 effect: a short arrow flying right, wooden shaft, iron tip, white fletching, centred. |
+| icon | **New** Dead Lands | The dungeon in the Tsar's panel and the village banner. | Not drawn (text in `web/src/ui/Dungeon.tsx`) | 16×16 icon: a dead tree beside a leaning headstone under a pale green moon. |
+
 ---
 
 ## Totals
@@ -732,6 +766,7 @@ it. The cave and the lookout sit in the mountain ridges. None of these is drawn 
 | Interface | 22 |
 | Effects | 7 |
 | Obstacles | 28 |
+| Dungeon: Dead Lands | 24 rows (27 sprites with variants, plus animation frames) |
 
-About 410 sprites without the optional construction stages and animation frames. Planned content from
+About 437 sprites without the optional construction stages and animation frames. Planned content from
 [roadmap.md](roadmap.md) (House, Manor, arrows, decrees, Renown cosmetics, wolves) is not listed yet.

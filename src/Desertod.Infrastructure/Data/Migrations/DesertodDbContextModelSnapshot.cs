@@ -61,6 +61,67 @@ namespace Desertod.Infrastructure.Data.Migrations
                     b.ToTable("ChatMessages");
                 });
 
+            modelBuilder.Entity("Desertod.Domain.Dungeons.DungeonRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DungeonId")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Foes")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("GatheringEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("MarchEndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Phase")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("Seed")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Slain")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<uint>("Version")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
+                    b.Property<Guid>("VillageId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VillageId", "Phase");
+
+                    b.ToTable("DungeonRuns");
+                });
+
             modelBuilder.Entity("Desertod.Domain.Entities.Account", b =>
                 {
                     b.Property<Guid>("Id")
@@ -128,6 +189,9 @@ namespace Desertod.Infrastructure.Data.Migrations
 
                     b.Property<int>("CyclesSinceMeal")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("DungeonRunId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTimeOffset>("EnergyUpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -525,6 +589,89 @@ namespace Desertod.Infrastructure.Data.Migrations
                         .HasForeignKey("VillageId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Desertod.Domain.Dungeons.DungeonRun", b =>
+                {
+                    b.HasOne("Desertod.Domain.Entities.Village", null)
+                        .WithMany()
+                        .HasForeignKey("VillageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsMany("Desertod.Domain.Dungeons.DungeonHero", "Heroes", b1 =>
+                        {
+                            b1.Property<Guid>("DungeonRunId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<Guid>("AccountId");
+
+                            b1.Property<DateTimeOffset?>("ArrivesAt");
+
+                            b1.Property<int>("Arrows");
+
+                            b1.PrimitiveCollection<string>("Broken")
+                                .IsRequired();
+
+                            b1.Property<Guid?>("CitizenId");
+
+                            b1.Property<string>("Class")
+                                .IsRequired();
+
+                            b1.Property<int>("Experience");
+
+                            b1.Property<string>("Killer");
+
+                            b1.Property<int>("Kills");
+
+                            b1.Property<bool>("KnockedOut");
+
+                            b1.Property<string>("Name")
+                                .IsRequired();
+
+                            b1.Property<int>("Remedies");
+
+                            b1.Property<bool>("Settled");
+
+                            b1.HasKey("DungeonRunId", "__synthesizedOrdinal");
+
+                            b1.ToTable("DungeonRuns");
+
+                            b1
+                                .ToJson("Heroes")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("DungeonRunId");
+
+                            b1.OwnsMany("Desertod.Domain.Dungeons.DungeonGood", "Loot", b2 =>
+                                {
+                                    b2.Property<Guid>("DungeonHeroDungeonRunId");
+
+                                    b2.Property<int>("DungeonHero__synthesizedOrdinal");
+
+                                    b2.Property<int>("__synthesizedOrdinal")
+                                        .ValueGeneratedOnAdd();
+
+                                    b2.Property<int>("Amount");
+
+                                    b2.Property<string>("Kind")
+                                        .IsRequired();
+
+                                    b2.HasKey("DungeonHeroDungeonRunId", "DungeonHero__synthesizedOrdinal", "__synthesizedOrdinal");
+
+                                    b2.ToTable("DungeonRuns");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("DungeonHeroDungeonRunId", "DungeonHero__synthesizedOrdinal");
+                                });
+
+                            b1.Navigation("Loot");
+                        });
+
+                    b.Navigation("Heroes");
                 });
 
             modelBuilder.Entity("Desertod.Domain.Entities.Account", b =>

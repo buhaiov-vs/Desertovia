@@ -465,3 +465,69 @@ Discoveries: **Weaponcraft** (Camp era, at the stone pile, after Stone tools), *
 
 - A wounded citizen cannot start any work until the wound heals. A **Remedy** (Brew remedies, or Make poultices from 2 food with Herb lore) heals it at once; the citizen's hands first, then storage.
 - A damaged building (0 to 100) works slower: yield × (1 − damage / 200). **Repair buildings** mends the most damaged one.
+
+## 13. Dungeons
+
+A dungeon is a small separate map beyond the edge of the land that the tribe fights through together, live, on the stream.
+The first one is the **Dead Lands** (`src/Desertod.Domain/Dungeons/DungeonCatalog.cs`): 48 × 32 tiles of dead woods, a
+fenced graveyard and the barrow of a dead king, 19 undead, 15 minutes.
+
+### 13.1 Gathering and march
+
+- Only the Tsar opens a dungeon (one at a time per village). A **60-second gathering** starts; every citizen gets a pop-up.
+  Closing it declines; answering opens the **class picker**. Citizens may switch class or stay home until the gathering ends;
+  the Tsar may call it off.
+- Inactive and wounded citizens cannot join. Joining **cancels the running task** (like Cancel task).
+- The class takes its gear from storage at once (the citizen's own hands first) and puts it back if they leave.
+- The Tsar always comes as the **Voivode**: 80 health, 8 damage, no gear, no wound and no rewards.
+- When the gathering ends, every hero walks to the west edge of the land (this reveals the strip of land along the way).
+  Each player's page moves to `/v/:slug/dungeon/:runId` once their figure arrives. The fight starts when the last hero
+  arrives, at most 45 seconds after the march began. Anyone signed in may watch the run.
+
+### 13.2 Classes
+
+Health = (20 + 4 × Endurance) × health factor. Damage of one blow = the fight power of section 12.2 with the class weapon × damage factor.
+
+| Class | Needs | Takes | Reach (tiles) | Blow every | Health | Damage | Trains |
+|---|---|---|---|---|---|---|---|
+| Brawler | — | leather armor if any | 0.9 | 1.0 s | × 1 | × 1 | Strength |
+| Spearman | a spear in storage | spear, leather armor | 1.5 | 1.1 s | × 1 | × 1 | Strength |
+| Swordsman | a sword, Guarding 2 | sword, leather armor | 1.0 | 1.0 s | × 1 | × 1.1 | Strength |
+| Archer | a bow, Hunting 2 | bow, up to 12 arrows, leather armor | 5 | 1.4 s | × 0.9 | × 1 | Dexterity |
+| Shieldbearer | a shield, Guarding 1 | shield | 0.9 | 1.2 s | × 1.5 | × 0.7 | Endurance |
+| Healer | a remedy, Scholarship 2 | 1 remedy, leather armor | 3 | 1.5 s | × 1 | × 0.6 | Intelligence |
+
+- Armor stops a share of every blow: leather armor 30%, a shield 40%.
+- An archer uses one arrow a shot; without arrows they fight at melee reach for half damage.
+- A healer heals an ally 8 health per use. The remedy is used up once they have healed anyone.
+
+### 13.3 The fight
+
+- The server runs the fight 10 times a second; players only send orders. Heroes **never attack on their own**: the player
+  clicks a foe to attack it (the hero walks up and keeps striking until it dies), the ground to walk, an ally to heal.
+- Foes stand still until a fighting hero comes within their **aggro range**. Then they chase the nearest hero and never flee.
+  A foe a hero strikes first chases that hero.
+- **Every kill rewards every hero still fighting** (not the Voivode): the foe's experience and a random roll of its loot.
+
+| Foe | Health | Damage | Blow every | Speed | Aggro range | Reach | Experience | Loot |
+|---|---|---|---|---|---|---|---|---|
+| Grave rat | 8 | 2 | 1.0 s | 2.6 | 4 | 0.9 | 4 | 1–2 food 50%, 1 leather 25% |
+| Zombie | 22 | 4 | 1.6 s | 1.0 | 5 | 0.9 | 8 | 1 leather 30%, 1 iron ore 20% |
+| Skeleton | 18 | 5 | 1.3 s | 1.6 | 6 | 0.9 | 8 | 1–2 iron ore 60%, 1 gold 10% |
+| Imp | 12 | 3 | 0.8 s | 2.4 | 6 | 0.9 | 6 | 1–2 coal 60%, 1 remedy 10% |
+| Ghoul | 30 | 6 | 1.4 s | 1.8 | 5 | 1.0 | 12 | 1–2 leather 50%, 1 iron ore 30% |
+| Wraith | 16 | 4 | 1.8 s | 1.4 | 7 | 4 | 10 | 1 remedy 20%, 1 gold 15% |
+| Barrow King | 120 | 10 | 1.6 s | 1.2 | 6 | 1.2 | 40 | 2–4 gold, 2–3 iron, a sword 40%, a shield 30% |
+
+The new foes live only in dungeons; the Tsar's undead event still calls only zombies and skeletons.
+
+### 13.4 Falling, winning and losing
+
+- A hero at 0 health is **knocked out**: they run for the entrance with a skull over their head and go home **wounded** for
+  the killer's wound time: zombie 30 and skeleton 40 minutes (section 12.1), grave rat 20, imp 30, wraith 40, ghoul 45,
+  Barrow King 60. They keep what they earned until then.
+- **Victory**: every foe is slain. **Defeat**: no hero is left fighting, or 15 minutes pass (a timeout wounds nobody).
+- Leaving heroes are settled at once: experience goes to the class stat and to Guarding; loot goes to storage, and what does
+  not fit stays in their hands; gear wears out once per foe hit as in section 12; the remaining arrows go back; then they walk
+  home. The result stays on the village banner for 2 minutes.
+- A server restart abandons a run under way: everyone comes home with what was already settled.

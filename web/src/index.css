@@ -672,7 +672,47 @@ button.quest-tracker-body:active {
 
 .hud-needs .resource-chip {
   font-size: 0.85rem;
+}
+
+button.hint-term {
+  display: inline;
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
   cursor: help;
+  text-decoration: underline dotted;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+button.hint-term:hover,
+button.hint-term.open {
+  text-decoration-style: solid;
+}
+
+button.hint-term:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.hint-popup {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(20rem, calc(100vw - 16px));
+  padding: 0.5rem 0.65rem;
+  background: var(--parchment);
+  color: var(--ink);
+  border: 2px solid var(--wood-dark);
+  border-radius: 6px;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+  font-size: 0.85rem;
+  font-weight: 400;
+  line-height: 1.35;
+  white-space: pre-line;
 }
 
 .hud-needs .needs-warning {
@@ -695,6 +735,14 @@ button.quest-tracker-body:active {
   justify-content: center;
   font-weight: 800;
   color: #8fd0ff;
+  line-height: 1;
+}
+
+.morale-icon {
+  width: 24px;
+  text-align: center;
+  font-weight: 700;
+  color: #ffd166;
   line-height: 1;
 }
 
@@ -891,6 +939,12 @@ button.quest-tracker-body:active {
   gap: 0.5rem;
   padding: 0.5rem 0.9rem;
   border-top: 2px solid var(--parchment-dark);
+}
+
+.menu-actions .danger {
+  margin-right: auto;
+  color: #8a1c10;
+  border-color: #8a1c10;
 }
 
 .close {

@@ -1,6 +1,7 @@
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Catalog;
 using Desertod.Domain.Combat;
+using Desertod.Domain.Dungeons;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Farming;
 using Desertod.Domain.Projects;
@@ -138,6 +139,7 @@ public sealed record WeatherDto(
 /// <param name="Poll">The open vote on the next discovery, or the last closed one.</param>
 /// <param name="Fields">Beds of every farm.</param>
 /// <param name="Tsar">The village owner's figure on the map.</param>
+/// <param name="Dungeon">The dungeon run under way, or one that ended a moment ago; see <see cref="DungeonRules.ShownAfterEnd"/>.</param>
 /// <param name="Explored">
 /// Land the tribe has seen, walks under way included, as base64: one bit per tile of <see cref="WorldMap.Land"/>,
 /// row by row from the top-left, lowest bit first.
@@ -168,7 +170,8 @@ public sealed record VillageStateDto(
     TsarDto Tsar,
     string Explored,
     IReadOnlyList<RaidDto> Raids,
-    WildsDto? Wilds);
+    WildsDto? Wilds,
+    DungeonDto? Dungeon);
 
 /// <param name="Appearance">Null until the owner creates their character.</param>
 /// <param name="Spot">Where the Tsar walked to; null while they stand at the campfire.</param>
@@ -259,6 +262,7 @@ public sealed record SkillDto(
 public sealed record CitizenDto(
     Guid Id,
     string Name,
+    string? Subtitle,
     bool IsGovernor,
     Appearance? Appearance,
     string TitleRoleId,
@@ -312,7 +316,20 @@ public sealed record RulesDto(
     double VigorDrinkEnergy,
     double SightRadius,
     double NightAmbushMultiplier,
-    int MaximumDamage);
+    int MaximumDamage,
+    double EnergyBase,
+    double EnergyPerEndurance,
+    double EnergyFullRegenerationHours,
+    double EnergyCostPerCycle,
+    double TiredYieldMultiplier,
+    double HungryExperienceMultiplier,
+    double HungryRegenerationMultiplier,
+    double UnderTreesRegeneration,
+    double RainUnderTreesRegeneration,
+    double StreakPerRenewal,
+    double StreakMaximumBonus,
+    double MoraleMinimum,
+    double MoraleMaximum);
 
 /// <param name="DevTools">Development and local deployments: the client shows helpers such as the day-night toggle.</param>
 public sealed record CatalogDto(
@@ -333,6 +350,9 @@ public sealed record CatalogDto(
     IReadOnlyList<EnemyDefinition> Enemies,
     IReadOnlyList<WeaponDefinition> Weapons,
     IReadOnlyList<ArmorDefinition> Armors,
+    IReadOnlyList<HeroClassDefinition> HeroClasses,
+    IReadOnlyList<DungeonFoe> DungeonFoes,
+    IReadOnlyList<DungeonInfoDto> Dungeons,
     bool DevTools);
 
 public sealed record CreateVillageRequest(string Name, string? Description = null, bool IsPrivate = false);
@@ -381,6 +401,7 @@ public static class DtoMapper
         IReadOnlyList<VillageQuest> quests,
         TsarDto tsar,
         IReadOnlyList<Trip> citizenTrips,
+        DungeonRun? dungeon,
         DateTimeOffset now) => new(
         village.Id,
         village.Slug,
@@ -445,7 +466,8 @@ public static class DtoMapper
             now,
             village.Wilds?.Lookout)),
         village.Raids.OrderBy(r => r.StrikesAt).Select(r => r.ToDto()).ToList(),
-        village.Wilds?.ToDto());
+        village.Wilds?.ToDto(),
+        dungeon?.ToDto());
 
     public static WildsDto ToDto(this Wilds wilds) => new(
         wilds.Ravine.Select(s => new RavineSpanDto(s.X, s.Top, s.Height)).ToList(),
@@ -577,6 +599,7 @@ public static class DtoMapper
     public static CitizenDto ToDto(this Citizen citizen, Village village, DateTimeOffset now) => new(
         citizen.Id,
         citizen.Name,
+        citizen.Subtitle,
         citizen.IsGovernor,
         citizen.Appearance,
         GameCatalog.TitleFor(citizen).Id,
@@ -659,11 +682,27 @@ public static class DtoMapper
             GameRules.VigorDrinkEnergy,
             Exploration.SightRadius,
             CombatRules.NightAmbushMultiplier,
-            CombatRules.MaximumDamage),
+            CombatRules.MaximumDamage,
+            GameRules.EnergyBase,
+            GameRules.EnergyPerEndurance,
+            GameRules.EnergyFullRegenerationHours,
+            GameRules.EnergyCostPerCycle,
+            GameRules.TiredYieldMultiplier,
+            GameRules.HungryExperienceMultiplier,
+            GameRules.HungryRegenerationMultiplier,
+            GameRules.UnderTreesRegeneration,
+            WeatherRules.UnderTreesRegeneration,
+            GameRules.StreakPerRenewal,
+            GameRules.StreakMaximumBonus,
+            GameRules.MoraleMinimum,
+            GameRules.MoraleMaximum),
         TechnologyCatalog.Technologies,
         FarmCatalog.Crops,
         EnemyCatalog.Enemies,
         ArmoryCatalog.Weapons,
         ArmoryCatalog.Armors,
+        HeroClassCatalog.Classes,
+        [.. DungeonCatalog.Foes.Values],
+        DungeonMapper.Dungeons(),
         options.DevTools);
 }

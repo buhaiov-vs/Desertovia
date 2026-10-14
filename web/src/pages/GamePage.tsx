@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import {
   api,
   ApiError,
   CARRY_TO_STORAGE,
   comingRaids,
+  dungeonPath,
+  myArrival,
+  myHero,
   INVITE_PARAMETER,
   KEEP_WATCH,
   isStoryQuest,
@@ -42,6 +45,8 @@ import { ServerClock } from '../ui/ServerClock'
 import { LoginPanel } from '../ui/LoginPanel'
 import { CreateCharacterForm } from '../ui/CreateCharacterForm'
 import { RaidBanner } from '../ui/RaidBanner'
+import { DungeonBanner, DungeonInvite } from '../ui/Dungeon'
+import { declinedDungeon, declineDungeon } from '../ui/dungeonInvites'
 
 type Panel = 'none' | 'menu' | 'inventory' | 'done'
 
@@ -51,6 +56,8 @@ const POLL_RESULTS_MS = 10 * 60 * 1000
 const POLL_CLOCK_MS = 15_000
 const RAID_CLOCK_MS = 5_000
 const seenPollKey = (slug: string) => `desertod.poll-seen.${slug}`
+/** The village page sends the player to a run once; coming back from it leaves them in the village. */
+const sentToDungeonKey = (runId: string) => `desertod.dungeon-sent.${runId}`
 /** Long enough to read a chat line over the author's head: 4 s plus about one second per 15 characters. */
 const chatBubbleSeconds = (text: string) => Math.min(12, 4 + text.length / 15)
 
@@ -85,6 +92,7 @@ export function GamePage() {
 
 function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () => void }) {
   const { slug = '' } = useParams()
+  const navigate = useNavigate()
   const i18n = useI18n()
   const [catalog, setCatalog] = useState<Catalog | null>(null)
   const [ownCitizen, setCitizen] = useState<Citizen | null | undefined>(undefined)
@@ -178,6 +186,11 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
       notify(i18n.t('notify.raidOverTitle'), line, `raid-${fought.raidId}`)
       flagTitle(fought.repelled ? '★' : '!', titleRef.current)
     },
+    onDungeonEnded: (run) => {
+      if (run.outcome === 'Cancelled') return
+      setNotice(i18n.describeDungeon(run))
+      window.setTimeout(() => setNotice(null), 8000)
+    },
     onQuestCompleted: (completion) => {
       const done = i18n.t(isStoryQuest(completion.kind) ? 'quest.storyDone' : 'quest.done', {
         quest: i18n.quest(completion).title,
@@ -188,6 +201,7 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
       notify(done, i18n.t('notify.questBody'), `quest-${completion.questId}`)
       flagTitle('★', titleRef.current)
     },
+    onVillageDeleted: () => navigate('/'),
   })
 
   const brand = i18n.t('brand')
@@ -285,6 +299,45 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
       flagTitle('!', titleRef.current)
     }
   }, [live.state, raidClock, i18n])
+
+  // The Tsar's call to a dungeon pops up for every citizen once; closing it declines.
+  const dungeon = live.state?.dungeon ?? null
+  const [inviteFor, setInviteFor] = useState<string | null>(null)
+  const invitedRuns = useRef(new Set<string>())
+  const citizenReady = !!citizen
+  useEffect(() => {
+    if (!dungeon || dungeon.phase !== 'Gathering' || !citizenReady) return
+    if (invitedRuns.current.has(dungeon.id)) return
+    invitedRuns.current.add(dungeon.id)
+    if (declinedDungeon(dungeon.id)) return
+    setInviteFor(dungeon.id)
+    notify(i18n.t('notify.dungeonTitle'), i18n.t('notify.dungeonBody', { seconds: 60 }), `dungeon-${dungeon.id}`)
+    flagTitle('!', titleRef.current)
+  }, [dungeon, citizenReady, i18n])
+  const closeInvite = () => {
+    if (inviteFor && dungeon && !myHero(dungeon, citizen?.id ?? null, false)) declineDungeon(inviteFor)
+    setInviteFor(null)
+  }
+
+  // Heroes go to the run's page once their figure reaches the edge of the land.
+  const arrival = dungeon && (dungeon.phase === 'Marching' || dungeon.phase === 'Running') ? myArrival(dungeon, citizen?.id ?? null, tsar) : null
+  const ownHero = dungeon ? myHero(dungeon, citizen?.id ?? null, tsar) : null
+  const sendable = ownHero !== null && !ownHero.settled && !ownHero.knockedOut
+  useEffect(() => {
+    if (!dungeon || arrival === null || !sendable) return
+    if (sessionStorage.getItem(sentToDungeonKey(dungeon.id))) return
+    const go = () => {
+      sessionStorage.setItem(sentToDungeonKey(dungeon.id), '1')
+      navigate(dungeonPath(slug, dungeon.id))
+    }
+    const wait = arrival - (Date.now() + serverOffset)
+    if (wait <= 0) {
+      go()
+      return
+    }
+    const timer = window.setTimeout(go, wait)
+    return () => window.clearTimeout(timer)
+  }, [dungeon, arrival, sendable, serverOffset, slug, navigate])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -433,12 +486,40 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
     }
   }
 
+  const [dungeonError, setDungeonError] = useState<string | null>(null)
+  const dungeonAction = async (action: () => Promise<VillageState>) => {
+    setPending(true)
+    setDungeonError(null)
+    try {
+      live.setState(await action())
+    } catch (exception) {
+      setDungeonError(i18n.error(exception))
+    } finally {
+      setPending(false)
+    }
+  }
+
   /** Keeps the storage view open, so the player sees the goods move into their hands. */
   const takeFromStorage = async (plotId: string, resource: string, amount: number) => {
     setPending(true)
     setError(null)
     try {
       applyCitizen(await api.takeFromStorage(slug, plotId, resource, amount))
+    } catch (exception) {
+      setError(i18n.error(exception))
+    } finally {
+      setPending(false)
+    }
+  }
+
+  /** Leaving as a citizen or deleting as the Tsar both end on the home page. */
+  const goAway = async (question: string, action: () => Promise<void>) => {
+    if (!window.confirm(question)) return
+    setPending(true)
+    setError(null)
+    try {
+      await action()
+      navigate('/')
     } catch (exception) {
       setError(i18n.error(exception))
     } finally {
@@ -661,6 +742,7 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
       <div className="hud">
         <TopBar
           village={live.state}
+          catalog={catalog}
           tsar={tsar}
           dayNight={dayNight}
           citizen={citizen}
@@ -680,6 +762,19 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
             />
           )}
         </ServerClock>
+        {dungeon && (
+          <ServerClock offsetMs={serverOffset}>
+            {(now) => (
+              <DungeonBanner
+                slug={slug}
+                run={dungeon}
+                now={now}
+                canAnswer={!!citizen}
+                onAnswer={() => setInviteFor(dungeon.id)}
+              />
+            )}
+          </ServerClock>
+        )}
         <div className="hud-side">
           <QuestTracker village={live.state} tsar={tsar} ruler={ruler} phone={phone} onOpen={() => openMenu('village')} />
           {(citizen !== undefined || tsar) && (
@@ -803,6 +898,15 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
               onCallUndead={(enemy, size) => undeadAction(() => api.callUndead(slug, enemy, size))}
               onCancelUndead={() => undeadAction(() => api.cancelUndead(slug))}
               undeadError={undeadError}
+              onOpenDungeon={() => dungeonAction(() => api.openDungeon(slug))}
+              onCancelDungeon={() => dungeonAction(() => api.cancelDungeon(slug))}
+              dungeonError={dungeonError}
+              onLeaveVillage={() =>
+                goAway(i18n.t('menu.leaveConfirm', { village: village.name }), () => api.leaveVillage(slug))
+              }
+              onDeleteVillage={() =>
+                goAway(i18n.t('menu.deleteConfirm', { village: village.name }), () => api.deleteVillage(slug))
+              }
             />
           )}
         </ServerClock>
@@ -851,6 +955,22 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
             onClose={closePoll}
           />
         )
+      )}
+
+      {citizen && dungeon && dungeon.phase === 'Gathering' && inviteFor === dungeon.id && (
+        <ServerClock offsetMs={serverOffset}>
+          {(now) => (
+            <DungeonInvite
+              slug={slug}
+              run={dungeon}
+              now={now}
+              citizen={citizen}
+              catalog={catalog}
+              onCitizen={applyCitizen}
+              onClose={closeInvite}
+            />
+          )}
+        </ServerClock>
       )}
 
       {tsar && subtitleCitizen && (

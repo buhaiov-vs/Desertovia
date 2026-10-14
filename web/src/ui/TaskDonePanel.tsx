@@ -80,12 +80,19 @@ export function TaskDonePanel({
         </p>
         {report.fight && <FightSummary fight={report.fight} />}
         <ul className="done-results">
-          {report.produced.map((item) => (
-            <li key={item.resource}>
-              <ResourceIcon kind={item.resource} scale={1} /> {i18n.produced(item.resource, item.amount)}
-              {(task?.effect === 'Deliver' || report.siteId) && ` ${t('done.toProject')}`}
-            </li>
-          ))}
+          {report.produced.map((item) => {
+            const lost = report.lost?.find((good) => good.resource === item.resource)?.amount ?? 0
+            const carried = report.carried.some((good) => good.resource === item.resource)
+            return (
+              <li key={item.resource}>
+                <ResourceIcon kind={item.resource} scale={1} /> {i18n.produced(item.resource, item.amount, item.amount - lost)}
+                {(task?.effect === 'Deliver' || report.siteId) && ` ${t('done.toProject')}`}
+                {(lost > 0 || carried) && (
+                  <span className="warning"> {t(lost > 0 ? 'done.handsFull' : 'done.storageFull')}</span>
+                )}
+              </li>
+            )
+          })}
           {report.projectContribution > 0 && report.produced.length === 0 && (
             <li>{t('done.contribution', { amount: i18n.amount(report.projectContribution) })}</li>
           )}
@@ -111,11 +118,6 @@ export function TaskDonePanel({
           {report.renownGained > 0 && <li>{t('done.renown', { amount: i18n.amount(report.renownGained) })}</li>}
           {report.rareFind && <li className="highlight">{t('done.rare')}</li>}
           {report.tired && <li className="warning">{t('done.tired')}</li>}
-          {report.carried.map((item) => (
-            <li className="warning" key={`carried-${item.resource}`}>
-              {t('done.carried', { goods: i18n.held(item.resource, item.amount) })}
-            </li>
-          ))}
           {report.repaired > 0 && <li>{t('report.repaired', { amount: i18n.amount(report.repaired) })}</li>}
           {report.overflowed && report.carried.length === 0 && !(report.fight && !report.fight.won) && (
             <li className="warning">{t('done.overflow')}</li>

@@ -114,8 +114,9 @@ export const isArmed = (task: Task) => task.danger !== null || task.effect === '
 
 export type AnimalKind = 'Rabbit' | 'Deer' | 'Bird'
 
-export type EnemyKind = 'Wolf' | 'Boar' | 'Bear' | 'Zombie' | 'Skeleton'
+export type EnemyKind = 'Wolf' | 'Boar' | 'Bear' | 'Zombie' | 'Skeleton' | 'Rat' | 'Imp' | 'Ghoul' | 'Wraith' | 'BarrowKing'
 
+/** The undead the Tsar can call onto the camp; the others live only in dungeons. */
 export const UNDEAD: EnemyKind[] = ['Zombie', 'Skeleton']
 
 export type RaidSize = 'Small' | 'Medium' | 'Large'
@@ -135,6 +136,199 @@ export interface EnemyDefinition {
   damage: number
   injuryMinutes: number
   undead: boolean
+  /** Lives only in dungeons: never raids the camp. */
+  dungeonOnly: boolean
+}
+
+export type HeroClass = 'Brawler' | 'Spearman' | 'Swordsman' | 'Archer' | 'Shieldbearer' | 'Healer' | 'Voivode'
+
+export const HERO_CLASSES: HeroClass[] = ['Brawler', 'Spearman', 'Swordsman', 'Archer', 'Shieldbearer', 'Healer', 'Voivode']
+
+export interface HeroClassDefinition {
+  class: HeroClass
+  /** Taken from storage for the run. */
+  weapon: string | null
+  armor: string | null
+  /** Craft the class needs, at `skillLevel`. */
+  skill: Skill | null
+  skillLevel: number
+  stat: Stat
+  /** Reach of an attack, in tiles. */
+  range: number
+  attackSeconds: number
+  healthMultiplier: number
+  damageMultiplier: number
+  /** Health given back per use; 0 when the class cannot heal. */
+  heal: number
+}
+
+export interface DungeonLoot {
+  resource: string
+  minimum: number
+  maximum: number
+  chance: number
+}
+
+export interface DungeonFoe {
+  kind: EnemyKind
+  health: number
+  damage: number
+  attackSeconds: number
+  speed: number
+  aggroRange: number
+  attackRange: number
+  experience: number
+  loot: DungeonLoot[]
+}
+
+export interface DungeonInfo {
+  id: string
+  name: string
+  width: number
+  height: number
+  timeLimitSeconds: number
+  foes: number
+}
+
+export const DEAD_LANDS = 'dead-lands'
+
+export type DungeonPhase = 'Gathering' | 'Marching' | 'Running' | 'Ended'
+export type DungeonOutcome = 'Pending' | 'Victory' | 'Defeat' | 'Abandoned' | 'Cancelled'
+
+export interface DungeonHero {
+  /** Null for the Tsar. */
+  citizenId: string | null
+  name: string
+  class: HeroClass
+  /** Reaches the edge of the land then. */
+  arrivesAt: string | null
+  knockedOut: boolean
+  killer: EnemyKind | null
+  /** Back in the village with rewards, wound and gear sorted out. */
+  settled: boolean
+  kills: number
+  experience: number
+  loot: ResourceAmount[]
+  broken: string[]
+}
+
+/** The village's dungeon run: open, under way, or ended a moment ago. */
+export interface DungeonRun {
+  id: string
+  dungeonId: string
+  phase: DungeonPhase
+  outcome: DungeonOutcome
+  openedAt: string
+  gatheringEndsAt: string
+  marchEndsAt: string | null
+  startedAt: string | null
+  endedAt: string | null
+  slain: number
+  foes: number
+  heroes: DungeonHero[]
+}
+
+export interface HeroClassOffer {
+  class: HeroClass
+  health: number
+  damage: number
+  range: number
+  weapon: string | null
+  armor: string | null
+}
+
+export type HeroState = 'Fighting' | 'Fleeing' | 'Left'
+
+export interface DungeonRunHero {
+  /** The citizen, or the Tsar's account. */
+  id: string
+  citizenId: string | null
+  name: string
+  class: HeroClass
+  appearance: Appearance | null
+  maximumHealth: number
+}
+
+export type DungeonEventKind = 'Hit' | 'Struck' | 'Healed' | 'Slain' | 'KnockedOut' | 'Left'
+
+export interface DungeonEvent {
+  kind: DungeonEventKind
+  heroId: string | null
+  foeId: number | null
+  amount: number
+  /** An arrow or a bolt flew. */
+  ranged: boolean
+}
+
+export interface DungeonHeroSnapshot {
+  id: string
+  x: number
+  y: number
+  health: number
+  state: HeroState
+  targetFoe: number | null
+  healTarget: string | null
+  arrows: number | null
+  kills: number
+  experience: number
+  loot: ResourceAmount[]
+}
+
+export interface DungeonFoeSnapshot {
+  id: number
+  kind: EnemyKind
+  x: number
+  y: number
+  health: number
+  maximumHealth: number
+  target: string | null
+}
+
+export interface DungeonSnapshot {
+  runId: string
+  elapsed: number
+  outcome: DungeonOutcome
+  heroes: DungeonHeroSnapshot[]
+  foes: DungeonFoeSnapshot[]
+  events: DungeonEvent[]
+}
+
+/** Tiles of a dungeon map, by the digit the server sends for each. */
+export type DungeonTile = 'Ground' | 'DeadGrass' | 'Bones' | 'Entrance' | 'DeadTree' | 'Grave' | 'Fence' | 'Mound' | 'Rock'
+
+export const DUNGEON_TILES: DungeonTile[] = ['Ground', 'DeadGrass', 'Bones', 'Entrance', 'DeadTree', 'Grave', 'Fence', 'Mound', 'Rock']
+
+export interface DungeonRunView {
+  runId: string
+  slug: string
+  dungeonId: string
+  width: number
+  height: number
+  /** One digit per tile, row by row from the top-left: an index into `DUNGEON_TILES`. */
+  tiles: string
+  entrance: TilePoint
+  timeLimitSeconds: number
+  heroes: DungeonRunHero[]
+  /** The viewer's own hero, if they fight in this run. */
+  myHeroId: string | null
+  run: DungeonRun
+  /** Null while the run has not started or once it has ended. */
+  snapshot: DungeonSnapshot | null
+}
+
+/** The page of a run; the village page sends each hero there once they reach the edge of the land. */
+export const dungeonPath = (slug: string, runId: string) => `/v/${encodeURIComponent(slug)}/dungeon/${runId}`
+
+/** The player's own hero in the run: the Tsar's for the owner, else their citizen's. */
+export const myHero = (run: DungeonRun, citizenId: string | null, isOwner: boolean) =>
+  run.heroes.find((h) => (isOwner ? h.citizenId === null : citizenId !== null && h.citizenId === citizenId)) ?? null
+
+/** When the player's own figure reaches the edge of the land (the fight may start sooner), or null if they do not march. */
+export function myArrival(run: DungeonRun, citizenId: string | null, isOwner: boolean) {
+  const arrivesAt = myHero(run, citizenId, isOwner)?.arrivesAt
+  if (!arrivesAt) return null
+  const arrives = Date.parse(arrivesAt)
+  return run.marchEndsAt ? Math.min(arrives, Date.parse(run.marchEndsAt)) : arrives
 }
 
 export interface WeaponDefinition {
@@ -301,6 +495,24 @@ export interface Rules {
   nightAmbushMultiplier: number
   /** Damage at which a building works at half speed. */
   maximumDamage: number
+  /** Maximum energy is `energyBase + energyPerEndurance × Endurance`. */
+  energyBase: number
+  energyPerEndurance: number
+  /** Hours to refill energy from 0 at full rest speed. */
+  energyFullRegenerationHours: number
+  energyCostPerCycle: number
+  /** Yield of a task done with no energy left; it gives no experience. */
+  tiredYieldMultiplier: number
+  hungryExperienceMultiplier: number
+  hungryRegenerationMultiplier: number
+  /** Rest speed without a bed. */
+  underTreesRegeneration: number
+  /** Extra rest multiplier under the trees while it rains. */
+  rainUnderTreesRegeneration: number
+  streakPerRenewal: number
+  streakMaximumBonus: number
+  moraleMinimum: number
+  moraleMaximum: number
 }
 
 export type BuildingKind = string
@@ -469,6 +681,9 @@ export interface Catalog {
   /** Best first: a citizen takes the first one available. */
   weapons: WeaponDefinition[]
   armors: ArmorDefinition[]
+  heroClasses: HeroClassDefinition[]
+  dungeonFoes: DungeonFoe[]
+  dungeons: DungeonInfo[]
   /** Development and local deployments: helpers such as the day-night toggle are shown. */
   devTools: boolean
 }
@@ -699,6 +914,8 @@ export interface VillageState {
   raids: Raid[]
   /** The ravine, mountain features and obstacles of the wild land; the map is shaped around them. */
   wilds: Wilds | null
+  /** The dungeon run under way, or one that ended a moment ago. */
+  dungeon: DungeonRun | null
 }
 
 /**
@@ -826,6 +1043,8 @@ export interface SkillValue {
 export interface Citizen {
   id: string
   name: string
+  /** Written by the Tsar, shown under the name on the map. */
+  subtitle: string | null
   /** Appointed by the Tsar: may plan buildings and call votes. */
   isGovernor: boolean
   appearance: Appearance | null
@@ -882,6 +1101,8 @@ export interface CycleReport {
   produced: ResourceAmount[]
   /** Part of `produced` that did not fit in storage and stays in the citizen's hands. */
   carried: ResourceAmount[]
+  /** Part of `produced` that fit neither in storage nor in the citizen's hands. */
+  lost: ResourceAmount[]
   moraleGained: number
   projectContribution: number
   rareFind: boolean
@@ -917,6 +1138,10 @@ export interface VillageEvents {
   quests: QuestCompletion[]
   citizens: CitizenSummary[]
   raids: RaidReport[]
+  /** Dungeon runs that ended. */
+  dungeons: DungeonRun[]
+  /** Ids of citizens who left the village for good. */
+  left: string[]
 }
 
 export const CHAT_MESSAGE_MAXIMUM = 120
@@ -1055,6 +1280,10 @@ export const api = {
   myCitizen: (slug: string) => orNull(request<Citizen>('GET', `/api/villages/${encodeURIComponent(slug)}/me`)),
   joinVillage: (slug: string, inviteCode: string | null) =>
     request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/citizens`, { inviteCode }),
+  /** The citizen leaves for good: carried goods go to storage, and joining again starts a new citizen. */
+  leaveVillage: (slug: string) => request<void>('DELETE', `/api/villages/${encodeURIComponent(slug)}/me`),
+  /** The Tsar deletes the village with everything in it. */
+  deleteVillage: (slug: string) => request<void>('DELETE', `/api/villages/${encodeURIComponent(slug)}`),
   startTask: (slug: string, taskId: string, spot: TilePoint | null = null) =>
     request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/task`, { taskId, spot }),
   cancelTask: (slug: string) => request<Citizen>('DELETE', `/api/villages/${encodeURIComponent(slug)}/me/task`),
@@ -1095,6 +1324,13 @@ export const api = {
       `/api/villages/${encodeURIComponent(slug)}/citizens/${encodeURIComponent(citizenId)}/governor`,
       { isGovernor },
     ),
+  openDungeon: (slug: string, dungeonId: string = DEAD_LANDS) =>
+    request<VillageState>('POST', `/api/villages/${encodeURIComponent(slug)}/dungeon`, { dungeonId }),
+  cancelDungeon: (slug: string) => request<VillageState>('DELETE', `/api/villages/${encodeURIComponent(slug)}/dungeon`),
+  heroClasses: (slug: string) => request<HeroClassOffer[]>('GET', `/api/villages/${encodeURIComponent(slug)}/me/dungeon`),
+  joinDungeon: (slug: string, heroClass: HeroClass) =>
+    request<Citizen>('POST', `/api/villages/${encodeURIComponent(slug)}/me/dungeon`, { class: heroClass }),
+  leaveDungeon: (slug: string) => request<Citizen>('DELETE', `/api/villages/${encodeURIComponent(slug)}/me/dungeon`),
   chat: (slug: string) => request<ChatMessage[]>('GET', `/api/villages/${encodeURIComponent(slug)}/chat`),
   sendChat: (slug: string, text: string) =>
     request<ChatMessage>('POST', `/api/villages/${encodeURIComponent(slug)}/chat`, { text }),
@@ -1161,11 +1397,19 @@ export function siteHasWork(site: Site) {
   return site.stages.some((stage) => stage.hands > 0 || stage.jobs.some((job) => job.done > 0))
 }
 
-/** Goods produced by a task that the citizen currently carries, which blocks the task. */
-export function blockedByLoad(task: Task, citizen: Citizen) {
-  const carried = new Set(citizen.load.map((good) => good.resource))
+/**
+ * A good the task produces that fits neither in storage nor in the citizen's hands; the task is blocked only
+ * when that holds for every good it produces. Mirrors the server's hands check.
+ */
+export function blockedByLoad(task: Task, citizen: Citizen, resources: Resource[], takeLimit: number) {
   if (task.effect === 'Expedition' || task.effect === 'Roam') return citizen.load.length > 0 ? citizen.load[0].resource : null
-  if (task.effect === 'Unload') return null
   if (task.effect !== 'Resources') return null
-  return task.outputs.find((output) => carried.has(output.resource))?.resource ?? null
+  const noRoom = (resource: string) => {
+    const held = citizen.load.find((good) => good.resource === resource)?.amount ?? 0
+    const stock = resources.find((good) => good.kind === resource)
+    const storageFull = stock !== undefined && stock.capacity !== null && stock.amount >= stock.capacity
+    return held >= takeLimit && storageFull
+  }
+  const blocked = task.outputs.map((output) => output.resource)
+  return blocked.length > 0 && blocked.every(noRoom) ? blocked[0] : null
 }

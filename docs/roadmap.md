@@ -1,6 +1,6 @@
 # Desertod — Roadmap
 
-Status as of 2026-10-13, 01:50 (production readiness check: both builds and both Docker images build, 216 domain tests and 31 integration tests pass; deployed to the Hetzner server on 2026-10-13). Design documents: [game-design.md](game-design.md), [streamer-mode.md](streamer-mode.md), [cooperative-building.md](cooperative-building.md).
+Status as of 2026-10-13, 23:59 (dungeon #1 added: both builds succeed, 298 domain tests and 138 integration tests pass; production readiness check and deployment to the Hetzner server on 2026-10-13). Design documents: [game-design.md](game-design.md), [streamer-mode.md](streamer-mode.md), [cooperative-building.md](cooperative-building.md).
 
 ## How to use this file
 
@@ -108,6 +108,10 @@ Goal: an endless list of goals.
 - [ ] Town and Stronghold ages: Stone yard upgrades, Treasury, Market, Barracks. (Storehouse, Tavern, Stage, Library and Mine are buildable behind discoveries.)
 - [ ] Roads and haul distance.
 - [x] Raids and defense: beast ambushes on hunts and expeditions, night raids on the camp, undead events called by the Tsar, Keep watch, Patrol (Guard) and Command (Captain), a shared armory (spears, bows and arrows, swords, leather armor, shields) that wears out, wounds healed by remedies or poultices, damaged buildings and repairs, Barracks. See [game-design.md](game-design.md), section 12.
+- [x] Dungeon #1, the Dead Lands: the Tsar opens it, a 60-second gathering with a class picker (classes from the gear in storage and the citizen's crafts), the march to the edge of the land, a live fight on a separate map (`/v/:slug/dungeon/:runId`) against 7 kinds of undead with aggro ranges, shared rewards per kill, wounds for knocked-out heroes, a 15-minute limit; the Tsar fights as the Voivode. See [game-design.md](game-design.md), section 13.
+- [ ] Hand-drawn sprites for the Dead Lands (listed as New in [sprites.md](sprites.md), section 23).
+- [ ] Balance dungeon foes, classes and rewards from a play-test.
+- [ ] More dungeons.
 - [ ] Balance enemy power, raid chance and gear from a play-test.
 - [ ] Hand-drawn sprites for the enemies (they are drawn in code in `web/src/game/enemies.ts`).
 - [ ] Trade at the Market (Merchant).

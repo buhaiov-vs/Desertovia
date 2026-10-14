@@ -61,8 +61,10 @@ builder.Services.AddSingleton<VillageNotifier>();
 builder.Services.AddSingleton<VillageStateChanges>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<ChatService>();
+builder.Services.AddSingleton<DungeonRuntime>();
 builder.Services.AddHostedService<CycleSettlementWorker>();
 builder.Services.AddHostedService<RaidWorker>();
+builder.Services.AddHostedService<DungeonWorker>();
 builder.Services.AddHostedService<VillageStatePublisher>();
 
 var app = builder.Build();
@@ -90,6 +92,7 @@ app.MapHealthChecks(HealthProbe.Path).RequireHost("localhost");
 app.MapAuthEndpoints();
 app.MapGameEndpoints();
 app.MapHub<VillageHub>("/hubs/village");
+app.MapHub<DungeonHub>("/hubs/dungeon");
 app.MapFallbackToFile("index.html");
 
 app.Run();

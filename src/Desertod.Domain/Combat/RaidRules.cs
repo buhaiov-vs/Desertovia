@@ -141,7 +141,7 @@ public static class RaidRules
     /// <summary>The Tsar calls the dead up: one wave, or more for a bigger event. One event at a time.</summary>
     public static IReadOnlyList<Raid> CallUndead(Village village, EnemyKind kind, RaidSize size, int activeCitizens, DateTimeOffset now)
     {
-        if (!EnemyCatalog.Get(kind).Undead)
+        if (EnemyCatalog.Get(kind) is not { Undead: true, DungeonOnly: false })
         {
             throw new GameRuleException("raid.notUndead", "Only the undead answer the Tsar's call.");
         }

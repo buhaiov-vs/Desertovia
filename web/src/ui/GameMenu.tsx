@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import {
   blockedByLoad,
   builtKinds,
@@ -15,6 +16,7 @@ import {
   type VillageState,
 } from '../api'
 import { UndeadPanel } from './RaidBanner'
+import { DungeonPanel } from './Dungeon'
 import type { FeedEntry } from '../hooks'
 import { useI18n } from '../i18n'
 import type { UiKey } from '../i18n/en'
@@ -79,6 +81,13 @@ export interface MenuProps {
   onCallUndead: (enemy: EnemyKind, size: RaidSize) => void
   onCancelUndead: () => void
   undeadError: string | null
+  onOpenDungeon: () => void
+  onCancelDungeon: () => void
+  dungeonError: string | null
+  /** The citizen leaves the village for good; asks first. */
+  onLeaveVillage: () => void
+  /** The Tsar deletes the village; asks first. */
+  onDeleteVillage: () => void
 }
 
 function JoinPrompt(props: MenuProps) {
@@ -167,7 +176,7 @@ export function GameMenu(props: MenuProps) {
                   </button>
                   <button
                     className="big"
-                    disabled={disabled || !roam || blockedByLoad(roam, citizen) !== null}
+                    disabled={disabled || !roam || blockedByLoad(roam, citizen, village.resources, catalog.rules.takeLimit) !== null}
                     onClick={() => roam && onStart(roam)}
                   >
                     {t('action.roam')}
@@ -180,7 +189,7 @@ export function GameMenu(props: MenuProps) {
                   </button>
                   <button
                     className="big"
-                    disabled={disabled || !expedition || blockedByLoad(expedition, citizen) !== null}
+                    disabled={disabled || !expedition || blockedByLoad(expedition, citizen, village.resources, catalog.rules.takeLimit) !== null}
                     onClick={() => expedition && onStart(expedition)}
                   >
                     {t('action.expedition')}
@@ -214,6 +223,7 @@ export function GameMenu(props: MenuProps) {
                         wildlife={village.wildlife}
                         goldVein={village.goldVeinRemaining}
                         fields={village.fields}
+                        resources={village.resources}
                         disabled={disabled}
                         onStart={onStart}
                       />
@@ -232,6 +242,15 @@ export function GameMenu(props: MenuProps) {
                   onCancel={props.onCancelUndead}
                 />
               )}
+              {tsar && (
+                <DungeonPanel
+                  village={village}
+                  pending={pending}
+                  error={props.dungeonError}
+                  onOpen={props.onOpenDungeon}
+                  onCancel={props.onCancelDungeon}
+                />
+              )}
               <section className="card">
                 <h3>{t('menu.chronicle')}</h3>
                 {props.feed.length === 0 ? (
@@ -244,7 +263,9 @@ export function GameMenu(props: MenuProps) {
                           ? i18n.describeReport(entry.report)
                           : entry.kind === 'raid'
                             ? i18n.describeRaid(entry.report)
-                            : t('feed.built', { project: i18n.project(entry.completion.projectId).name })}
+                            : entry.kind === 'dungeon'
+                              ? i18n.describeDungeon(entry.run)
+                              : t('feed.built', { project: i18n.project(entry.completion.projectId).name })}
                       </li>
                     ))}
                   </ul>
@@ -317,6 +338,7 @@ export function GameMenu(props: MenuProps) {
                         wildlife={village.wildlife}
                         goldVein={village.goldVeinRemaining}
                         fields={village.fields}
+                        resources={village.resources}
                         disabled={disabled}
                         onStart={onStart}
                       />
@@ -327,6 +349,22 @@ export function GameMenu(props: MenuProps) {
             ) : (
               <JoinPrompt {...props} />
             ))}
+        </div>
+        <div className="menu-actions">
+          {tsar ? (
+            <button className="danger" disabled={pending} onClick={props.onDeleteVillage}>
+              {t('menu.deleteVillage')}
+            </button>
+          ) : (
+            citizen && (
+              <button className="danger" disabled={pending} onClick={props.onLeaveVillage}>
+                {t('menu.leaveVillage')}
+              </button>
+            )
+          )}
+          <Link to="/" className="button">
+            {t('menu.toMainMenu')}
+          </Link>
         </div>
         <footer className="modal-footer muted small">{t('menu.hint')}</footer>
       </div>

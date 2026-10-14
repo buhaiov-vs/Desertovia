@@ -9,6 +9,11 @@ public enum EnemyKind
     Bear,
     Zombie,
     Skeleton,
+    Rat,
+    Imp,
+    Ghoul,
+    Wraith,
+    BarrowKing,
 }
 
 /// <param name="Power">Fighting strength of one enemy; compare <see cref="CombatRules.Power"/> of a citizen.</param>
@@ -18,6 +23,7 @@ public enum EnemyKind
 /// <param name="Damage">Damage one raider does to a building when the village loses.</param>
 /// <param name="InjuryMinutes">How long a citizen it wounds cannot work.</param>
 /// <param name="Undead">Called by the Tsar; beasts come by themselves.</param>
+/// <param name="DungeonOnly">Lives only in dungeons: never raids the camp, never answers the Tsar's call.</param>
 public sealed record EnemyDefinition(
     EnemyKind Kind,
     string Name,
@@ -27,7 +33,8 @@ public sealed record EnemyDefinition(
     IReadOnlyList<ResourceAmount> Steals,
     int Damage,
     int InjuryMinutes,
-    bool Undead = false);
+    bool Undead = false,
+    bool DungeonOnly = false);
 
 public static class EnemyCatalog
 {
@@ -53,6 +60,11 @@ public static class EnemyCatalog
             [new(ResourceKind.IronOre, 1)],
             [new(ResourceKind.Gold, 1)],
             Damage: 20, InjuryMinutes: 40, Undead: true),
+        new(EnemyKind.Rat, "grave rat", 1, 0, [], [], Damage: 0, InjuryMinutes: 20, Undead: true, DungeonOnly: true),
+        new(EnemyKind.Imp, "imp", 3, 0, [], [], Damage: 0, InjuryMinutes: 30, Undead: true, DungeonOnly: true),
+        new(EnemyKind.Ghoul, "ghoul", 7, 0, [], [], Damage: 0, InjuryMinutes: 45, Undead: true, DungeonOnly: true),
+        new(EnemyKind.Wraith, "wraith", 5, 0, [], [], Damage: 0, InjuryMinutes: 40, Undead: true, DungeonOnly: true),
+        new(EnemyKind.BarrowKing, "barrow king", 15, 0, [], [], Damage: 0, InjuryMinutes: 60, Undead: true, DungeonOnly: true),
     ];
 
     private static readonly Dictionary<EnemyKind, EnemyDefinition> ByKind = Enemies.ToDictionary(e => e.Kind);

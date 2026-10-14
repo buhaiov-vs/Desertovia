@@ -1,16 +1,18 @@
 import type { ReactNode } from 'react'
-import { Link } from 'react-router'
 import { isInjured, type Catalog, type Citizen, type CitizenSummary, type VillageState } from '../api'
 import { useI18n } from '../i18n'
 import { TABS, tabsFor, type MenuTab } from './menuTabs'
 import { NextAction } from './NextAction'
 import { ProjectBanner } from './ProjectPanel'
 import { ResourceIcon } from './TileIcon'
+import { Hint } from './Hint'
+import { restHints } from './needHints'
 import { HUD_RESOURCES } from './texts'
 import { WeatherChip } from './WeatherChip'
 
 export function TopBar({
   village,
+  catalog,
   tsar,
   dayNight,
   citizen,
@@ -18,6 +20,7 @@ export function TopBar({
   onForecast,
 }: {
   village: VillageState
+  catalog: Catalog
   tsar: boolean
   /** Development only: the toggle between daylight and night; null hides it. */
   dayNight: { night: boolean; onToggle: () => void } | null
@@ -30,9 +33,6 @@ export function TopBar({
   return (
     <div className="hud-top">
       <div className="hud-title">
-        <Link to="/" className="brand" title={t('toHome')}>
-          {t('brand')}
-        </Link>
         <span className="village-name">{village.name}</span>
         {tsar && <span className="badge">{t('hud.tsar')}</span>}
         {citizen?.isGovernor && <span className="badge">{t('hud.governor')}</span>}
@@ -48,8 +48,19 @@ export function TopBar({
             </span>
           )
         })}
-        <span className="resource-chip" title={t('hud.moraleTitle')}>
-          {t('hud.morale', { value: Math.round(village.morale * 100) })}
+        <span className="resource-chip">
+          <span className="morale-icon" aria-hidden>
+            ☺
+          </span>
+          <Hint
+            text={t('hint.morale', {
+              value: Math.round(village.morale * 100),
+              minimum: i18n.amount(catalog.rules.moraleMinimum * 100),
+              maximum: i18n.amount(catalog.rules.moraleMaximum * 100),
+            })}
+          >
+            {Math.round(village.morale * 100)}
+          </Hint>
         </span>
         <WeatherChip weather={village.weather} citizen={citizen} citizens={citizens} onForecast={onForecast} />
         {dayNight && (
@@ -218,33 +229,58 @@ function CitizenNeeds({
     : full
       ? t('needs.drinkFull')
       : t('needs.drinkTitle', { energy: catalog.rules.vigorDrinkEnergy })
-  const place = citizen.shelterQuality < 0.6 ? t('needs.underTrees') : t('needs.inShelter')
-  const percent = Math.round(citizen.regenerationMultiplier * 100)
+  const { rules } = catalog
+  const percentOf = (multiplier: number) => i18n.amount(multiplier * 100)
+  const mealsDone = Math.min(citizen.cyclesSinceMeal, meals)
+  const rest = restHints(citizen, catalog, i18n, energy)
+
   return (
     <div className="hud-needs">
-      <span
-        className={`resource-chip${citizen.isHungry ? ' needs-warning' : ''}`}
-        title={`${citizen.isHungry ? `${t('character.hungry')} ` : ''}${t('character.eating', { cycles: meals })}`}
-      >
+      <span className={`resource-chip${citizen.isHungry ? ' needs-warning' : ''}`}>
         <ResourceIcon kind="Food" scale={1.5} />
-        {citizen.isHungry
-          ? t('needs.hungry')
-          : t('needs.fed', { done: Math.min(citizen.cyclesSinceMeal, meals), total: meals })}
+        <span>
+          {citizen.isHungry ? (
+            <>
+              <Hint
+                text={t('hint.hungry', {
+                  experience: percentOf(rules.hungryExperienceMultiplier),
+                  rest: percentOf(rules.hungryRegenerationMultiplier),
+                })}
+              >
+                {t('needs.hungry')}
+              </Hint>
+              {' · '}
+              <Hint text={t('hint.hungryExperience', { percent: percentOf(rules.hungryExperienceMultiplier) })}>
+                {t('needs.hungryExperience', { multiplier: i18n.amount(rules.hungryExperienceMultiplier) })}
+              </Hint>
+              {' · '}
+              <Hint text={t('hint.hungryRest', { percent: percentOf(rules.hungryRegenerationMultiplier) })}>
+                {t('needs.hungryRest', { multiplier: i18n.amount(rules.hungryRegenerationMultiplier) })}
+              </Hint>
+            </>
+          ) : (
+            <>
+              <Hint text={t('hint.fed', { cycles: meals })}>{t('needs.fed')}</Hint>
+              {' · '}
+              <Hint text={t('hint.meal', { done: mealsDone, cycles: meals })}>
+                {t('needs.meal', { done: mealsDone, total: meals })}
+              </Hint>
+            </>
+          )}
+        </span>
       </span>
-      <span
-        className={`resource-chip${citizen.cycleTired ? ' needs-warning' : ''}`}
-        title={t('needs.sleepTitle', { percent })}
-      >
+      <span className={`resource-chip${citizen.cycleTired ? ' needs-warning' : ''}`}>
         <span className="sleep-icon" aria-hidden>
           z<small>z</small>
         </span>
-        {t('needs.sleep', {
-          place,
-          energy: Math.floor(energy),
-          maximum: citizen.maximumEnergy,
-          perHour: i18n.amount(citizen.energyPerHour),
-          percent,
-        })}
+        <span>
+          <Hint text={rest.place}>{rest.underTrees ? t('needs.underTrees') : t('needs.inShelter')}</Hint>
+          {' · '}
+          <Hint text={rest.energy}>{t('needs.energy', { energy: Math.floor(energy), maximum: citizen.maximumEnergy })}</Hint>
+          {' · '}
+          <Hint text={rest.perHour}>{t('needs.perHour', { perHour: i18n.amount(citizen.energyPerHour) })}</Hint>{' '}
+          <Hint text={rest.restSpeed}>{t('needs.restSpeed', { percent: rest.percent })}</Hint>
+        </span>
       </span>
       {drinks > 0 && (
         <button className="drink-button" disabled={pending || cooling || full} onClick={onDrink} title={drinkTitle}>

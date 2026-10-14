@@ -3,6 +3,7 @@ using Desertod.Domain;
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Catalog;
 using Desertod.Domain.Combat;
+using Desertod.Domain.Dungeons;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Projects;
 using Desertod.Domain.Quests;
@@ -28,7 +29,7 @@ public sealed class NotFoundException(string code, string message, IReadOnlyDict
 /// <summary>A citizen whose cycle has ended but is not banked yet.</summary>
 public sealed record DueCitizen(Guid VillageId, Guid CitizenId);
 
-public sealed class GameService(
+public sealed partial class GameService(
     IDbContextFactory<DesertodDbContext> contextFactory,
     TimeProvider time,
     VillageNotifier notifier,
@@ -230,6 +231,70 @@ public sealed class GameService(
         await notifier.CitizenUpdated(village.Slug, citizen.ToSummaryDto(now));
         return citizen.ToDto(village, now);
     }
+
+    /// <summary>The citizen leaves the village for good; see <see cref="Departure.Leave"/>. Their chat lines go with them.</summary>
+    public async Task LeaveVillageAsync(string slug, Guid accountId, CancellationToken cancellationToken)
+    {
+        var key = await RequireCitizenAsync(slug, accountId, cancellationToken);
+        if (key.IsDue)
+        {
+            await SettleVillageAsync(key.VillageId, [key.Id], cancellationToken);
+        }
+
+        await WithVillageAsync(key.VillageId, async db =>
+        {
+            var citizen = await db.Citizens.SingleAsync(c => c.Id == key.Id, cancellationToken);
+            var village = await db.Villages.SingleAsync(v => v.Id == citizen.VillageId, cancellationToken);
+            var run = citizen.DungeonRunId is { } runId
+                ? await db.DungeonRuns.SingleOrDefaultAsync(r => r.Id == runId, cancellationToken)
+                : null;
+            var now = time.GetUtcNow();
+            village.EnsureCamp(now);
+            Departure.Leave(citizen, village, run, now);
+
+            await db.ChatMessages.Where(m => m.CitizenId == citizen.Id).ExecuteDeleteAsync(cancellationToken);
+            db.Citizens.Remove(citizen);
+            var housed = await db.Citizens
+                .Where(c => c.VillageId == village.Id && c.Status == CitizenStatus.Active && c.Id != citizen.Id)
+                .ToListAsync(cancellationToken);
+            ShelterRules.Assign(village, housed, now);
+            await db.SaveChangesAsync(cancellationToken);
+            logger.CitizenLeft(accountId, slug, citizen.Id);
+
+            await notifier.CitizenLeft(slug, citizen.Id);
+            changes.Mark(village.Id);
+            return true;
+        }, cancellationToken);
+
+        await RefreshQuestsAsync(key.VillageId, slug, cancellationToken);
+    }
+
+    /// <summary>
+    /// The Tsar deletes the village with its citizens, quests, projects, runs and chat. Not while heroes are away in a
+    /// dungeon: their fight runs in memory and comes back to the village.
+    /// </summary>
+    public async Task DeleteVillageAsync(string slug, Guid accountId, CancellationToken cancellationToken) =>
+        await WithVillageAsync(await FindVillageIdAsync(slug, cancellationToken), async db =>
+        {
+            var village = await LoadVillageAsync(db, slug, cancellationToken);
+            if (village.OwnerAccountId != accountId)
+            {
+                throw new UnauthorizedAccessException();
+            }
+
+            if (await db.DungeonRuns.AnyAsync(
+                    r => r.VillageId == village.Id && (r.Phase == DungeonPhase.Marching || r.Phase == DungeonPhase.Running),
+                    cancellationToken))
+            {
+                throw new GameRuleException("village.heroesAway", "Wait until the heroes are back from the dungeon.");
+            }
+
+            await db.Villages.Where(v => v.Id == village.Id).ExecuteDeleteAsync(cancellationToken);
+            logger.VillageDeleted(accountId, slug);
+
+            await notifier.VillageDeleted(slug);
+            return true;
+        }, cancellationToken);
 
     /// <summary>A newcomer can leave the tribe short of beds.</summary>
     private Task RefreshQuestsAsync(Guid villageId, string slug, CancellationToken cancellationToken) =>
@@ -1067,8 +1132,13 @@ public sealed class GameService(
             .SingleAsync(cancellationToken);
         var tsar = new TsarDto(owner.Character?.Name ?? owner.DisplayName, owner.Character?.Appearance, village.TsarSpot);
         var trips = await LoadTripsAsync(db, village.Id, cancellationToken);
+        var shownSince = now - DungeonRules.ShownAfterEnd;
+        var dungeon = await db.DungeonRuns.AsNoTracking()
+            .Where(r => r.VillageId == village.Id && (r.Phase != DungeonPhase.Ended || r.EndedAt >= shownSince))
+            .OrderByDescending(r => r.OpenedAt)
+            .FirstOrDefaultAsync(cancellationToken);
 
-        return village.ToStateDto(context.Work, context.CompletedInOrder, quests, tsar, trips, now);
+        return village.ToStateDto(context.Work, context.CompletedInOrder, quests, tsar, trips, dungeon, now);
     }
 
     /// <summary>Last walks of the village's citizens, those who left included: what they saw stays seen.</summary>

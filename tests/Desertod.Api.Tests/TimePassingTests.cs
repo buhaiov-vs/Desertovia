@@ -45,8 +45,6 @@ public sealed class TimePassingTests(DesertodApiFactory factory)
         Assert.True(back.GetProperty("energy").GetDouble() < back.GetProperty("maximumEnergy").GetDouble());
         // The new village has no storage yet, so the wood stays in hands.
         Assert.Contains(back.GetProperty("load").EnumerateArray(), good => good.GetProperty("resource").GetString() == "Wood");
-        await AssertRuleBrokenAsync(
-            await citizen.Client.PostAsJsonAsync($"{citizen.Path}/me/task", new { taskId = "chop-wood" }), "hands.full");
     }
 
     [Fact]
@@ -54,7 +52,7 @@ public sealed class TimePassingTests(DesertodApiFactory factory)
     {
         var village = await players.FoundVillageAsync("Streak Village");
         var citizen = await players.JoinAsync(village);
-        // Without storage the wood stays in hands and blocks the next chopping.
+        // Without storage the wood would pile up in hands until they are full.
         await players.ArrangeVillageAsync(village.Slug, (v, now) => v.Storages.Add(StorageBuilding.Create(StorageKind.Heap, "17,12", now)));
         var first = await StartAsync(citizen);
         Assert.Equal(0, first.GetProperty("streak").GetInt32());

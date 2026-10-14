@@ -46,7 +46,11 @@ public sealed record CycleReport(
     string? TechnologyId = null,
     bool TechnologyDiscovered = false,
     FightReport? Fight = null,
-    int Repaired = 0);
+    int Repaired = 0)
+{
+    /// <summary>Part of <see cref="Produced"/> that fit neither in storage nor in the citizen's hands.</summary>
+    public IReadOnlyList<ResourceAmount> Lost { get; init; } = [];
+}
 
 public static class CycleEngine
 {
@@ -284,6 +288,7 @@ public static class CycleEngine
 
         var produced = new List<ResourceAmount>();
         var carried = new List<ResourceAmount>();
+        var lost = new List<ResourceAmount>();
         var overflowed = false;
         var rareFind = false;
         double moraleGained = 0;
@@ -299,12 +304,7 @@ public static class CycleEngine
             }
 
             produced.Add(new ResourceAmount(kind, amount));
-            var stored = village.Store(kind, amount);
-            if (amount - stored > 0)
-            {
-                citizen.Carry(kind, amount - stored);
-                carried.Add(new ResourceAmount(kind, amount - stored));
-            }
+            Keep(citizen, village, kind, amount, carried, lost);
         }
 
         var fight = task.Danger is { } danger
@@ -515,10 +515,10 @@ public static class CycleEngine
         if (task.Effect != TaskEffect.Unload)
         {
             experienceShare = overflowed ? GameRules.OverflowExperienceMultiplier : 1;
-            if (carried.Count > 0)
+            if (carried.Count > 0 || lost.Count > 0)
             {
                 overflowed = true;
-                var storedShare = 1 - (double)carried.Sum(c => c.Amount) / produced.Sum(p => p.Amount);
+                var storedShare = 1 - (double)(carried.Sum(c => c.Amount) + lost.Sum(l => l.Amount)) / produced.Sum(p => p.Amount);
                 experienceShare = GameRules.OverflowExperienceMultiplier + (1 - GameRules.OverflowExperienceMultiplier) * storedShare;
             }
         }
@@ -533,7 +533,28 @@ public static class CycleEngine
         var report = Finish(citizen, village, task.Id, task.Primary, task.Secondary, task.Skill,
             SkillRules.Challenge(citizen, task.Skill, task.SkillLevel), experienceShare, hungry,
             produced, carried, moraleGained, contributed, rareFind, overflowed);
-        return report with { Fight = fight, Repaired = repaired };
+        return report with { Fight = fight, Repaired = repaired, Lost = lost };
+    }
+
+    /// <summary>
+    /// Stores what fits; the rest goes to the citizen's hands up to <see cref="StorageRules.TakeLimit"/> of the good,
+    /// and anything beyond that is lost.
+    /// </summary>
+    private static void Keep(Citizen citizen, Village village, ResourceKind kind, int amount,
+        List<ResourceAmount> carried, List<ResourceAmount> lost)
+    {
+        var left = amount - village.Store(kind, amount);
+        var held = Math.Min(left, Math.Max(0, StorageRules.TakeLimit - citizen.Carried(kind)));
+        if (held > 0)
+        {
+            citizen.Carry(kind, held);
+            carried.Add(new ResourceAmount(kind, held));
+        }
+
+        if (left - held > 0)
+        {
+            lost.Add(new ResourceAmount(kind, left - held));
+        }
     }
 
     private static CycleReport? SettleJob(Citizen citizen, WorkContext context, DateTimeOffset now)
@@ -554,6 +575,7 @@ public static class CycleEngine
         var amount = 0;
         var produced = new List<ResourceAmount>();
         var carried = new List<ResourceAmount>();
+        var lost = new List<ResourceAmount>();
 
         if (site is not null && stage >= site.Stage && !site.IsFinished)
         {
@@ -589,12 +611,7 @@ public static class CycleEngine
                         if (wood > 0)
                         {
                             produced.Add(new ResourceAmount(ResourceKind.Wood, wood));
-                            var stored = village.Store(ResourceKind.Wood, wood);
-                            if (wood - stored > 0)
-                            {
-                                citizen.Carry(ResourceKind.Wood, wood - stored);
-                                carried.Add(new ResourceAmount(ResourceKind.Wood, wood - stored));
-                            }
+                            Keep(citizen, village, ResourceKind.Wood, wood, carried, lost);
                         }
                     }
                 }
@@ -608,7 +625,7 @@ public static class CycleEngine
         var report = Finish(citizen, village, job.Id, job.Primary, job.Secondary, job.Skill, SkillRules.Challenge(citizen, job.Skill, 0),
             overflowed ? GameRules.OverflowExperienceMultiplier : 1, hungry,
             produced, carried, 0, overflowed ? 0 : amount, false, overflowed);
-        return report with { SiteId = plotId, BuildingCompleted = completed };
+        return report with { SiteId = plotId, BuildingCompleted = completed, Lost = lost };
     }
 
     private static CycleReport Finish(
@@ -717,6 +734,11 @@ public static class CycleEngine
         {
             throw new GameRuleException("citizen.injured", "You are wounded and cannot work until the wound heals. A remedy heals it at once.",
                 new Dictionary<string, object> { ["readyAt"] = citizen.InjuredUntil!.Value });
+        }
+
+        if (citizen.DungeonRunId is not null)
+        {
+            throw new GameRuleException("dungeon.busy", "You are away in the dungeon.");
         }
 
         if (citizen.CycleEndsAt is not null && now < citizen.CycleEndsAt)
@@ -914,7 +936,7 @@ public static class CycleEngine
     }
 
     /// <summary>
-    /// A citizen holding goods that did not fit in storage cannot produce more of the same good.
+    /// A citizen whose hands and storage are both full of every good a task produces cannot start it.
     /// Expedition and roaming loot is random, so they need empty hands. Carrying to storage needs a load and room.
     /// </summary>
     private static void CheckHands(Citizen citizen, Village village, TaskDefinition task, DateTimeOffset now)
@@ -950,11 +972,13 @@ public static class CycleEngine
             TaskEffect.Harvest when FarmRules.RipeBed(village, now) is { Crop: { } crop } => FarmCatalog.Get(crop).Harvest,
             _ => [],
         };
-        var blocked = outputs.FirstOrDefault(o => citizen.Carried(o.Resource) > 0);
-        if (blocked is not null)
+        bool NoRoom(ResourceAmount output) =>
+            citizen.Carried(output.Resource) >= StorageRules.TakeLimit && village.FreeSpace(output.Resource) <= 0;
+        var blocked = outputs.FirstOrDefault(NoRoom);
+        if (blocked is not null && outputs.All(NoRoom))
         {
             throw new GameRuleException("hands.full",
-                $"Your hands are full of {ResourceNames.Of(blocked.Resource)}: storage has no room for it. Carry it to storage or pick another job.",
+                $"Your hands are full of {ResourceNames.Of(blocked.Resource)} and storage has no room for it. Carry it to storage or pick another job.",
                 Resource(blocked.Resource));
         }
     }

@@ -1,7 +1,9 @@
 import {
   ApiError,
   type CycleReport,
+  type DungeonRun,
   type Era,
+  type HeroClass,
   type ProjectPhase,
   type RaidReport,
   type RoleTier,
@@ -78,8 +80,12 @@ export function createTranslator(language: Language) {
   const crop = (kind: string) => dictionary.crops[kind] ?? en.crops[kind] ?? kind
   const cropHint = (kind: string) => dictionary.cropHints[kind] ?? en.cropHints[kind] ?? ''
   /** "+3 wood" in English, "дерево +3" in Russian: the word order avoids number agreement. */
-  const produced = (kind: string, value: number) =>
-    t('amount.produced', { amount: amount(value), resource: resource(kind).toLowerCase() })
+  /** "+2 food"; with `kept` below `value` some was lost: "+2(0) food". */
+  const produced = (kind: string, value: number, kept = value) =>
+    t('amount.produced', {
+      amount: kept < value ? `${amount(value)}(${amount(kept)})` : amount(value),
+      resource: resource(kind).toLowerCase(),
+    })
   const role = (id: string) => dictionary.roles[id] ?? en.roles[id] ?? id
   const job = (id: string) => dictionary.jobs[id] ?? en.jobs[id] ?? id
   /** Tasks and construction jobs share one name space in reports and the feed. */
@@ -176,6 +182,17 @@ export function createTranslator(language: Language) {
   const goods = (list: Array<{ resource: string; amount: number }>) =>
     list.map((item) => held(item.resource, item.amount)).join(', ')
 
+  const heroClass = (value: HeroClass) => t(`class.${value}`)
+  const heroClassHint = (value: HeroClass) => t(`classHint.${value}`)
+
+  /** One line for the chronicle about a dungeon run that just ended. */
+  const describeDungeon = (run: DungeonRun) => {
+    const values = { slain: run.slain, foes: run.foes }
+    if (run.outcome === 'Victory') return t('feed.dungeon.Victory', values)
+    if (run.outcome === 'Defeat') return t('feed.dungeon.Defeat', values)
+    return t('feed.dungeon.Abandoned', values)
+  }
+
   /** One line for the chronicle: the outcome, then what it cost or brought. */
   const describeRaid = (report: RaidReport) => {
     const name = enemy(report.enemy)
@@ -254,6 +271,9 @@ export function createTranslator(language: Language) {
     error,
     describeReport,
     describeRaid,
+    describeDungeon,
+    heroClass,
+    heroClassHint,
     speechFor,
   }
 }

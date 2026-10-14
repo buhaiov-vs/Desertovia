@@ -105,6 +105,107 @@ const LOOKS: Record<EnemyKind, EnemyLook> = {
     ],
     colors: { w: 0xe8e4d4, k: 0x60e0ff, t: 0x8a8474 },
   },
+  Rat: {
+    speed: 34,
+    hop: 0.8,
+    pixels: [
+      '.......ee..',
+      '..bbbbbbhh.',
+      'tbbbbbbbhkhn',
+      't.bbbbbbbhh.',
+      '...l.l.l.l..',
+    ],
+    colors: { e: 0x8a6a6a, b: 0x5a5048, h: 0x6a6058, k: 0xff4030, n: 0xd09090, t: 0xb09080, l: 0x3a3028 },
+  },
+  Imp: {
+    speed: 26,
+    hop: 1.8,
+    pixels: [
+      '.h...h..',
+      '.hrrrh..',
+      '.rkrkr..',
+      '.rrrrr..',
+      'w.rrr.w.',
+      'wwrrrrww',
+      '..rrrr..',
+      '..r..r.t',
+      '.rr..rrt',
+    ],
+    colors: { h: 0x2a1a14, r: 0xa83a2a, k: 0xffe040, w: 0x5a2a3a, t: 0x7a2a1a },
+  },
+  Ghoul: {
+    speed: 18,
+    hop: 0.8,
+    pixels: [
+      '...ggg....',
+      '..gkgkg...',
+      '..ggggg...',
+      '..gtttg...',
+      '.ssssss.cc',
+      'sssssssgc.',
+      '.ssssss...',
+      '.ssrsss...',
+      '..pp.pp...',
+      '..pp.pp...',
+      '.cc..cc...',
+    ],
+    colors: { g: 0x8a9a7a, k: 0xffe040, t: 0x2a2a1a, s: 0x4a3a3a, r: 0x7a1a1a, p: 0x3a3030, c: 0xd8d0b8 },
+  },
+  Wraith: {
+    speed: 22,
+    hop: 2.2,
+    pixels: [
+      '..hhhh...',
+      '.hhhhhh..',
+      '.hkhhkh..',
+      '.hhhhhh..',
+      'hhhhhhhhh',
+      '.hhhhhhh.',
+      '.hhhhhh..',
+      '..hhhhh..',
+      '..h.hh.h.',
+      '.h...h...',
+    ],
+    colors: { h: 0x9ab8c8, k: 0x1a2a3a },
+  },
+  BarrowKing: {
+    speed: 12,
+    hop: 0.5,
+    pixels: [
+      '..y.y.y...',
+      '..yyyyy...',
+      '..wwwww...',
+      '..wkwkw...',
+      '..wwwww...',
+      '...www....',
+      '.aaaaaaa..',
+      'aaaaaaaaa.',
+      'a.aaaaa.ss',
+      'a.aaraa.s.',
+      '..aaaaa.s.',
+      '..pp.pp.s.',
+      '..pp.pp...',
+      '.ww..ww...',
+    ],
+    colors: { y: 0xe8c040, w: 0xe0dcc8, k: 0x60ff80, a: 0x3a4a3a, r: 0xa83030, p: 0x2a2a2a, s: 0x9a9aa8 },
+  },
+}
+
+const SHARED_CONTEXTS = new Map<EnemyKind, GraphicsContext>()
+
+/** The code-drawn look of an enemy, shared by every layer that draws one; the feet are at (0, 0). */
+export function enemyContext(kind: EnemyKind): GraphicsContext {
+  let context = SHARED_CONTEXTS.get(kind)
+  if (!context) {
+    context = drawLook(LOOKS[kind])
+    SHARED_CONTEXTS.set(kind, context)
+  }
+  return context
+}
+
+/** Height of an enemy's look, in world pixels. */
+export function enemyHeight(kind: EnemyKind) {
+  return LOOKS[kind].pixels.length
 }
 
 /** Raiders drawn for one attack at most; a bigger pack is shown by this many. */

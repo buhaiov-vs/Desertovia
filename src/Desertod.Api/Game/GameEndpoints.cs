@@ -23,6 +23,12 @@ public static class GameEndpoints
         player.MapPost("/villages", (CreateVillageRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.CreateVillageAsync(user.RequireAccountId(), request, cancellationToken));
 
+        player.MapDelete("/villages/{slug}", async (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+        {
+            await game.DeleteVillageAsync(slug, user.RequireAccountId(), cancellationToken);
+            return Results.NoContent();
+        });
+
         player.MapPost("/villages/{slug}/invite", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.NewInviteCodeAsync(slug, user.RequireAccountId(), cancellationToken));
 
@@ -30,6 +36,12 @@ public static class GameEndpoints
             await game.GetCitizenAsync(slug, user.RequireAccountId(), cancellationToken) is { } citizen
                 ? Results.Ok(citizen)
                 : Results.NotFound());
+
+        player.MapDelete("/villages/{slug}/me", async (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+        {
+            await game.LeaveVillageAsync(slug, user.RequireAccountId(), cancellationToken);
+            return Results.NoContent();
+        });
 
         player.MapPost("/villages/{slug}/citizens", (string slug, JoinVillageRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.JoinVillageAsync(slug, user.RequireAccountId(), request, cancellationToken));
@@ -60,6 +72,21 @@ public static class GameEndpoints
 
         player.MapDelete("/villages/{slug}/undead", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.CancelUndeadAsync(slug, user.RequireAccountId(), cancellationToken));
+
+        player.MapPost("/villages/{slug}/dungeon", (string slug, OpenDungeonRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.OpenDungeonAsync(slug, user.RequireAccountId(), request.DungeonId, cancellationToken));
+
+        player.MapDelete("/villages/{slug}/dungeon", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.CancelDungeonAsync(slug, user.RequireAccountId(), cancellationToken));
+
+        player.MapGet("/villages/{slug}/me/dungeon", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.GetHeroClassesAsync(slug, user.RequireAccountId(), cancellationToken));
+
+        player.MapPost("/villages/{slug}/me/dungeon", (string slug, JoinDungeonRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.JoinDungeonAsync(slug, user.RequireAccountId(), request.Class, cancellationToken));
+
+        player.MapDelete("/villages/{slug}/me/dungeon", (string slug, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
+            game.LeaveDungeonAsync(slug, user.RequireAccountId(), cancellationToken));
 
         player.MapPost("/villages/{slug}/me/take", (string slug, TakeRequest request, ClaimsPrincipal user, GameService game, CancellationToken cancellationToken) =>
             game.TakeFromStorageAsync(slug, user.RequireAccountId(), request, cancellationToken));

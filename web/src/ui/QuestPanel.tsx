@@ -122,7 +122,7 @@ export function QuestPanel({
       <button
         key={task.id}
         className="primary"
-        disabled={disabled || blockedByLoad(task, citizen) !== null || veinEmpty(village, task)}
+        disabled={disabled || blockedByLoad(task, citizen, village.resources, catalog.rules.takeLimit) !== null || veinEmpty(village, task)}
         onClick={() => onStart(task)}
       >
         {i18n.task(task.id)}

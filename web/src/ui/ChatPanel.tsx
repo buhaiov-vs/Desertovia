@@ -125,7 +125,9 @@ export function ChatPanel({
                     ? i18n.describeReport(line.entry.report)
                     : line.entry.kind === 'raid'
                       ? i18n.describeRaid(line.entry.report)
-                      : t('feed.built', { project: i18n.project(line.entry.completion.projectId).name })}
+                      : line.entry.kind === 'dungeon'
+                        ? i18n.describeDungeon(line.entry.run)
+                        : t('feed.built', { project: i18n.project(line.entry.completion.projectId).name })}
                 </li>
               ) : (
                 <li

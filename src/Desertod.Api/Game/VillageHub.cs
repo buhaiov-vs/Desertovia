@@ -58,12 +58,15 @@ public sealed class VillageHub(ChatService chat, ILogger<VillageHub> logger) : H
 }
 
 /// <summary>Events of one village since the last batch, in the order they happened; only the latest summary per citizen.</summary>
+/// <param name="Left">Citizens who left the village; none of them is in <paramref name="Citizens"/>.</param>
 public sealed record VillageEventsDto(
     IReadOnlyList<CycleReport> Cycles,
     IReadOnlyList<ProjectCompletion> Projects,
     IReadOnlyList<QuestCompletion> Quests,
     IReadOnlyList<CitizenSummaryDto> Citizens,
-    IReadOnlyList<RaidReport> Raids);
+    IReadOnlyList<RaidReport> Raids,
+    IReadOnlyList<DungeonDto> Dungeons,
+    IReadOnlyList<Guid> Left);
 
 /// <summary>
 /// Sends the village state at once, and queues the other events, which <see cref="VillageStatePublisher"/> sends
@@ -80,7 +83,24 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
         hub.Clients.Group(VillageHub.GroupName(slug)).SendAsync("villageEvents", events, cancellationToken);
 
     public Task CitizenUpdated(string slug, CitizenSummaryDto citizen) =>
-        Queue(slug, events => events.Citizens[citizen.Id] = citizen);
+        Queue(slug, events =>
+        {
+            if (!events.Left.Contains(citizen.Id))
+            {
+                events.Citizens[citizen.Id] = citizen;
+            }
+        });
+
+    public Task CitizenLeft(string slug, Guid citizenId) =>
+        Queue(slug, events =>
+        {
+            events.Citizens.Remove(citizenId);
+            events.Left.Add(citizenId);
+        });
+
+    /// <summary>Sent at once, so the viewers go back to the home page.</summary>
+    public Task VillageDeleted(string slug) =>
+        hub.Clients.Group(VillageHub.GroupName(slug)).SendAsync("villageDeleted");
 
     public Task CycleCompleted(string slug, CycleReport report) => Queue(slug, events => events.Cycles.Add(report));
 
@@ -90,6 +110,8 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
     public Task QuestCompleted(string slug, QuestCompletion completion) => Queue(slug, events => events.Quests.Add(completion));
 
     public Task RaidFought(string slug, RaidReport report) => Queue(slug, events => events.Raids.Add(report));
+
+    public Task DungeonEnded(string slug, DungeonDto run) => Queue(slug, events => events.Dungeons.Add(run));
 
     /// <summary>Sent at once: players expect their line to show up as they press Enter.</summary>
     public Task ChatMessageSent(string slug, ChatMessageDto message) =>
@@ -106,7 +128,9 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
                     entry.Value.Projects,
                     entry.Value.Quests,
                     [.. entry.Value.Citizens.Values],
-                    entry.Value.Raids)))
+                    entry.Value.Raids,
+                    entry.Value.Dungeons,
+                    [.. entry.Value.Left])))
                 .ToList();
             pending.Clear();
             return taken;
@@ -137,5 +161,7 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
         public List<QuestCompletion> Quests { get; } = [];
         public Dictionary<Guid, CitizenSummaryDto> Citizens { get; } = [];
         public List<RaidReport> Raids { get; } = [];
+        public List<DungeonDto> Dungeons { get; } = [];
+        public HashSet<Guid> Left { get; } = [];
     }
 }

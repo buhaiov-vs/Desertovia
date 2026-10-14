@@ -8,6 +8,12 @@ internal static partial class GameLog
     [LoggerMessage(1001, LogLevel.Information, "Account {AccountId} joined village {Slug} as citizen {CitizenId}.")]
     public static partial void CitizenJoined(this ILogger logger, Guid accountId, string slug, Guid citizenId);
 
+    [LoggerMessage(1005, LogLevel.Information, "Account {AccountId} left village {Slug}; citizen {CitizenId} deleted.")]
+    public static partial void CitizenLeft(this ILogger logger, Guid accountId, string slug, Guid citizenId);
+
+    [LoggerMessage(1006, LogLevel.Information, "Account {AccountId} deleted village {Slug}.")]
+    public static partial void VillageDeleted(this ILogger logger, Guid accountId, string slug);
+
     [LoggerMessage(1002, LogLevel.Debug, "Tsar of village {Slug}: {Action} {Detail}")]
     public static partial void TsarActed(this ILogger logger, string slug, string action, string detail);
 
@@ -50,6 +56,12 @@ internal static partial class GameLog
 
     [LoggerMessage(1017, LogLevel.Information, "Village {Slug} fought {Count} {Enemy} with {Defenders} defenders: repelled {Repelled}.")]
     public static partial void RaidFought(this ILogger logger, string slug, int count, string enemy, bool repelled, int defenders);
+
+    [LoggerMessage(1018, LogLevel.Information, "Village {Slug}: dungeon run {RunId} entered {Phase} with {Heroes} heroes.")]
+    public static partial void DungeonPhase(this ILogger logger, string slug, Guid runId, string phase, int heroes);
+
+    [LoggerMessage(1019, LogLevel.Information, "Village {Slug}: dungeon run {RunId} ended in {Outcome}, {Slain} of {Foes} foes slain.")]
+    public static partial void DungeonEnded(this ILogger logger, string slug, Guid runId, string outcome, int slain, int foes);
 
     [LoggerMessage(1020, LogLevel.Debug, "Attempt {Attempt} of {MaximumAttempts} failed with {Reason}; retrying.")]
     public static partial void Retrying(this ILogger logger, int attempt, int maximumAttempts, string reason);

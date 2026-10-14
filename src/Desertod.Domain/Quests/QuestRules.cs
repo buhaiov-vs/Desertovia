@@ -208,10 +208,11 @@ public static class QuestRules
         }
     }
 
-    /// <summary>What actually went into storage: produced minus what stayed in the citizen's hands.</summary>
+    /// <summary>What actually went into storage: produced minus what stayed in the citizen's hands or was lost.</summary>
     internal static int Stored(CycleReport report, ResourceKind kind) =>
         report.Produced.Where(p => p.Resource == kind).Sum(p => p.Amount)
-        - report.Carried.Where(c => c.Resource == kind).Sum(c => c.Amount);
+        - report.Carried.Where(c => c.Resource == kind).Sum(c => c.Amount)
+        - report.Lost.Where(l => l.Resource == kind).Sum(l => l.Amount);
 
     /// <summary>Storage made for food; the Heap takes food too but lets it rot among the sticks.</summary>
     private static bool IsFoodStore(StorageKind? kind) =>

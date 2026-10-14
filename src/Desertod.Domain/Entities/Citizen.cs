@@ -109,6 +109,9 @@ public sealed class Citizen
     /// <summary>The last walk out to a spot or a place on the map; the land along it is seen as the citizen gets there.</summary>
     public Trip? Trip { get; set; }
 
+    /// <summary>The dungeon run the citizen answered; no tasks and no walks until they are back from it.</summary>
+    public Guid? DungeonRunId { get; set; }
+
     /// <summary>Technology the current cycle researches; <see cref="CurrentSiteId"/> is then the plot of its building.</summary>
     public string? CurrentTechnologyId { get; set; }
 
@@ -187,6 +190,11 @@ public sealed class Citizen
         if (WorkState(now) == Entities.WorkState.Working)
         {
             throw new GameRuleException("goto.working", "Finish the current task first.");
+        }
+
+        if (DungeonRunId is not null)
+        {
+            throw new GameRuleException("dungeon.busy", "You are away in the dungeon.");
         }
 
         if (!WorldMap.Land.Contains(spot.ToTile()))

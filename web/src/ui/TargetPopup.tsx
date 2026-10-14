@@ -209,6 +209,7 @@ export function TargetPopup({
             wildlife={village.wildlife}
             goldVein={village.goldVeinRemaining}
             fields={village.fields}
+            resources={village.resources}
             disabled={disabled}
             onStart={(task) => onStart(task, spotFor(target, task))}
           />

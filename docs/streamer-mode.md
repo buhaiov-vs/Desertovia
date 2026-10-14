@@ -74,14 +74,15 @@ When a citizen's cycle finishes:
 ```text
 Produced = Yield (as in game-design.md section 6.1)
 Stored   = min(Produced, free space for that good in connected storage)
-Carried  = Produced − Stored          (stays in the citizen's hands)
+Carried  = min(Produced − Stored, 10 − already in hands)   (stays in the citizen's hands)
+Lost     = Produced − Stored − Carried
 ```
 
-- A citizen holding goods **cannot start a task that produces the same good** ("Your hands are full. Unload first or pick another job."). They are free to take any other job.
+- Hands hold at most **10 of one good**, the same limit as taking goods out of storage. Whatever fits neither in storage nor in hands is lost; the task report shows it as "+2(0) food (storage and hands are full)".
+- A citizen **cannot start a task when every good it produces has full hands and full storage** ("Your hands are full of wood and storage has no room for it."). They are free to take any other job.
 - Carried goods unload automatically as soon as space appears (the server retries every settlement tick). The citizen walks to the storage building on the map and stands there holding the load, so a crowd of woodcutters around a full Woodyard is visible to the streamer.
 - Carried goods can be used directly: *Deliver wood* to a construction site takes from the citizen's hands first. This gives players something useful to do while waiting for a new Woodyard.
-- A citizen can **drop the load** (the goods are lost) to get back to the same job.
-- Carry limit: one cycle's yield per good. A citizen never holds more than one load.
+- A citizen can **drop the load** (the goods are lost) to make room in their hands.
 
 Experience for the blocked cycle:
 
@@ -184,7 +185,7 @@ Suggested order of implementation:
 ## 10. Decisions
 
 1. **How much the streamer sees:** everything citizens see, numbers included (changed on 2026-10-12; it was visual only).
-2. **Full storage:** workers keep the load and cannot repeat the same job.
+2. **Full storage:** workers keep up to 10 of a good in their hands; the rest is lost.
 3. **Owner as a citizen:** the streamer cannot be a citizen in their own village.
 4. **Job places per workplace:** yes (Zeus style), in phase 3.
 5. **Roads and distance:** in a later phase.

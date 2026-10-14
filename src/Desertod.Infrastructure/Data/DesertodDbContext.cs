@@ -1,4 +1,5 @@
 using Desertod.Domain.Chat;
+using Desertod.Domain.Dungeons;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Projects;
 using Desertod.Domain.Quests;
@@ -18,6 +19,7 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
     public DbSet<VillageProject> VillageProjects => Set<VillageProject>();
     public DbSet<VillageQuest> VillageQuests => Set<VillageQuest>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<DungeonRun> DungeonRuns => Set<DungeonRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -241,6 +243,28 @@ public sealed class DesertodDbContext(DbContextOptions<DesertodDbContext> option
             message.HasOne<Village>().WithMany().HasForeignKey(m => m.VillageId);
             message.HasOne<Account>().WithMany().HasForeignKey(m => m.AccountId);
             message.HasOne<Citizen>().WithMany().HasForeignKey(m => m.CitizenId);
+        });
+
+        modelBuilder.Entity<DungeonRun>(run =>
+        {
+            run.HasKey(r => r.Id);
+            run.HasIndex(r => new { r.VillageId, r.Phase });
+            run.Property(r => r.DungeonId).HasMaxLength(32);
+            run.Property(r => r.Phase).HasConversion<string>().HasMaxLength(16);
+            run.Property(r => r.Outcome).HasConversion<string>().HasMaxLength(16);
+            run.Ignore(r => r.IsActive);
+            run.Ignore(r => r.Tsar);
+            run.HasOne<Village>().WithMany().HasForeignKey(r => r.VillageId);
+            run.OwnsMany(r => r.Heroes, hero =>
+            {
+                hero.ToJson();
+                hero.Property(h => h.Class).HasConversion<string>();
+                hero.Property(h => h.Killer).HasConversion<string>();
+                hero.PrimitiveCollection(h => h.Broken).ElementType(e => e.HasConversion<string>());
+                hero.Ignore(h => h.IsTsar);
+                hero.OwnsMany(h => h.Loot, good => good.Property(g => g.Kind).HasConversion<string>());
+            });
+            run.Property<uint>("Version").IsRowVersion();
         });
     }
 

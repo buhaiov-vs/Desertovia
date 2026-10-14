@@ -4,6 +4,7 @@ using Desertod.Domain.Entities;
 using Desertod.Domain.Rules;
 using Desertod.Domain.Skills;
 using Desertod.Domain.Stats;
+using Desertod.Domain.Storage;
 using Desertod.Domain.Technologies;
 using Desertod.Domain.World;
 using static Desertod.Domain.Tests.TestWorld;
@@ -165,10 +166,10 @@ public class CycleEngineTests
     }
 
     [Fact]
-    public void Carrying_BlocksTheSameGood_ButNotOtherJobs()
+    public void FullHandsAndStorage_BlockTheSameGood_ButNotOtherJobs()
     {
         var (citizen, village) = Setup();
-        citizen.Carry(ResourceKind.Wood, 2);
+        citizen.Carry(ResourceKind.Wood, StorageRules.TakeLimit);
         village.Store(ResourceKind.Wood, 1000);
 
         var error = Assert.Throws<GameRuleException>(() =>
@@ -176,6 +177,23 @@ public class CycleEngineTests
         Assert.Equal("hands.full", error.Code);
 
         CycleEngine.Start(citizen, Task("quarry-stone"), WorkContext.For(village), Now);
+    }
+
+    [Fact]
+    public void FullStorage_HandsTakeUpToTheLimit_AndTheRestIsLost()
+    {
+        var (citizen, village) = Setup();
+        citizen.Carry(ResourceKind.Wood, StorageRules.TakeLimit - 1);
+        village.Store(ResourceKind.Wood, 1000);
+
+        CycleEngine.Start(citizen, Task("chop-wood"), WorkContext.For(village), Now);
+        var report = Finish(citizen, WorkContext.For(village));
+
+        var produced = report.Produced.Single().Amount;
+        Assert.Equal(StorageRules.TakeLimit, citizen.Carried(ResourceKind.Wood));
+        Assert.Equal(1, report.Carried.Single().Amount);
+        Assert.Equal(produced - 1, report.Lost.Single().Amount);
+        Assert.True(report.Overflowed);
     }
 
     [Fact]

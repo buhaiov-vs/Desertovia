@@ -6,6 +6,9 @@ import {
   type ChatMessage,
   type CitizenSummary,
   type CycleReport,
+  type DungeonRun,
+  type DungeonRunView,
+  type DungeonSnapshot,
   type ProjectCompletion,
   type QuestCompletion,
   type RaidReport,
@@ -21,6 +24,7 @@ export type FeedEntry =
   | { key: number; at: number; kind: 'cycle'; report: CycleReport }
   | { key: number; at: number; kind: 'project'; completion: ProjectCompletion }
   | { key: number; at: number; kind: 'raid'; report: RaidReport }
+  | { key: number; at: number; kind: 'dungeon'; run: DungeonRun }
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
@@ -51,8 +55,11 @@ export interface LiveVillageHandlers {
   onProjectCompleted?: (completion: ProjectCompletion) => void
   onQuestCompleted?: (completion: QuestCompletion) => void
   onRaidFought?: (report: RaidReport) => void
+  onDungeonEnded?: (run: DungeonRun) => void
   /** A line written while the page is open, once each; not for the history. */
   onChatMessage?: (message: ChatMessage) => void
+  /** The Tsar deleted the village. */
+  onVillageDeleted?: () => void
 }
 
 /**
@@ -112,6 +119,10 @@ export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVi
         push({ kind: 'raid', report })
         callbacks.current.onRaidFought?.(report)
       }
+      for (const run of events.dungeons ?? []) {
+        if (run.outcome !== 'Cancelled') push({ kind: 'dungeon', run })
+        callbacks.current.onDungeonEnded?.(run)
+      }
       if (events.citizens.length > 0) {
         setCitizens((previous) => {
           const next = new Map(previous)
@@ -120,8 +131,14 @@ export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVi
         })
         for (const citizen of events.citizens) callbacks.current.onCitizenUpdated?.(citizen)
       }
+      const left = new Set(events.left ?? [])
+      if (left.size > 0) {
+        setCitizens((previous) => new Map([...previous].filter(([id]) => !left.has(id))))
+        setChat((previous) => previous.filter((message) => !message.citizenId || !left.has(message.citizenId)))
+      }
     })
     connection.on('chatMessage', receive)
+    connection.on('villageDeleted', () => callbacks.current.onVillageDeleted?.())
     // Groups are per connection, and lines written while offline come back with the history.
     connection.onreconnected(async () => {
       await connection.invoke('JoinVillage', slug)
@@ -202,6 +219,88 @@ export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVi
   )
 
   return { state, setState, citizens, updateCitizen, isOwner, inviteCode, setInviteCode, feed, chat, sendChat, member, error }
+}
+
+/**
+ * Watches a dungeon run through its hub: the map and heroes once, then a snapshot ten times a second while the fight
+ * lasts. The player's own hero, if any, takes orders through `moveTo`, `attack` and `heal`.
+ */
+export function useDungeonRun(runId: string) {
+  const [view, setView] = useState<DungeonRunView | null | undefined>(undefined)
+  const [snapshot, setSnapshot] = useState<DungeonSnapshot | null>(null)
+  const [error, setError] = useState<unknown>(null)
+  const hub = useRef<HubConnection | null>(null)
+  const heroId = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    let refetching = false
+    let phase: string | null = null
+    const connection = new HubConnectionBuilder()
+      .withUrl('/hubs/dungeon')
+      .withAutomaticReconnect()
+      .configureLogging(LogLevel.Warning)
+      .build()
+
+    const join = async () => {
+      const next = await connection.invoke<DungeonRunView | null>('JoinRun', runId)
+      if (cancelled) return
+      phase = next?.run.phase ?? null
+      setView(next)
+      heroId.current = next?.myHeroId ?? null
+      if (next?.snapshot) setSnapshot(next.snapshot)
+    }
+    // The first snapshot of a run that was still on its way brings the fighters' live state: fetch it once.
+    const refetch = async () => {
+      if (refetching) return
+      refetching = true
+      try {
+        await join()
+      } finally {
+        refetching = false
+      }
+    }
+
+    connection.on('dungeonSnapshot', (next: DungeonSnapshot) => {
+      setSnapshot(next)
+      if (phase !== 'Running') void refetch()
+    })
+    connection.on('dungeonEnded', () => void refetch())
+    connection.onreconnected(() => void join())
+
+    const start = async () => {
+      try {
+        await connection.start()
+        if (cancelled) return
+        hub.current = connection
+        await join()
+      } catch (exception) {
+        if (!cancelled) setError(exception)
+      }
+    }
+    void start()
+    return () => {
+      cancelled = true
+      hub.current = null
+      void connection.stop()
+    }
+  }, [runId])
+
+  const send = useCallback(
+    (method: string, ...args: unknown[]) => {
+      const connection = hub.current
+      if (!connection || !heroId.current) return
+      void connection.invoke<boolean>(method, runId, heroId.current, ...args).catch(() => {
+        // An order lost to a reconnect is simply given again.
+      })
+    },
+    [runId],
+  )
+  const moveTo = useCallback((x: number, y: number) => send('MoveTo', x, y), [send])
+  const attack = useCallback((foeId: number) => send('Attack', foeId), [send])
+  const heal = useCallback((allyId: string) => send('Heal', allyId), [send])
+
+  return { view, snapshot, error, moveTo, attack, heal }
 }
 
 /** Current time in milliseconds, adjusted to the server clock, refreshed every `intervalMs`. */

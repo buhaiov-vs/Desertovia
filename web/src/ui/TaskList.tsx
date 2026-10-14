@@ -8,6 +8,7 @@ import {
   type Citizen,
   type FieldBed,
   type Herd,
+  type Resource,
   type Skill,
   type Task,
 } from '../api'
@@ -84,6 +85,7 @@ export function TaskCard({
   wildlife,
   goldVein,
   fields,
+  resources,
   disabled,
   onStart,
 }: {
@@ -99,6 +101,8 @@ export function TaskCard({
   goldVein: number
   /** Beds of the village farms; farm work needs a bed to do it on. */
   fields: FieldBed[]
+  /** Village stock; a task is locked when neither storage nor hands have room for what it produces. */
+  resources: Resource[]
   disabled: boolean
   onStart: (task: Task) => void
 }) {
@@ -128,7 +132,7 @@ export function TaskCard({
     !veinDug &&
     fieldsBlocked === null
   const tooEasy = craftLevel > task.skillLevel + CHALLENGE_THRESHOLD
-  const handsFull = blockedByLoad(task, citizen)
+  const handsFull = blockedByLoad(task, citizen, resources, catalog.rules.takeLimit)
   const isCurrent = citizen.taskId === task.id && citizen.state !== 'Idle'
   const name = i18n.task(task.id)
   const outcome = describeOutcome(task, catalog, i18n)

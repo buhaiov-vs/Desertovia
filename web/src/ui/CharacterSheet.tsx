@@ -1,22 +1,30 @@
 import type { Catalog, Citizen, StatRequirement } from '../api'
 import { useI18n } from '../i18n'
 import { CharacterPortrait } from './CharacterPortrait'
+import { citizenTitle } from './citizenTitle'
+import { Hint } from './Hint'
+import { restHints } from './needHints'
 
 export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog: Catalog }) {
   const i18n = useI18n()
   const { t } = i18n
   const describeNeeds = (needs: StatRequirement[]) => needs.map((r) => `${i18n.stat(r.stat)} ${r.minimum}`).join(', ')
+  const { rules } = catalog
+  const rest = restHints(citizen, catalog, i18n, citizen.energy)
+  const streakBonus = Math.min(citizen.streak * rules.streakPerRenewal, rules.streakMaximumBonus)
   return (
     <section className="card">
       <h3 className="character-title">
         {citizen.appearance && <CharacterPortrait appearance={citizen.appearance} scale={3} />}
         <span>
-          {citizen.name} <span className="muted">— {i18n.role(citizen.titleRoleId)}</span>
+          {citizen.name} <span className="muted">— {citizenTitle(citizen, i18n)}</span>
         </span>
       </h3>
       <div className="character-summary">
         <div>
-          <span className="muted small">{t('character.energy')}</span>
+          <span className="muted small">
+            <Hint text={rest.energy}>{t('character.energy')}</Hint>
+          </span>
           <div className="bar energy">
             <div style={{ width: `${(citizen.energy / citizen.maximumEnergy) * 100}%` }} />
           </div>
@@ -25,23 +33,42 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
           </span>
         </div>
         <div>
-          <span className="muted small">{t('character.renown')}</span>
+          <span className="muted small">
+            <Hint text={t('hint.renown', { statMaximum: rules.statMaximum })}>{t('character.renown')}</Hint>
+          </span>
           <strong>{citizen.renown}</strong>
         </div>
         <div>
-          <span className="muted small">{t('character.streak')}</span>
+          <span className="muted small">
+            <Hint
+              text={t('hint.streak', {
+                grace: rules.graceSeconds,
+                per: i18n.amount(rules.streakPerRenewal * 100),
+                maximum: i18n.amount(rules.streakMaximumBonus * 100),
+                bonus: i18n.amount(streakBonus * 100),
+              })}
+            >
+              {t('character.streak')}
+            </Hint>
+          </span>
           <strong>{citizen.streak}</strong>
         </div>
         <div>
-          <span className="muted small">{t('character.talent')}</span>
+          <span className="muted small">
+            <Hint text={t('hint.talent', { total: citizen.statTotal, cap: rules.talentCap })}>{t('character.talent')}</Hint>
+          </span>
           <strong>
             {citizen.statTotal} / {catalog.rules.talentCap}
           </strong>
         </div>
         <div>
           <span className="muted small">{t('character.sleeps')}</span>
-          <strong>{citizen.shelterQuality < 0.6 ? t('character.underTrees') : t('character.inShelter')}</strong>
-          <span className="small muted">{t('character.rest', { percent: Math.round(citizen.regenerationMultiplier * 100) })}</span>
+          <strong>
+            <Hint text={rest.place}>{rest.underTrees ? t('character.underTrees') : t('character.inShelter')}</Hint>
+          </strong>
+          <span className="small muted">
+            <Hint text={rest.restSpeed}>{t('character.rest', { percent: rest.percent })}</Hint>
+          </span>
         </div>
       </div>
       {citizen.isHungry ? (
@@ -75,8 +102,10 @@ export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog
       <table className="stats">
         <tbody>
           {citizen.stats.map((stat) => (
-            <tr key={stat.stat} title={i18n.statHint(stat.stat)}>
-              <td>{i18n.stat(stat.stat)}</td>
+            <tr key={stat.stat}>
+              <td>
+                <Hint text={i18n.statHint(stat.stat)}>{i18n.stat(stat.stat)}</Hint>
+              </td>
               <td className="stat-value">{stat.level}</td>
               <td className="stat-progress">
                 {stat.experienceToNext > 0 ? (

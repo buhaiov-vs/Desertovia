@@ -246,23 +246,6 @@ kbd {
   gap: 0.6rem;
 }
 
-.brand {
-  font-family: Georgia, 'Times New Roman', serif;
-  font-weight: 700;
-  font-size: 1.35rem;
-  color: var(--gold);
-  letter-spacing: 0.04em;
-  text-shadow: 0 2px 0 #000;
-}
-
-a.brand {
-  text-decoration: none;
-}
-
-a.brand:hover {
-  text-decoration: underline;
-}
-
 .village-name {
   font-weight: 700;
 }
@@ -898,6 +881,15 @@ button.quest-tracker-body:active {
   border-top: 2px solid var(--parchment-dark);
 }
 
+.menu-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border-top: 2px solid var(--parchment-dark);
+}
+
 .close {
   padding: 0.2rem 0.55rem;
   flex-shrink: 0;
@@ -1471,6 +1463,10 @@ input[aria-invalid='true'] {
   animation: pop-in 0.2s ease-out;
 }
 
+.done-panel .modal-header {
+  padding-top: 0.8rem;
+}
+
 .done-body {
   padding: 0.6rem 0.9rem 0;
 }
@@ -1586,6 +1582,59 @@ input[aria-invalid='true'] {
   align-items: center;
   justify-content: center;
   margin-top: 0.3rem;
+}
+
+.dungeon-banner {
+  background: linear-gradient(rgba(36, 34, 44, 0.94), rgba(16, 14, 20, 0.94));
+  color: #dcd6e8;
+  border-color: #8a7aa8;
+  box-shadow: 0 0 12px rgba(140, 120, 180, 0.45);
+  animation: none;
+}
+
+.task-card.locked {
+  opacity: 0.55;
+}
+
+.dungeon-root .hud {
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.dungeon-top {
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  padding: 0.35rem 0.8rem;
+  background: rgba(24, 22, 28, 0.88);
+  color: #dcd6e8;
+  border: 2px solid #8a7aa8;
+  border-radius: 8px;
+}
+
+.dungeon-hint {
+  align-self: center;
+  padding: 0.2rem 0.6rem;
+  background: rgba(24, 22, 28, 0.75);
+  color: #dcd6e8;
+  border-radius: 6px;
+}
+
+.dungeon-hero {
+  position: absolute;
+  left: 12px;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  width: min(280px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.dungeon-hero .bar > div {
+  background: #d03030;
 }
 
 @keyframes raid-pulse {
@@ -1997,10 +2046,6 @@ textarea {
   .hud-title {
     justify-self: stretch;
     padding: 0.25rem 0.5rem;
-  }
-
-  .brand {
-    font-size: 1.05rem;
   }
 
   .project-banner {

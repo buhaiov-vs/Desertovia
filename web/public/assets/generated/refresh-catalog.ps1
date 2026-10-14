@@ -4,9 +4,10 @@ $files = Get-ChildItem $PSScriptRoot -Recurse -Filter *.png | Where-Object { $_.
 foreach ($row in $catalog) {
     if ($row.prompt -match '^(Keep code-drawn|Do not generate|No new sprite)') { $row.status = 'retained-as-directed'; continue }
     $filename = $null
+    if ($row.section -match '^10-' -and $row.name -match '`([^`]+)`') { $filename = 'icon-task-' + $Matches[1] + '.png' }
     if ($row.section -match '^3-') { $filename = 'icon-building-' + ($row.name.ToLower() -replace '[^a-z0-9]+','-').Trim('-') + '.png' }
-    if ($row.section -match '^(1|2|5|6|7|8)-') { $filename = $row.kind + '-' + ($row.name.ToLower() -replace '[^a-z0-9]+','-').Trim('-') + '.png' }
-    if ($row.section -match '^9-' -and $row.name -eq 'Citizen, male style 1') { $filename = 'character-citizen-male-1.png' }
+    if ($row.section -match '^(1|2|5|6|7|8|9)-') { $filename = $row.kind + '-' + ($row.name.ToLower() -replace '[^a-z0-9]+','-').Trim('-') + '.png' }
+    if ($row.section -match '^9-' -and $row.name -match '^Citizen, (male|female) style (\d+)$') { $filename = 'character-citizen-' + $Matches[1] + '-' + $Matches[2] + '.png' }
     $file = $files | Where-Object Name -eq $filename | Select-Object -First 1
     if ($file) {
         $bitmap = [System.Drawing.Bitmap]::new($file.FullName)

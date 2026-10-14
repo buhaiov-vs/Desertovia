@@ -9,11 +9,11 @@ Goal: generate the entire list in docs/sprites.md, including separate constructi
 - All 22 building icons (building-icons), exported at 16x16 with transparent corners verified.
 - Citizen, male style 1 (samples).
 
-216 unique assets generated, including 62 construction stages, four section-5 construction props/terrain, all 26 farming drafts and all 24 village project drafts (six icons and eighteen pieces/buildings). Each has a source PNG, a game-size export and an enlarged preview. The catalog tracks generated outputs separately from final style approval. It currently has 401 document rows; construction stages and animation rows require expansion into multiple deliverables, so that is not a final image count.
+272 unique assets generated, including 62 construction stages, four section-5 construction props/terrain, all 26 farming drafts and all 24 village project drafts (six icons and eighteen pieces/buildings). Each has a source PNG, a game-size export and an enlarged preview. The catalog tracks generated outputs separately from final style approval. It currently has 453 document rows; construction stages and animation rows require expansion into multiple deliverables, so that is not a final image count.
 
 ## Next work
 
-All 62 section-4 construction-stage drafts and four required section-5 images are generated; placement outline remains code-drawn as directed. Six section-6 farming bed drafts are generated. All five crops have growth stages and harvested icons generated. Section 6 has all 26 draft outputs; final style, alignment and terrain-seam audits remain open. Section 7 has all six project icon drafts. All 18 project pieces/buildings have drafts, including Great Granary (64x48) and Bell Tower (48x64). Section 7 generation pass is complete, with corrections still outstanding. Section 8 now has seven terrain drafts: three grass, stony ground, river water and both river banks. Pond water and all sixteen pond shore masks (0–15) now have drafts; pond-catalog.json tracks all combinations. Mountain rock and three bare mountain peaks now have drafts. All three mossy peak variants also have drafts. Trampled earth and both birches have drafts. Tall and young spruce plus oak now have drafts; all five tree variants are generated. Next: tree stump, sapling, berry bush and remaining section 8 scenery, then sections 9–21. construction-catalog.json tracks all 62 deliverables independently; original section-4 rows stay pending until audit. Expand animation rows into their required separate deliverables. The buildings-02 exporter supports rectangular canvases and skips existing exports. All 17 new building exports passed exact dimension checks.
+All 62 section-4 construction-stage drafts and four required section-5 images are generated; placement outline remains code-drawn as directed. Six section-6 farming bed drafts are generated. All five crops have growth stages and harvested icons generated. Section 6 has all 26 draft outputs; final style, alignment and terrain-seam audits remain open. Section 7 has all six project icon drafts. All 18 project pieces/buildings have drafts, including Great Granary (64x48) and Bell Tower (48x64). Section 7 generation pass is complete, with corrections still outstanding. Section 8 now has seven terrain drafts: three grass, stony ground, river water and both river banks. Pond water and all sixteen pond shore masks (0–15) now have drafts; pond-catalog.json tracks all combinations. Mountain rock and three bare mountain peaks now have drafts. All three mossy peak variants also have drafts. Trampled earth and both birches have drafts. Tall and young spruce plus oak now have drafts; all five tree variants are generated. Tree stump, sapling and berry bush now have drafts. Reeds and campfire base now have drafts. Four campfire flame frames and their 64x16 strip now have drafts. Gold vein ground, gold-bearing rock and depleted rock now have drafts. Monastery church and monk cell now have drafts. Gold and blue onion dome props now have drafts. Section 8 generation pass has drafts for all listed scenery, including expanded variants; final audits remain open. Section 9 now also has male style 2, male style 3 and female style 1 drafts in characters-01. Exact recolor palette checks fail; correction is required before integration. Male styles 4–5 and female style 2 now have drafts in characters-02. All seven still citizen bodies have drafts, with palette and readability corrections outstanding. Tsar and Elder now have drafts in characters-leaders; native staff/cross readability and palette correction remain open. Rabbit now has three frame drafts and a 48x16 strip in animals-rabbit; scale consistency and edge cleanup remain open. citizen-poses-catalog.json expands seven styles into 119 required frames: 28 walk, 84 work and seven asleep. Deer now has three frame drafts and a 48x16 strip in animals-deer; antler/eye readability, palette and loop alignment need correction. Bird now has three frame drafts and a 48x16 strip in animals-bird. Six-pixel width and placement match, but wing motion, eye and palette need correction. All three carried animal drafts now exist in animals-carried; deer pose and cyan edge artifact require correction, along with palette/readability and attachment audits. Section 9 animal generation pass now has all twelve required frame/assets. Male style 1 now has four walk frame drafts and a 64x16 strip in citizen-walk-male-1. A targeted v2 repair reverses the leading foot in frame 3, and shared-crop v2 exports enlarge the character to 14 pixels with contact feet at row 15. Frame 4 still lacks the passing-pose bob; exact palette and face readability remain unapproved. Four pose entries point to v2 exports, 107 remain pending. Male style 1 sowing has two frame drafts and a 32x16 strip in citizen-sow-male-1; seed visibility, horizontal alignment and palette need correction. Male style 1 carrying has two frame drafts and a 32x16 strip in citizen-carry-male-1; opposite steps are present, palette and native detail remain unapproved. Male style 1 digging now has two draft frames and a 32x16 strip in citizen-dig-male-1; tool geometry, body/foot alignment and palette remain unapproved. Male style 1 chopping now has two draft frames and a 32x16 strip in citizen-chop-male-1; body/foot alignment, facial readability and palette correction remain open. User direction: skip player skins and animations for now. Preserve existing drafts and defer all remaining player pose generation/correction. A fishing frame-1 source completed in flight and is saved without exports; not included in the count. Section 10 now has gather wood, gather stones and forage berries drafts in task-icons-01. Cut reeds, hunt rabbits and hunt deer now have drafts in task-icons-02. Hunt birds and tend fire now have drafts in task-icons-03. Fish call failed with image_gen HTTP 429 usage_limit_reached; tool-reported reset 2026-10-14 19:21:29 UTC (15:21:29 America/New_York). Next: resume icon-task-fish, then remaining task icons and non-player assets. Player work remains deferred. construction-catalog.json tracks all 62 deliverables independently; original section-4 rows stay pending until audit. Expand animation rows into their required separate deliverables. The buildings-02 exporter supports rectangular canvases and skips existing exports. All 17 new building exports passed exact dimension checks.
 
 ## Final audit remains
 
@@ -133,4 +133,43 @@ Scenery-birch: three exports verified dimensions/top-left alpha. Earth v2 remove
 
 
 Scenery-trees: three sprites exported with aspect-preserving bounds fit and one-pixel margin. Dimensions/top-left alpha verified. Native previews show readable spruce and oak silhouettes; palette gradients, edge fringes and relative trunk/crown scale require final cleanup.
+
+
+Scenery-woodland: stump, sapling and berry bush exported at 16x16, top-left alpha zero. Rings lose detail, sapling leaves bulky, berries oversized and shadow weak; palette and edge artifacts remain for cleanup. Source feature counts inspected, no production-ready claim.
+
+
+Scenery-camp: reeds and campfire base exported 16x16, transparent top-left corners verified. Four cattail heads in source, native stalk readability/green fringe need cleanup. Campfire logs become muddled at native size; embers too flame-like. Four-frame flame effect still pending.
+
+
+Scenery-flames: four source frames exported to 16x16 and assembled into a 64x16 strip (strip not double-counted). Ten-pixel-tall sampling box at x4/y6, all bases on row15. Base occupancies 8/8/5/6 reveal silhouette variation needing continuity cleanup. Palette, edge artifacts, overlay and loop audit remain open.
+
+
+Scenery-gold: three 16x16 outputs, terrain opaque and rock corners transparent. Gold/depleted occupied silhouettes match at alpha threshold 128. Source glints/pick marks become weak at native size; small canvas occupancy, palette, edges and terrain seams need review.
+
+
+Scenery-monastery: church 48x64 and monk cell 48x48 exported, transparent top-left corners verified. Required major features present, but facade complexity, shading and edge artifacts require simplification; dome stars/cross lose native detail. Separate dome variants remain pending.
+
+
+Scenery-domes: two 16x32 exports, transparent top-left corners verified. Cross bars/stars lose definition, cross proportions large, palette and edge artifacts remain. Gold/blue geometry differs, attachment alignment pending. Both variants tracked separately.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Catalog reconciliation (2026-10-14): all 453 current document rows are tracked. Added 28 obstacle rows and 24 Dead Lands dungeon rows; renamed Governor and Governor badge to Tsar and Tsar badge. Existing Tsar output now matches the catalog. Row status totals: 165 generated awaiting final style audit, 281 pending, seven retained as directed. Expanded variants and frames are counted separately; native generated asset count remains 272. Player skins and animations remain deferred. No new images were generated during this reconciliation because the image quota reset is still pending.
 

@@ -873,7 +873,7 @@
     "section": "5-Construction props (5)",
     "kind": "effect",
     "name": "Placement outline",
-    "description": "Outline that follows the pointer while the Governor places a blueprint; yellow with a plus when free, red when blocked.",
+    "description": "Outline that follows the pointer while the Tsar or a Governor places a blueprint; yellow with a plus when free, red when blocked.",
     "prompt": "Keep code-drawn. If drawn as a sprite: 48×64 effect: dashed parchment-yellow rectangle outline with rounded corners and a small plus sign in the middle, semi-transparent fill.",
     "status": "retained-as-directed"
   },
@@ -1428,7 +1428,7 @@
     "height": 64
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Grass, plain",
     "description": "Plain meadow grass, the most common ground tile.",
@@ -1439,7 +1439,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Grass, variant 1",
     "description": "Grass with a few tufts.",
@@ -1450,7 +1450,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Grass, variant 2",
     "description": "Grass with small flowers.",
@@ -1461,7 +1461,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Stony ground",
     "description": "Grey stones in grass; where stones are gathered.",
@@ -1472,7 +1472,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "River, west bank",
     "description": "Water with the west shore.",
@@ -1483,7 +1483,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "River, water",
     "description": "Open river water (animated ripples would be nice).",
@@ -1494,7 +1494,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "River, east bank",
     "description": "Water with the east shore.",
@@ -1505,7 +1505,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Pond water",
     "description": "Still pond water in the wild land.",
@@ -1516,7 +1516,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Pond shore",
     "description": "Light shallow edge of a pond.",
@@ -1524,7 +1524,26 @@
     "status": "pending"
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
+    "kind": "terrain",
+    "name": "Mountain rock",
+    "description": "Bare rock under the mountain ridges of the wild land; nobody walks on it.",
+    "prompt": "16×16 seamless terrain tile: bare grey-brown mountain rock with a few cracks and darker patches, no grass.",
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-mountains/terrain-mountain-rock.png",
+    "width": 16,
+    "height": 16
+  },
+  {
+    "section": "8-Scenery (29)",
+    "kind": "prop",
+    "name": "Mountain peak",
+    "description": "Rocky peak drawn twice the tile size; neighbouring peaks overlap into a ridge. Some are overgrown with moss.",
+    "prompt": "32×32 prop, three variants plus three mossy ones: a jagged grey rock peak filling the bottom of the canvas, light faces on the left and shadow on the right, transparent around it; mossy versions with green patches on the slopes.",
+    "status": "pending"
+  },
+  {
+    "section": "8-Scenery (29)",
     "kind": "terrain",
     "name": "Trampled earth",
     "description": "Bare packed earth around the campfire.",
@@ -1535,7 +1554,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Tree, variant 1",
     "description": "Tall tree, two tiles high. Felled for wood; grows back.",
@@ -1546,7 +1565,7 @@
     "height": 32
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Tree, variant 2",
     "description": "Small tree, one tile.",
@@ -1557,7 +1576,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Tree, variant 3",
     "description": "Tall tree of another kind (for example a pine), two tiles high.",
@@ -1568,7 +1587,7 @@
     "height": 32
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Tree, variant 4",
     "description": "Small tree of another kind, one tile.",
@@ -1579,7 +1598,7 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Tree, variant 5",
     "description": "Round bushy tree, one tile.",
@@ -1590,95 +1609,128 @@
     "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Tree stump",
     "description": "What is left after a tree is felled, until it grows back.",
     "prompt": "16×16 prop: low cut tree stump with light rings on the top and a few wood chips around it.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-woodland/prop-tree-stump.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Sapling",
     "description": "A young tree growing back on a felled spot.",
     "prompt": "16×16 prop: tiny sapling with a thin stem and three small leaves next to an old stump.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-woodland/prop-sapling.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Berry bush",
     "description": "Green bush with red berries; where berries are foraged.",
     "prompt": "16×16 prop: round low green bush dotted with bright red berries, small ground shadow.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-woodland/prop-berry-bush.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Reeds",
     "description": "Clump of cattails on the river bank; cut for reeds.",
     "prompt": "16×16 prop: clump of four tall thin green reeds of different heights with brown cattail heads.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-camp/prop-reeds.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Campfire stones and logs",
     "description": "Ring of stones with crossed logs; the heart of the camp.",
     "prompt": "16×16 prop: oval ring of grey stones around two crossed burnt logs and glowing embers, no flames (flames are a separate effect).",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-camp/prop-campfire-stones-and-logs.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "effect",
     "name": "Campfire flames",
     "description": "Animated flickering flames on the campfire (several frames).",
     "prompt": "Strip of 4 frames, each 16×16 effect: flickering campfire flames, red outer, orange middle, pale yellow core, about 10 pixels tall, base on the bottom row, each frame a slightly different flame shape.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-flames/effect-campfire-flames.png",
+    "width": 64,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Gold vein rock",
     "description": "Grey rock outcrop on the far bank.",
     "prompt": "16×16 seamless terrain tile: bare grey rocky ground with cracks, no grass.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-gold/prop-gold-vein-rock.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Gold nugget in rock",
     "description": "Gold glinting in the outcrop; disappears as the vein is dug.",
     "prompt": "16×16 prop: a grey rock lump with a vein of bright gold and two glints, transparent around it.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-gold/prop-gold-nugget-in-rock.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Depleted vein spot",
     "description": "Bare grey rock where a nugget was dug out.",
     "prompt": "16×16 prop: the same grey rock lump with an empty dug-out hollow and pick marks, no gold.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-gold/prop-depleted-vein-spot.png",
+    "width": 16,
+    "height": 16
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "building",
     "name": "Monastery church",
     "description": "Old church on the far bank, 3 × 4 tiles, with a blue onion dome and cross. Scenery.",
     "prompt": "48×64 building: old white stone Orthodox church, arched door and narrow windows, a drum topped with a blue onion dome with gold stars and a gold cross.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-monastery/building-monastery-church.png",
+    "width": 48,
+    "height": 64
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "building",
     "name": "Monk cell",
     "description": "Small monastery house, 3 × 3 tiles; two stand by the church.",
     "prompt": "48×48 building: small whitewashed monk's cell with a dark wooden roof, a tiny arched door and one small window, a wooden cross over the door.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-monastery/building-monk-cell.png",
+    "width": 48,
+    "height": 48
   },
   {
-    "section": "8-Scenery (27)",
+    "section": "8-Scenery (29)",
     "kind": "prop",
     "name": "Onion dome",
     "description": "Onion dome with a cross; gold for the bell tower, blue for the church.",
@@ -1702,7 +1754,10 @@
     "name": "Citizen, male style 2",
     "description": "Male villager body, another cut of clothes. Recolorable.",
     "prompt": "16×16 character: bearded Slavic peasant man, shoulder-length hair, sleeveless vest over a shirt, trousers tucked into foot wraps. Skin, hair and clothes in the exact recolor colors.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-01/character-citizen-male-2.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1710,7 +1765,10 @@
     "name": "Citizen, male style 3",
     "description": "Male villager body, another cut of clothes. Recolorable.",
     "prompt": "16×16 character: stocky Slavic workman with short hair and a thick beard, sleeves rolled up, leather apron. Skin, hair and clothes in the exact recolor colors.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-01/character-citizen-male-3.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1718,7 +1776,10 @@
     "name": "Citizen, male style 4",
     "description": "Male villager with a hood or cap. Recolorable.",
     "prompt": "16×16 character: Slavic peasant man in a round felt cap with hair showing at the sides, long belted coat. Cap and coat in the clothes recolor colors, skin and hair in theirs.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-02/character-citizen-male-4.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1726,7 +1787,10 @@
     "name": "Citizen, male style 5",
     "description": "Male villager with a hood or cap, another color layout. Recolorable.",
     "prompt": "16×16 character: Slavic hunter-looking man with a hood over his head and a short cloak. Hood and cloak in the clothes recolor colors, face in skin colors, a fringe of hair in hair colors.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-02/character-citizen-male-5.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1734,7 +1798,10 @@
     "name": "Citizen, female style 1",
     "description": "Female villager in a dress. Recolorable.",
     "prompt": "16×16 character: young Slavic peasant woman with a long braid over her shoulder, sarafan dress over a white blouse. Skin, hair and dress in the exact recolor colors.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-01/character-citizen-female-1.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1742,7 +1809,10 @@
     "name": "Citizen, female style 2",
     "description": "Female villager with a headscarf. Recolorable.",
     "prompt": "16×16 character: Slavic peasant woman in a headscarf tied under the chin, long skirt and apron. Headscarf in the hair recolor colors, skirt in the clothes recolor colors.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-02/character-citizen-female-2.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1755,10 +1825,13 @@
   {
     "section": "9-Characters and animals (19)",
     "kind": "character",
-    "name": "Governor",
+    "name": "Tsar",
     "description": "The streamer's character: village leader, should stand out (for example a fur hat and staff).",
     "prompt": "16×16 character: village leader (voivode) in a tall fur-trimmed hat and a long embroidered red caftan with gold trim, holding a tall staff. Face in the skin recolor colors, beard in the hair recolor colors.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-leaders/character-tsar.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1766,7 +1839,10 @@
     "name": "Elder (priest)",
     "description": "Hooded old monk who stands by the campfire and gives advice.",
     "prompt": "16×16 character: old Orthodox monk in a black hooded robe and tall black hat (klobuk), long white beard, wooden cross on his chest, leaning on a crooked staff. Fixed colors, not recolored.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "characters-leaders/character-elder-priest.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1798,7 +1874,10 @@
     "name": "Rabbit",
     "description": "Brown rabbit that hops in meadows; hunted for food and leather.",
     "prompt": "Strip of 3 frames, each 16×16 character, facing right: brown wild hare with long ears and a white tail; frame 1 sitting, frames 2-3 mid-hop. Body about 9 pixels long, feet on the bottom row.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "animals-rabbit/character-rabbit.png",
+    "width": 48,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1806,7 +1885,10 @@
     "name": "Deer",
     "description": "Deer with antlers in the woods; hunted for a lot of food and leather.",
     "prompt": "Strip of 3 frames, each 16×16 character, facing right: red deer stag with small antlers, white belly and tail; frame 1 standing, frames 2-3 trotting. Body about 12 pixels long.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "animals-deer/character-deer.png",
+    "width": 48,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1814,7 +1896,10 @@
     "name": "Bird",
     "description": "Small brown bird with a red breast in groves; hunted for feathers.",
     "prompt": "Strip of 3 frames, each 16×16 character, facing right: small brown bird with an orange-red breast (bullfinch-like); frame 1 perched, frames 2-3 wings up and down. Body about 6 pixels long.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "animals-bird/character-bird.png",
+    "width": 48,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1822,7 +1907,10 @@
     "name": "Rabbit, carried",
     "description": "Caught rabbit held upside down above the hunter's head.",
     "prompt": "16×16 character: dead hare hanging head down, held by the hind legs at the top, eyes closed.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "animals-carried/character-rabbit-carried.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1830,7 +1918,10 @@
     "name": "Deer, carried",
     "description": "Caught deer carried by the hunter.",
     "prompt": "16×16 character: dead deer slung across the shoulders seen from the front, legs hanging both sides, sized to sit on top of a 16×16 citizen.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "animals-carried/character-deer-carried.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "9-Characters and animals (19)",
@@ -1838,7 +1929,10 @@
     "name": "Bird, carried",
     "description": "Caught bird held by the feet.",
     "prompt": "16×16 character: two small dead birds hanging head down from a string, eyes closed.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "animals-carried/character-bird-carried.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1846,7 +1940,10 @@
     "name": "Gather wood (`chop-wood`)",
     "description": "Axe in a log. Laborer gathers wood in the forest.",
     "prompt": "16×16 icon: woodcutter's axe stuck in a short log, two wood chips flying.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-01/icon-task-chop-wood.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1854,7 +1951,10 @@
     "name": "Gather stones (`quarry-stone`)",
     "description": "Pickaxe over stones. Laborer gathers stones on the hillside.",
     "prompt": "16×16 icon: hand pick (wooden handle, iron head) above two grey stones.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-01/icon-task-quarry-stone.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1862,7 +1962,10 @@
     "name": "Forage berries (`forage`)",
     "description": "Hand picking red berries from a bush.",
     "prompt": "16×16 icon: hand picking a red berry from a small green berry sprig.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-01/icon-task-forage.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1870,7 +1973,10 @@
     "name": "Cut reeds (`cut-reeds`)",
     "description": "Sickle cutting cattails.",
     "prompt": "16×16 icon: curved sickle crossing two cattail reeds.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-02/icon-task-cut-reeds.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1878,7 +1984,10 @@
     "name": "Hunt rabbits (`hunt`)",
     "description": "Sling or snare with a rabbit.",
     "prompt": "16×16 icon: brown hare head in profile with a rope snare loop in front of it.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-02/icon-task-hunt.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1886,7 +1995,10 @@
     "name": "Hunt deer (`track-game`)",
     "description": "Bow with a deer hoof print.",
     "prompt": "16×16 icon: wooden hunting bow beside a split deer hoof print.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-02/icon-task-track-game.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1894,7 +2006,10 @@
     "name": "Hunt birds (`hunt-birds`)",
     "description": "Sling stone and a falling feather.",
     "prompt": "16×16 icon: leather sling with a stone and a small falling brown feather.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-03/icon-task-hunt-birds.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -1902,7 +2017,10 @@
     "name": "Tend the fire (`tend-fire`)",
     "description": "Hand adding a log to a fire; raises morale.",
     "prompt": "16×16 icon: hand laying a log onto small orange flames.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "task-icons-03/icon-task-tend-fire.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "10-Task icons (57)",
@@ -3228,7 +3346,7 @@
     "section": "19-Status (17)",
     "kind": "icon",
     "name": "Morale",
-    "description": "Happy face or a raised fist; village spirit.",
+    "description": "Happy face or a raised fist; village spirit. Shown before the morale number (0-100, no percent sign) in the top bar.",
     "prompt": "16×16 icon: smiling sun-like face.",
     "status": "pending"
   },
@@ -3339,7 +3457,7 @@
   {
     "section": "19-Status (17)",
     "kind": "icon",
-    "name": "Governor badge",
+    "name": "Tsar badge",
     "description": "Crown or a fur hat; marks the streamer.",
     "prompt": "16×16 icon: tall fur-trimmed red voivode hat.",
     "status": "pending"
@@ -3572,7 +3690,7 @@
     "section": "21-Effects (7)",
     "kind": "effect",
     "name": "Walk target marker",
-    "description": "Marker on the ground where the Governor or a citizen is walking to.",
+    "description": "Marker on the ground where the Tsar or a citizen is walking to.",
     "prompt": "Strip of 2 frames, each 16×16 effect: small parchment-yellow ring on the ground with a downward arrow bobbing above it.",
     "status": "pending"
   },
@@ -3585,22 +3703,419 @@
     "status": "pending"
   },
   {
-    "section": "8-scenery",
+    "section": "22-Obstacles (28)",
     "kind": "terrain",
-    "name": "Mountain rock",
-    "description": "Bare rock under the mountain ridges of the wild land; nobody walks on it.",
-    "prompt": "16×16 seamless terrain tile: bare grey-brown mountain rock with a few cracks and darker patches, no grass.",
-    "status": "generated-awaiting-final-style-audit",
-    "file": "scenery-mountains/terrain-mountain-rock.png",
-    "width": 16,
-    "height": 16
+    "name": "Marsh ground",
+    "description": "Soggy ground around ponds and the river in the wild; walkers wade through it slowly.",
+    "prompt": "16×16 seamless terrain tile: soggy dark olive-green ground with two small puddles of brown-green water and a few darker wet patches.",
+    "status": "pending"
   },
   {
-    "section": "8-scenery",
+    "section": "22-Obstacles (28)",
+    "kind": "terrain",
+    "name": "Marsh pool",
+    "description": "Open marsh water between the soggy patches.",
+    "prompt": "16×16 seamless terrain tile: still murky green-brown water with a few floating duckweed specks and one small lily pad.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
     "kind": "prop",
-    "name": "Mountain peak",
-    "description": "Rocky peak drawn twice the tile size; neighbouring peaks overlap into a ridge. Some are overgrown with moss.",
-    "prompt": "32×32 prop, three variants plus three mossy ones: a jagged grey rock peak filling the bottom of the canvas, light faces on the left and shadow on the right, transparent around it; mossy versions with green patches on the slopes.",
+    "name": "Sedge tussock",
+    "description": "Clump of marsh sedge dotted over the marsh.",
+    "prompt": "16×16 prop: round clump of thin pale-green and straw-yellow sedge blades rising from a small dark wet mound, transparent around it.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "effect",
+    "name": "Marsh splash",
+    "description": "Splash at a walker's feet while they wade through the marsh.",
+    "prompt": "Strip of 3 frames, each 16×16 effect: a small ring of muddy green water drops splashing up from the bottom row and falling back.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Thicket, variant 1",
+    "description": "Dense brambles that nobody walks through until they are cut.",
+    "prompt": "16×16 prop: tangled dense blackthorn bush filling the tile, dark green leaves, brown thorny branches poking out, a few black berries.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Thicket, variant 2",
+    "description": "Dense hazel and briar scrub.",
+    "prompt": "16×16 prop: dense low hazel scrub woven with thorny briar stems, mid-green leaves, a few small pink briar flowers.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Thicket, variant 3",
+    "description": "Thicket with dry dead stems.",
+    "prompt": "16×16 prop: dense thorny thicket with grey dead stems sticking up out of dark green leaves.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Cleared thicket",
+    "description": "What is left once the thicket is cut: stubble and a pile of brush.",
+    "prompt": "16×16 prop: short cut stems in trampled grass and a small pile of cut brown branches, transparent around it.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "icon",
+    "name": "Clear the thicket (`clear-thicket`)",
+    "description": "Billhook cutting thorny branches. Laborer cuts a path through a thicket.",
+    "prompt": "16×16 icon: curved iron billhook with a wooden handle slicing through a thorny brown branch.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Rockfall, variant 1",
+    "description": "Big boulders fallen into a mountain pass; they block it until broken up.",
+    "prompt": "16×16 prop: two large rough grey boulders jammed together with smaller stones at their feet, cracks on the faces, filling the tile.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Rockfall, variant 2",
+    "description": "One huge boulder in the pass.",
+    "prompt": "16×16 prop: one huge rounded grey boulder with a lighter top-left face and moss on its shaded side, pebbles around it.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Rockfall, variant 3",
+    "description": "Heap of broken rock in the pass.",
+    "prompt": "16×16 prop: tall jumbled heap of angular grey rock slabs leaning on each other.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Broken rockfall",
+    "description": "Rubble left once the boulders are broken and carried off; walkable.",
+    "prompt": "16×16 prop: scattered flat grey rock chips and gravel on bare ground, low, transparent around it.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "icon",
+    "name": "Break the rockfall (`break-rockfall`)",
+    "description": "Sledgehammer striking a boulder. Laborer breaks up a rockfall and gets stone.",
+    "prompt": "16×16 icon: heavy wooden-handled sledgehammer striking a grey boulder, a crack and two chips flying off.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "terrain",
+    "name": "Ravine, north rim",
+    "description": "Grass ending at the northern edge of the ravine, the far wall dropping away below.",
+    "prompt": "16×16 terrain tile, seamless left and right: meadow grass in the top third ending at a ragged rock edge, below it a lit grey-brown cliff face falling into darkness at the bottom edge.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "terrain",
+    "name": "Ravine, depth",
+    "description": "The bottom of the ravine, too deep to see.",
+    "prompt": "16×16 seamless terrain tile: near-black blue-grey chasm with a few faint rock ledges and pebbles catching a little light.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "terrain",
+    "name": "Ravine, south rim",
+    "description": "Grass at the southern edge of the ravine; the near wall is in shadow.",
+    "prompt": "16×16 terrain tile, seamless left and right: darkness at the top edge, a thin strip of shadowed rock lip, then meadow grass in the bottom two-thirds.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "building",
+    "name": "Rope bridge",
+    "description": "Plank bridge on ropes across the ravine, 3 × 4 tiles; the Tsar or a Governor places it, citizens build it.",
+    "prompt": "48×64 building (footprint 3×4 tiles): a narrow wooden plank bridge running from the bottom edge to the top edge across a dark ravine, thick rope hand-lines on both sides sagging slightly, two stout wooden posts at each end with ropes tied around them; the ravine shows dark under the planks in the middle rows, grass at the top and bottom rows.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "icon",
+    "name": "Rope bridge",
+    "description": "Planks on ropes.",
+    "prompt": "16×16 icon: short sagging plank bridge with two rope hand-lines between two wooden posts.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "building",
+    "name": "Rope bridge stages (2)",
+    "description": "Posts (posts driven in on both rims, ropes stretched across), Ropes and half the planks.",
+    "prompt": "Building under construction, same canvas size and footprint as the finished Rope bridge. Stage 1 Posts: two posts on each rim with bare ropes stretched across the dark ravine. Stage 2 Planks: the ropes with planks laid over the lower half, a few loose planks stacked on the near rim.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "icon",
+    "name": "Stretch the ropes (`stretch-ropes`)",
+    "description": "Coil of rope being pulled taut between two posts. Construction job of the rope bridge.",
+    "prompt": "16×16 icon: coil of thick hemp rope with its end pulled taut to a wooden post.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "icon",
+    "name": "Lay the deck (`lay-deck`)",
+    "description": "A plank being laid across two ropes. Last construction job of the rope bridge.",
+    "prompt": "16×16 icon: one wooden plank laid crosswise over two parallel ropes, a mallet resting beside it.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Cave mouth",
+    "description": "Dark opening in a mountain ridge; laborers dig stone in it and sometimes find coal or iron ore.",
+    "prompt": "32×32 prop: rough natural arch opening in a grey rock face, deep darkness inside, a few rocks at the entrance and two small glints of ore on the inner wall, the rock face fills the top half and sides.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Worked cave mouth",
+    "description": "The cave once citizens have dug in it: timber props and a lantern.",
+    "prompt": "32×32 prop: the same cave arch with two rough timber props holding the entrance, a small lantern hanging on one, a little heap of broken stone outside.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "icon",
+    "name": "Dig in the cave (`dig-cave`)",
+    "description": "Pickaxe before a cave arch. Laborer digs stone, sometimes coal or ore.",
+    "prompt": "16×16 icon: small iron pickaxe in front of a dark rocky cave arch with one orange ore glint.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Lookout peak",
+    "description": "A rocky peak with a way up; from the top a climber sees far over the land.",
+    "prompt": "32×32 prop: a rocky grey peak with a narrow zig-zag trail of flat stone steps climbing its south face to a small flat top, a few tufts of grass on the ledges.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "prop",
+    "name": "Lookout cairn",
+    "description": "A stone cairn with a ribbon on a pole, raised on the lookout once someone has climbed it.",
+    "prompt": "16×32 prop: small cairn of stacked flat grey stones with a thin wooden pole rising from it and a red ribbon fluttering at the top.",
+    "status": "pending"
+  },
+  {
+    "section": "22-Obstacles (28)",
+    "kind": "terrain",
+    "name": "Mountain trail",
+    "description": "Flat stone steps up the lookout; the only mountain tile walkers may climb.",
+    "prompt": "16×16 terrain tile: three flat grey stone steps rising from the bottom to the top edge, rough rock on both sides, seamless top and bottom.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "terrain",
+    "name": "Dead earth (3 variants)",
+    "description": "Bare grey-brown ground covering most of the map (`Ground`).",
+    "prompt": "Three 16×16 seamless terrain tiles: dry cracked grey-brown earth `#4a4238` with dark grit specks; variant 2 with a thin crack, variant 3 with a few pebbles. No grass.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "terrain",
+    "name": "Withered grass",
+    "description": "Patches of dead grass between the graves (`DeadGrass`).",
+    "prompt": "16×16 seamless terrain tile: the dead earth with four or five tufts of dry straw-yellow `#8a7a50` grass bent over, no green.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "terrain",
+    "name": "Bone-strewn ground",
+    "description": "Old bones lying in the dirt (`Bones`); walkable.",
+    "prompt": "16×16 terrain tile: the dead earth with a scattered thigh bone, two ribs and a small cracked skull, bones off-white `#d8d0b8`.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "terrain",
+    "name": "Entrance path",
+    "description": "Trodden track at the west edge where the heroes come in (`Entrance`).",
+    "prompt": "16×16 terrain tile, seamless left and right: packed lighter brown path `#6a5e4c` with wheel ruts along it and grit at the edges.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "prop",
+    "name": "Dead tree (2 variants)",
+    "description": "Bare blackened tree; blocks walkers (`DeadTree`).",
+    "prompt": "Two 16×16 props: a leafless dead tree with a dark grey-brown trunk and crooked bare branches reaching up, a small shadow at the foot; variant 2 split by lightning with one branch hanging. Transparent around it.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "prop",
+    "name": "Grave",
+    "description": "Leaning headstone with a cross; blocks walkers (`Grave`).",
+    "prompt": "16×16 prop: a weathered grey rounded headstone leaning slightly, a carved cross, moss at its foot, a low mound of earth in front.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "prop",
+    "name": "Broken fence",
+    "description": "Rotten graveyard fence; blocks walkers (`Fence`).",
+    "prompt": "16×16 prop, seamless left and right: two dark rotten wooden rails on crooked posts, one rail broken and hanging.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "prop",
+    "name": "Barrow mound",
+    "description": "Earth mound of an old chieftain's grave; blocks walkers (`Mound`).",
+    "prompt": "16×16 prop: a round grassless earth mound with a small grey standing stone on top.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "prop",
+    "name": "Grey boulder",
+    "description": "Big boulder; blocks walkers (`Rock`).",
+    "prompt": "16×16 prop: a large rounded grey boulder with a lighter top-left face and a dark crack, filling most of the tile.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "character",
+    "name": "Grave rat",
+    "description": "Fast, weak rat that comes in packs.",
+    "prompt": "Strip of 4 frames, each 16×16 character, facing right: a mangy grey-brown rat with red eyes and a bald pink tail; frames 1-3 scurrying, frame 4 lying dead on its back. Body about 10 pixels long.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "character",
+    "name": "Imp",
+    "description": "Small hopping red devil.",
+    "prompt": "Strip of 4 frames, each 16×16 character, facing right: a small red imp with stubby black horns, yellow eyes, bat wings and a pointed tail; frames 1-3 hopping, frame 4 lying slain. About 9 pixels tall.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "character",
+    "name": "Ghoul",
+    "description": "Hunched corpse-eater with long claws.",
+    "prompt": "Strip of 4 frames, each 16×16 character, facing right: a hunched grey-green ghoul in rags with yellow eyes, long bone-white claws reaching forward; frames 1-3 shambling, frame 4 collapsed. About 11 pixels tall.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "character",
+    "name": "Wraith",
+    "description": "Floating pale ghost.",
+    "prompt": "Strip of 4 frames, each 16×16 character, facing right: a floating pale blue-grey hooded ghost with dark empty eyes and a ragged trailing hem, semi-transparent edges; frames 1-3 bobbing, frame 4 fading into wisps.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "character",
+    "name": "Barrow King",
+    "description": "The boss: a crowned skeleton lord with a sword.",
+    "prompt": "Strip of 4 frames, each 16×24 character, facing right: a tall skeleton king with a rusty gold crown, green glowing eyes, a tattered dark green cloak and a notched sword; frames 1-3 striding, frame 4 crumbled into bones with the crown on top.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Brawler",
+    "description": "Bare fists; anyone can fight this way.",
+    "prompt": "16×16 icon: a clenched fist with a cloth wrap around the knuckles.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Spearman",
+    "description": "Fights with a spear from storage.",
+    "prompt": "16×16 icon: a wooden spear with an iron head, diagonal.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Swordsman",
+    "description": "Fights with a sword from storage.",
+    "prompt": "16×16 icon: an iron sword with a leather-wrapped hilt, point up.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Archer",
+    "description": "Shoots with a bow and arrows.",
+    "prompt": "16×16 icon: a curved yew bow with an arrow nocked.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Shieldbearer",
+    "description": "Holds a shield; more health, softer blows.",
+    "prompt": "16×16 icon: a round wooden shield with an iron boss and rim.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Healer",
+    "description": "Heals allies with a remedy.",
+    "prompt": "16×16 icon: a small cloth satchel with a red cross and a sprig of herbs.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Class: Voivode",
+    "description": "The Tsar at the head of the host.",
+    "prompt": "16×16 icon: a gold Russian crown with fur trim and a small cross on top.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "effect",
+    "name": "Skull bubble",
+    "description": "Over a fallen hero running for the exit.",
+    "prompt": "16×16 effect: parchment `#fff8e7` speech bubble with a dark brown border and a tail at the bottom middle, a small black skull inside.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "effect",
+    "name": "Arrow in flight",
+    "description": "An archer's shot between hero and foe.",
+    "prompt": "16×16 effect: a short arrow flying right, wooden shaft, iron tip, white fletching, centred.",
+    "status": "pending"
+  },
+  {
+    "section": "23-Dungeon: Dead Lands (24)",
+    "kind": "icon",
+    "name": "Dead Lands",
+    "description": "The dungeon in the Tsar's panel and the village banner.",
+    "prompt": "16×16 icon: a dead tree beside a leaning headstone under a pale green moon.",
     "status": "pending"
   }
 ]

@@ -242,7 +242,7 @@ stage separately with the same prompt and the stage's own line; each stage shows
 | prop | Construction signboard | Small wooden sign on a post: "work here". Placed next to every active site and project. | `web/src/game/VillageWorld.ts` projects — `town(83)` | 16×16 prop: small blank wooden board nailed to a post with a hammer hanging from a nail, small ground shadow. |
 | terrain | Blueprint ground | Cleared, trampled earth of a building plot under construction. | `web/src/game/VillageWorld.ts` `siteView` — code-drawn brown rectangle | 16×16 seamless terrain tile: bare trampled light-brown earth with a few wood chips and footprints. |
 | prop | Storage pallet | Wooden pallet in a storage yard; goods are stacked on it, one pallet per slot. | `web/src/game/VillageWorld.ts` `goodsYard` — code-drawn brown bar | 16×16 prop: low flat wooden pallet of three planks seen from the three-quarter view, empty, occupying the bottom half of the canvas. |
-| effect | Placement outline | Outline that follows the pointer while the Governor places a blueprint; yellow with a plus when free, red when blocked. | `web/src/game/VillageWorld.ts` `showGhost` — code-drawn | Keep code-drawn. If drawn as a sprite: 48×64 effect: dashed parchment-yellow rectangle outline with rounded corners and a small plus sign in the middle, semi-transparent fill. |
+| effect | Placement outline | Outline that follows the pointer while the Tsar or a Governor places a blueprint; yellow with a plus when free, red when blocked. | `web/src/game/VillageWorld.ts` `showGhost` — code-drawn | Keep code-drawn. If drawn as a sprite: 48×64 effect: dashed parchment-yellow rectangle outline with rounded corners and a small plus sign in the middle, semi-transparent fill. |
 
 ## 6. Farming (26)
 
@@ -357,7 +357,7 @@ All citizen bodies must use the recolor colors from the requirements table.
 | character | Citizen, female style 1 | Female villager in a dress. Recolorable. | `web/src/game/appearance.ts` `BODIES.Female[0]` — `dungeon(99)` | 16×16 character: young Slavic peasant woman with a long braid over her shoulder, sarafan dress over a white blouse. Skin, hair and dress in the exact recolor colors. |
 | character | Citizen, female style 2 | Female villager with a headscarf. Recolorable. | `web/src/game/appearance.ts` `BODIES.Female[1]` — `dungeon(100)` | 16×16 character: Slavic peasant woman in a headscarf tied under the chin, long skirt and apron. Headscarf in the hair recolor colors, skirt in the clothes recolor colors. |
 | character | Citizen, old look | Fixed sprites for citizens created before character creation. | `web/src/game/worldMap.ts` `VILLAGER_SPRITES` — `dungeon(84…112)` | No new sprite: map these citizens to the new recolorable bodies with fixed colors. |
-| character | Governor | The streamer's character: village leader, should stand out (for example a fur hat and staff). | `web/src/game/VillageWorld.ts` `setGovernor` — same bodies as citizens, gold name label | 16×16 character: village leader (voivode) in a tall fur-trimmed hat and a long embroidered red caftan with gold trim, holding a tall staff. Face in the skin recolor colors, beard in the hair recolor colors. |
+| character | Tsar | The streamer's character: village leader, should stand out (for example a fur hat and staff). | `web/src/game/VillageWorld.ts` `setTsar` — same bodies as citizens, gold name label | 16×16 character: village leader (voivode) in a tall fur-trimmed hat and a long embroidered red caftan with gold trim, holding a tall staff. Face in the skin recolor colors, beard in the hair recolor colors. |
 | character | Elder (priest) | Hooded old monk who stands by the campfire and gives advice. | `web/src/game/worldMap.ts` `PRIEST_SPRITE` — `dungeon(111)` | 16×16 character: old Orthodox monk in a black hooded robe and tall black hat (klobuk), long white beard, wooden cross on his chest, leaning on a crooked staff. Fixed colors, not recolored. |
 | character | Citizen walk frames | Walking animation for every body style. | Not drawn (the sprite slides) | Strip of 4 frames, each 16×16 character: the given citizen style walking toward the viewer, legs and arms alternating, one-pixel body bob. Same colors as the still sprite. |
 | character | Citizen work frames | Working poses: chopping, digging, carrying, sowing, fishing, building. | Not drawn | Strip of 2 frames per action, each 16×16 character: the given citizen style swinging an axe (chop), swinging a pickaxe (dig), holding a sack over the head (carry), scattering seed (sow), holding a rod (fish), hammering (build). |
@@ -625,7 +625,7 @@ story quests are goals.
 | icon | Sleeps in a lean-to | Lean-to with a bedroll. | Not drawn | 16×16 icon: reed lean-to with a straw bedroll. |
 | icon | Sleeps in a hut | Hut with a lit window; full rest. | Not drawn | 16×16 icon: hut with a warm lit window and a crescent moon. |
 | icon | Storage full | Box with an exclamation mark; citizens wait with goods in hands. | Not drawn (a crowd at the building is the only hint) | 16×16 icon: full crate with a red exclamation mark. |
-| icon | Governor badge | Crown or a fur hat; marks the streamer. | `web/src/index.css` `.badge` — text pill | 16×16 icon: tall fur-trimmed red voivode hat. |
+| icon | Tsar badge | Crown or a fur hat; marks the streamer. | `web/src/index.css` `.badge` — text pill | 16×16 icon: tall fur-trimmed red voivode hat. |
 | icon | Forecast | Weather vane with a question mark; a Synoptic's announcement. | Not drawn (text in `web/src/ui/WeatherChip.tsx`) | 16×16 icon: rooster weather vane with half sun and half cloud behind it. |
 
 ## 20. Interface (22)
@@ -664,13 +664,13 @@ story quests are goals.
 | effect | Chimney smoke | Puffs of smoke rising from huts, bakery, smithy and the campfire. | Not drawn | Strip of 4 frames, each 16×16 effect: small grey-white smoke puff rising and fading from the bottom to the top. |
 | effect | Forge sparks | Sparks flying at the smithy while someone works. | Not drawn | Strip of 4 frames, each 16×16 effect: a few orange and yellow spark pixels bursting outward and fading. |
 | effect | Selection outline | Yellow outline around the clicked tree, building or spot while the player chooses what to do. | `web/src/game/VillageWorld.ts` `setSelection` — code-drawn | Keep code-drawn (it fits any area). |
-| effect | Walk target marker | Marker on the ground where the Governor or a citizen is walking to. | Not drawn | Strip of 2 frames, each 16×16 effect: small parchment-yellow ring on the ground with a downward arrow bobbing above it. |
+| effect | Walk target marker | Marker on the ground where the Tsar or a citizen is walking to. | Not drawn | Strip of 2 frames, each 16×16 effect: small parchment-yellow ring on the ground with a downward arrow bobbing above it. |
 | effect | Ripe sparkle | Glint over a ripe farm bed, ready to harvest. | Not drawn | Strip of 3 frames, each 16×16 effect: small four-point white-yellow star twinkling (small, big, small). |
 
 ## 22. Obstacles (28)
 
 Planned land that stands in the walkers' way, beyond the mountains of section 8. Marsh only slows walkers. Thickets and
-rockfalls block until citizens clear them; the ravine blocks until the Governor places a rope bridge and citizens build
+rockfalls block until citizens clear them; the ravine blocks until the Tsar or a Governor places a rope bridge and citizens build
 it. The cave and the lookout sit in the mountain ridges. None of these is drawn yet.
 
 | Type | Name | Description | Currently drawn by | Prompt |
@@ -692,7 +692,7 @@ it. The cave and the lookout sit in the mountain ridges. None of these is drawn 
 | terrain | Ravine, north rim | Grass ending at the northern edge of the ravine, the far wall dropping away below. | Not drawn (planned) | 16×16 terrain tile, seamless left and right: meadow grass in the top third ending at a ragged rock edge, below it a lit grey-brown cliff face falling into darkness at the bottom edge. |
 | terrain | Ravine, depth | The bottom of the ravine, too deep to see. | Not drawn (planned) | 16×16 seamless terrain tile: near-black blue-grey chasm with a few faint rock ledges and pebbles catching a little light. |
 | terrain | Ravine, south rim | Grass at the southern edge of the ravine; the near wall is in shadow. | Not drawn (planned) | 16×16 terrain tile, seamless left and right: darkness at the top edge, a thin strip of shadowed rock lip, then meadow grass in the bottom two-thirds. |
-| building | Rope bridge | Plank bridge on ropes across the ravine, 3 × 4 tiles; the Governor places it, citizens build it. | Not drawn (planned) | 48×64 building (footprint 3×4 tiles): a narrow wooden plank bridge running from the bottom edge to the top edge across a dark ravine, thick rope hand-lines on both sides sagging slightly, two stout wooden posts at each end with ropes tied around them; the ravine shows dark under the planks in the middle rows, grass at the top and bottom rows. |
+| building | Rope bridge | Plank bridge on ropes across the ravine, 3 × 4 tiles; the Tsar or a Governor places it, citizens build it. | Not drawn (planned) | 48×64 building (footprint 3×4 tiles): a narrow wooden plank bridge running from the bottom edge to the top edge across a dark ravine, thick rope hand-lines on both sides sagging slightly, two stout wooden posts at each end with ropes tied around them; the ravine shows dark under the planks in the middle rows, grass at the top and bottom rows. |
 | icon | Rope bridge | Planks on ropes. | Not drawn (planned) | 16×16 icon: short sagging plank bridge with two rope hand-lines between two wooden posts. |
 | building | Rope bridge stages (2) | Posts (posts driven in on both rims, ropes stretched across), Ropes and half the planks. | Not drawn (planned) | Building under construction, same canvas size and footprint as the finished Rope bridge. Stage 1 Posts: two posts on each rim with bare ropes stretched across the dark ravine. Stage 2 Planks: the ropes with planks laid over the lower half, a few loose planks stacked on the near rim. |
 | icon | Stretch the ropes (`stretch-ropes`) | Coil of rope being pulled taut between two posts. Construction job of the rope bridge. | Not drawn (planned) | 16×16 icon: coil of thick hemp rope with its end pulled taut to a wooden post. |

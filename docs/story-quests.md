@@ -5,7 +5,7 @@ This document extends [cooperative-building.md](cooperative-building.md). The tr
 ## 1. Rules shared by every story quest
 
 - **One story quest at a time.** The next one opens when the previous one is completed. Need quests keep running beside it.
-- **Village-wide.** Every citizen works towards the same quest. The Governor sees the goal and its progress numbers (as with need quests).
+- **Village-wide.** Every citizen works towards the same quest. The Tsar sees the goal and its progress numbers (as with need quests).
 - **Objectives are read from the village**, not ticked by hand: a building exists, a project is finished, food is in storage. Counted objectives (for example "tend the fire 5 times") count the cycles of every citizen together.
 - **Credit and reward** work like need quests: every useful cycle while the quest is open is recorded, and on completion the Renown pool is split by those cycles. The village gets morale.
 - **Monument quests start a project.** Opening the quest places the monument's project on the map; the existing project rules apply (material delivery, labor, the 20% personal contribution cap, project Renown on completion). Projects no longer start one after another by themselves: only a quest starts one, so at most one project runs at a time.
@@ -52,7 +52,7 @@ After quest 11 the chain is finished; need quests and free building continue for
 ### 2. A roof over our heads (Крыша над головой)
 
 - **Story:** "Trees are a poor roof when it rains. Poles and reeds will do better."
-- **Objectives:** Governor: place a Lean-to blueprint. Citizens: the Lean-to is built.
+- **Objectives:** Tsar or a Governor: place a Lean-to blueprint. Citizens: the Lean-to is built.
 - **Credit:** any work on a Lean-to site, and gathering wood or reeds while the quest is open.
 
 
@@ -62,14 +62,14 @@ After quest 11 the chain is finished; need quests and free building continue for
 - **Story:** "Berries rot, meat spoils. Fill the stores before the frost."
 - **Objective (citizens):** 20 food in storage at the same time.
 - **Credit:** food that reaches storage; work on a Drying rack.
-- **Hint for the Governor:** a Drying rack keeps food.
+- **Hint for the Tsar and the Governors:** a Drying rack keeps food.
 
 
 
 ### 4. The first house (Первый дом)
 
 - **Story:** "A lean-to keeps off the wind. A house keeps a family."
-- **Objectives:** Governor: place a Hut blueprint. Citizens: the Hut is built.
+- **Objectives:** Tsar or a Governor: place a Hut blueprint. Citizens: the Hut is built.
 - **Credit:** any work on a Hut site.
 
 

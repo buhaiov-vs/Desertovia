@@ -46,7 +46,7 @@ dotnet run --project tools/Desertod.Bots -- --village <slug> --count 5
 | `--base` | `http://localhost:5080` (the API in Development, not the Vite server) |
 | `--prefix` | `bot`; accounts are `bot1`, `bot2`, … and the same names rejoin the same citizens on the next run |
 
-Bots only build what the Governor plans: in a new village they drop their loads until the Governor places a storage blueprint. Ctrl+C stops them; their citizens stay in the village.
+Bots only build what the Tsar plans: in a new village they drop their loads until the Tsar places a storage blueprint. Ctrl+C stops them; their citizens stay in the village.
 
 ## Run everything in Docker
 

@@ -6,7 +6,7 @@ The decisions in section 10 are settled. Phase 1 (storage buildings, carried goo
 
 ## 1. Core idea
 
-| | Streamer (Governor) | Citizens (subscribers) |
+| | Streamer (Tsar) | Citizens (subscribers) |
 |---|---|---|
 | Does | Places buildings, roads and storage; sets storage orders; issues decrees; chooses the next monument | Gather, craft, haul, build; pick their own jobs every 90 seconds |
 | Never does | Gathers or carries anything | Places buildings or decides the layout |
@@ -17,7 +17,7 @@ The fun is the loop between the two: citizens hit a wall, they complain in chat 
 
 ## 2. Information rules
 
-**Decision (2026-10-12):** the Governor sees the numbers. The earlier rule "the Governor has no ledger" (resource and capacity numbers, material progress and shortage speech bubbles hidden from the owner's page) is dropped: planning without knowing what a building takes or what storage holds was more frustrating than fun.
+**Decision (2026-10-12):** the Tsar sees the numbers. The earlier rule "the Tsar has no ledger" (resource and capacity numbers, material progress and shortage speech bubbles hidden from the owner's page) is dropped: planning without knowing what a building takes or what storage holds was more frustrating than fun.
 
 The streamer's view (the owner's game page):
 
@@ -26,10 +26,10 @@ The streamer's view (the owner's game page):
 - Need and story quest progress with numbers.
 - Citizen speech bubbles about full storage and hunger.
 
-The Governor still never works, so the actions stay with the citizens. The citizen's view keeps everything it has (inventory with numbers, error messages), plus:
+The Tsar still never works, so the actions stay with the citizens. The citizen's view keeps everything it has (inventory with numbers, error messages), plus:
 
 - A clear blocked state: "Woodyard is full — your 3 wood stays in your hands."
-- A **"Tell the Governor" helper** that copies a ready-made chat line to the clipboard, for example `Woodyard full 200/200 — we need another woodyard!`. The player pastes it into Twitch, YouTube or Telegram chat themselves. This helps players talk to the streamer without the game talking for them.
+- A **"Tell the Tsar" helper** that copies a ready-made chat line to the clipboard, for example `Woodyard full 200/200 — we need another woodyard!`. The player pastes it into Twitch, YouTube or Telegram chat themselves. This helps players talk to the streamer without the game talking for them.
 
 The village owner cannot have a citizen in their own village.
 
@@ -136,7 +136,7 @@ Up to 10 tiles is free; at 40 tiles or more yield drops to 70%.
 - The streamer opens **Build mode** (owner only), picks a building and places it on the tile grid. Valid tiles glow, invalid ones turn red; roads are drawn by dragging.
 - Placing a building creates a **construction site**, which reuses the existing project system (game-design.md section 7): materials must be delivered by citizens and labor must be done. Small buildings skip the Survey phase. The Engineer supervision rule applies only to large buildings and monuments.
 - **Monuments** (Tsar Bridge, Bell Tower, later churches and the monastery) are the big co-operative goals and keep survey, supervision and the 20% contribution cap. As in Zeus, monuments are what the city is remembered for.
-- Several construction sites can be open at once. The streamer sets their priority order. Citizens see the priority as "Governor's priority" next to delivery tasks, but may still choose freely.
+- Several construction sites can be open at once. The streamer sets their priority order. Citizens see the priority as "Tsar's priority" next to delivery tasks, but may still choose freely.
 - Demolishing returns 50% of the materials to connected storage; goods stored inside a demolished storage building are moved out if there is space, otherwise lost.
 - To stop the streamer from flooding the map with sites that nobody can finish, at most **3 construction sites plus 1 monument** can be open at once.
 

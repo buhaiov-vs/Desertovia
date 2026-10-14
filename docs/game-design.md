@@ -455,7 +455,7 @@ Discoveries: **Weaponcraft** (Camp era, at the stone pile, after Stone tools), *
 ### 12.4 Night raids and the undead
 
 - Each night there is a 35% chance beasts attack the camp, between 15% and 85% of the night. The tribe sees them coming 15 minutes before they strike. Wolves only in the Camp era; boars join in the Village era; bears in the Town era. The pack grows with the number of active citizens.
-- The Governor can call an **undead event** for the stream: zombies or skeletons in 1, 2 or 3 waves (small, medium, large), 3 minutes after the call and 2 minutes apart. The Governor can lay them to rest before they strike.
+- The Tsar can call an **undead event** for the stream: zombies or skeletons in 1, 2 or 3 waves (small, medium, large), 3 minutes after the call and 2 minutes apart. The Tsar can lay them to rest before they strike.
 - **Defense** = (Σ power × task factor of everyone on a guard task at the strike + 3 for the campfire + 5 with the palisade) × the best captain's command (1 + 0.04 × Endurance) × 1.25 with the palisade × 1.1 with the Barracks. Task factor: Keep watch 1, Patrol 1.25, Command 1. Luck varies the defense by ±25%.
 - **Repelled** (defense ≥ attack): defenders slay most raiders, share 2 renown per kill, and the slain leave loot; each defender has a 15% chance of a wound. Morale +3%.
 - **Lost:** a few raiders die, the rest steal goods, damage random buildings and wound citizens resting at the camp (50% each); each defender has a 60% wound chance. Morale −8%.

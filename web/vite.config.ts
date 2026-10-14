@@ -38,22 +38,10 @@ export default defineConfig(({ command }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
-          // The generated sprite folder holds hundreds of megabytes of sources and previews; installing must not fetch them.
-          globIgnores: ['assets/generated/**'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
           navigateFallback: '/index.html',
           // These paths are answered by the server: login redirects, OAuth callbacks, the API, SignalR and the probe.
           navigateFallbackDenylist: [/^\/api\//, /^\/auth\//, /^\/signin-/, /^\/hubs\//, /^\/healthz/],
-          runtimeCaching: [
-            {
-              urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/assets/generated/'),
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'generated-sprites',
-                expiration: { maxEntries: 500, maxAgeSeconds: 30 * 24 * 60 * 60 },
-              },
-            },
-          ],
         },
       }),
     ],

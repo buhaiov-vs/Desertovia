@@ -6,7 +6,7 @@ import { EnemyLayer } from './enemies'
 import { CharacterPainter, appearanceKey } from './appearance'
 import { darknessAt } from './daylight'
 import { Fog, type Viewer } from './fog'
-import { TILE, TileSet, battle, dungeon, town, type TileRef } from './sheets'
+import { TILE, TileSet, battle, dungeon, tileKey, town, type TileRef } from './sheets'
 import {
   BUILDING_TILES,
   CAMPFIRE,
@@ -898,7 +898,10 @@ export class VillageWorld {
       village.storages.map((s) => [s.kind, s.plotId, s.damage, s.slots.map((slot) => [slot.kind, Math.ceil(slot.fill * 4)])]),
       village.structures.map((s) => [s.kind, s.plotId, s.damage]),
       village.sites.map((s) => [s.kind, s.plotId, s.stage, Math.floor(s.progress * 24)]),
-      village.fields.map((bed) => [bed.plotId, bed.crop, cropTile(bed.crop ?? '', bed.growth, isRipe(bed))?.index, this.isWet(bed)]),
+      village.fields.map((bed) => {
+        const plant = cropTile(bed.crop ?? '', bed.growth, isRipe(bed))
+        return [bed.plotId, bed.crop, plant && tileKey(plant), this.isWet(bed)]
+      }),
     ])
     if (key === this.lastBuildingKey) return
     this.lastBuildingKey = key

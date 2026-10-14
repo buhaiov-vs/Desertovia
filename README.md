@@ -1,6 +1,8 @@
 # Desertod
 
-Audience village game for streamers. Game rules: [docs/game-design.md](docs/game-design.md). Progress and plans: [docs/roadmap.md](docs/roadmap.md).
+Audience village game for streamers. Game rules: [docs/game-design.md](docs/game-design.md). Progress and plans: [docs/roadmap.md](docs/roadmap.md). How to contribute: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+[![CI](https://github.com/buhaiov-vs/Desertovia/actions/workflows/ci.yml/badge.svg)](https://github.com/buhaiov-vs/Desertovia/actions/workflows/ci.yml)
 
 ## Structure
 
@@ -28,7 +30,7 @@ Pages (everything except signing in needs an account; there are no anonymous vis
 
 - `/` — sign in, list your villages, browse open villages.
 - `/new` — streamers found a village: name, optional description, open or invite-only. The owner of an invite-only village finds the invite link and code in Settings and can replace the code; `/v/{slug}?invite={code}` fills it in for viewers.
-- `/v/{slug}` — citizen page: asks to sign in first, then create a character, pick tasks, renew every 90 seconds.
+- `/v/{slug}` — citizen page: asks to sign in first, then create a character, pick tasks, renew every few minutes.
 
 ### Bots
 
@@ -46,7 +48,7 @@ dotnet run --project tools/Desertod.Bots -- --village <slug> --count 5
 | `--base` | `http://localhost:5080` (the API in Development, not the Vite server) |
 | `--prefix` | `bot`; accounts are `bot1`, `bot2`, … and the same names rejoin the same citizens on the next run |
 
-Bots only build what the Governor plans: in a new village they drop their loads until the Governor places a storage blueprint. Ctrl+C stops them; their citizens stay in the village.
+Bots only build what the Tsar plans: in a new village they drop their loads until the Tsar places a storage blueprint. Ctrl+C stops them; their citizens stay in the village.
 
 ## Run everything in Docker
 
@@ -157,5 +159,7 @@ npm run test:e2e                  # or npm run test:e2e:ui to watch them run
 ```
 
 The browser tests start their own backend (port 5181, database `desertod_e2e`, created automatically) and a production build of the client under `vite preview` (port 5191), so a running development setup is left alone. Set `DESERTOD_E2E_CONNECTION` to use another database. Failures leave screenshots and traces in `web/test-results`; `npx playwright show-report` opens the report.
+
+All three suites, the frontend lint and build, and a Docker image build run on every pull request and every push to `main` ([.github/workflows/ci.yml](.github/workflows/ci.yml)).
 
 While `dotnet run` holds `src/Desertod.Api/bin`, build the .NET tests elsewhere: `dotnet test Desertod.slnx --artifacts-path $env:TEMP\desertod-test-build`.

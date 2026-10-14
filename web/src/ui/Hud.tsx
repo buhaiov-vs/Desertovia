@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { isInjured, type Catalog, type Citizen, type CitizenSummary, type VillageState } from '../api'
+import { isInjured, type Catalog, type Citizen, type CitizenSummary, type Structure, type VillageState } from '../api'
 import { useI18n } from '../i18n'
 import { TABS, tabsFor, type MenuTab } from './menuTabs'
 import { NextAction } from './NextAction'
@@ -64,7 +64,7 @@ export function TopBar({
             {Math.round(village.morale * 100)}
           </Hint>
         </span>
-        <WeatherChip weather={village.weather} citizen={citizen} citizens={citizens} onForecast={onForecast} />
+        <WeatherChip village={village} catalog={catalog} citizen={citizen} citizens={citizens} onForecast={onForecast} />
         {dayNight && (
           <button className="night-toggle" onClick={dayNight.onToggle} title={t('hud.dayNightTitle')} aria-pressed={dayNight.night}>
             {dayNight.night ? t('hud.day') : t('hud.night')}
@@ -96,6 +96,7 @@ export function FoldHead({ collapsed, onToggle, children }: { collapsed: boolean
 export function BottomBar({
   citizen,
   catalog,
+  structures,
   now,
   phone,
   tsar,
@@ -114,6 +115,8 @@ export function BottomBar({
 }: {
   citizen: Citizen | null | undefined
   catalog: Catalog
+  /** The village's buildings: hints name only the beds already built. */
+  structures: Structure[]
   now: number
   phone: boolean
   tsar: boolean
@@ -142,6 +145,7 @@ export function BottomBar({
           <CitizenNeeds
             citizen={citizen}
             catalog={catalog}
+            structures={structures}
             now={now}
             drinks={drinks}
             pending={pending}
@@ -202,6 +206,7 @@ export function BottomBar({
 function CitizenNeeds({
   citizen,
   catalog,
+  structures,
   now,
   drinks,
   pending,
@@ -211,6 +216,7 @@ function CitizenNeeds({
 }: {
   citizen: Citizen
   catalog: Catalog
+  structures: Structure[]
   now: number
   drinks: number
   pending: boolean
@@ -234,7 +240,7 @@ function CitizenNeeds({
   const { rules } = catalog
   const percentOf = (multiplier: number) => i18n.amount(multiplier * 100)
   const mealsDone = Math.min(citizen.cyclesSinceMeal, meals)
-  const rest = restHints(citizen, catalog, i18n, energy)
+  const rest = restHints(citizen, catalog, structures, i18n, energy)
 
   return (
     <div className="hud-needs">

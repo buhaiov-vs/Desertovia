@@ -1,16 +1,16 @@
-import type { Catalog, Citizen, StatRequirement } from '../api'
+import type { Catalog, Citizen, StatRequirement, Structure } from '../api'
 import { useI18n } from '../i18n'
 import { CharacterPortrait } from './CharacterPortrait'
 import { citizenTitle } from './citizenTitle'
 import { Hint } from './Hint'
 import { restHints } from './needHints'
 
-export function CharacterSheet({ citizen, catalog }: { citizen: Citizen; catalog: Catalog }) {
+export function CharacterSheet({ citizen, catalog, structures }: { citizen: Citizen; catalog: Catalog; structures: Structure[] }) {
   const i18n = useI18n()
   const { t } = i18n
   const describeNeeds = (needs: StatRequirement[]) => needs.map((r) => `${i18n.stat(r.stat)} ${r.minimum}`).join(', ')
   const { rules } = catalog
-  const rest = restHints(citizen, catalog, i18n, citizen.energy)
+  const rest = restHints(citizen, catalog, structures, i18n, citizen.energy)
   const streakBonus = Math.min(citizen.streak * rules.streakPerRenewal, rules.streakMaximumBonus)
   return (
     <section className="card">

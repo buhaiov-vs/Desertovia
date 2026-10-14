@@ -1,22 +1,32 @@
-import type { Catalog, Citizen } from '../api'
+import type { Catalog, Citizen, Structure } from '../api'
 import type { Translator } from '../i18n/translator'
 
-/** Explanations of the citizen's energy and rest numbers, with the rules that produce them. */
-export function restHints(citizen: Citizen, catalog: Catalog, i18n: Translator, energy: number) {
+/**
+ * Explanations of the citizen's energy and rest numbers, with the rules that produce them.
+ * Only beds the village has built are named, so the hints do not give away buildings still to come.
+ */
+export function restHints(citizen: Citizen, catalog: Catalog, structures: Structure[], i18n: Translator, energy: number) {
   const { t } = i18n
   const { rules } = catalog
   const percentOf = (multiplier: number) => i18n.amount(multiplier * 100)
   const percent = percentOf(citizen.regenerationMultiplier)
 
   const underTrees = citizen.shelterQuality <= rules.underTreesRegeneration + 1e-9
-  const shelters = catalog.buildings.filter((building) => building.shelter > 0)
+  const shelters = catalog.buildings.filter(
+    (building) => building.shelter > 0 && structures.some((structure) => structure.kind === building.kind),
+  )
   const bed = underTrees ? undefined : shelters.find((building) => Math.abs(building.shelterQuality - citizen.shelterQuality) < 1e-9)
   const bedName = bed ? i18n.building(bed.kind).name : t('character.inShelter')
-  const beds = shelters
-    .map((building) =>
-      t('hint.bed', { building: i18n.building(building.kind).name, percent: percentOf(building.shelterQuality), count: building.shelter }),
-    )
-    .join(', ')
+  const beds =
+    shelters
+      .map((building) =>
+        t('hint.bed', {
+          building: i18n.building(building.kind).name,
+          percent: percentOf(building.shelterQuality),
+          count: building.shelter * structures.filter((structure) => structure.kind === building.kind).length,
+        }),
+      )
+      .join(', ') || t('hint.noBeds')
   const place = underTrees
     ? t('hint.underTrees', { percent: percentOf(citizen.shelterQuality), beds })
     : t('hint.inShelter', { building: bedName, percent: percentOf(citizen.shelterQuality), beds })

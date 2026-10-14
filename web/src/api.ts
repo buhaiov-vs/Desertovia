@@ -1365,6 +1365,24 @@ export function builtKinds(village: VillageState, catalog: Catalog) {
   return kinds
 }
 
+/** Tasks whose building, project and technology the village already has, so the players may hear of them. */
+export function unlockedTasks(village: VillageState, catalog: Catalog) {
+  const built = new Set<string>([...builtKinds(village, catalog), ...village.completedProjects])
+  const discovered = discoveredTechnologies(village)
+  const known = (technology: string | null | undefined) => !technology || discovered.has(technology)
+  return new Set(
+    catalog.tasks
+      .filter(
+        (task) =>
+          (!task.requiredBuilding || built.has(task.requiredBuilding)) &&
+          (!task.requiredProject || built.has(task.requiredProject)) &&
+          known(task.requiredTechnology) &&
+          known(catalog.roles.find((role) => role.id === task.roleId)?.technology),
+      )
+      .map((task) => task.id),
+  )
+}
+
 /** Built, stored and planned buildings of a kind; mirrors the server's count for the repeat cost. */
 export function buildingCount(village: VillageState, catalog: Catalog, kind: BuildingKind) {
   const storageKind = catalog.buildings.find((b) => b.kind === kind)?.storage

@@ -302,7 +302,7 @@ export function GameMenu(props: MenuProps) {
           )}
 
           {tab === 'character' &&
-            (citizen ? <CharacterSheet citizen={citizen} catalog={catalog} /> : <JoinPrompt {...props} />)}
+            (citizen ? <CharacterSheet citizen={citizen} catalog={catalog} structures={village.structures} /> : <JoinPrompt {...props} />)}
 
           {tab === 'tasks' &&
             (citizen ? (

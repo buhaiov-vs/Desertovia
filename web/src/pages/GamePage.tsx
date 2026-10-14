@@ -828,6 +828,7 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
             <BottomBar
               citizen={citizen}
               catalog={catalog}
+              structures={village.structures}
               now={now}
               phone={phone}
               tsar={tsar}

@@ -49,23 +49,24 @@ export const en = {
     'hint.hungryExperience': 'Hungry: every task gives {percent}% of the usual experience.',
     'hint.hungryRest': 'Hungry: energy comes back at {percent}% of its usual speed.',
     'hint.underTrees':
-      'No bed is left for you, so you sleep under the trees: energy comes back at {percent}% speed, and slower in the rain.\nBeds: {beds}. The best beds go to whoever settled first. The Tsar or a Governor plans shelters, citizens build them.',
-    'hint.inShelter': 'You have a bed in a {building}: energy comes back at {percent}% speed.\nBeds: {beds}. The best beds go to whoever settled first.',
+      'No bed is left for you, so you sleep under the trees: energy comes back at {percent}% speed, and slower in the rain.\nBeds in the village: {beds}. The best beds go to whoever settled first.',
+    'hint.inShelter': 'You have a bed in a {building}: energy comes back at {percent}% speed.\nBeds in the village: {beds}. The best beds go to whoever settled first.',
     'hint.bed': '{building} {percent}% ({count} beds)',
+    'hint.noBeds': 'none yet',
     'hint.energy':
       'Energy: {energy} of {maximum}. Every task costs {cost}; outdoor work in the rain costs more. With no energy left a task gives no experience and only {tiredYield}% of the yield.\nMaximum energy is {base} + {perEndurance} for every point of Endurance.',
     'hint.perHour':
       'Energy you get back every hour, while working and while away.\nAt full speed (100%) energy refills from 0 to {maximum} in {hours} h: {fullPerHour} per hour. Your rest speed is {percent}%, so {fullPerHour} × {percent}% = {perHour} per hour.',
     'hint.fullIn': 'Full in {hours} h {minutes} min.',
     'hint.full': 'Energy is full.',
-    'hint.restSpeed': 'How fast you rest compared with a good bed (100%):\n{breakdown} = {percent}%',
+    'hint.restSpeed': 'How fast you rest compared with full speed (100%):\n{breakdown} = {percent}%',
     'hint.restPlace': '{place} {percent}%',
     'hint.restHungry': 'hungry ×{multiplier}',
     'hint.restRain': 'rain under the trees ×{multiplier}',
     'hint.morale':
-      'Village morale is {value}%. It multiplies the yield of every task, from {minimum}% to {maximum}%. Performances and tavern talk, quest rewards, finished projects and repelled raids raise it; lost raids lower it. It slowly drifts back to 100%.',
+      'Village morale is {value}%. It multiplies the yield of every task, from {minimum}% to {maximum}%. Good times and good company raise it, misfortunes lower it. It slowly drifts back to 100%.',
     'hint.renown':
-      'Fame for serving the tribe: shared rewards for quests and projects, kills in raids, and stat experience that no longer fits (a stat at {statMaximum} or the talent cap reached).',
+      'Fame for serving the tribe: shared rewards for quests and great works, and stat experience that no longer fits (a stat at {statMaximum} or the talent cap reached).',
     'hint.streak':
       'Tasks in a row: start the next one within {grace} s after the last one ends to keep it. Each step adds +{per}% yield, up to +{maximum}% (now +{bonus}%). It never adds experience. Missing the window resets it to 0.',
     'hint.talent':

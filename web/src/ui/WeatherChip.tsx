@@ -1,5 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import { RAIN, type Citizen, type CitizenSummary, type Forecast, type Weather, type WeatherKind } from '../api'
+import {
+  RAIN,
+  unlockedTasks,
+  type Catalog,
+  type Citizen,
+  type CitizenSummary,
+  type Forecast,
+  type VillageState,
+  type WeatherKind,
+} from '../api'
 import { useI18n } from '../i18n'
 import { useSinglePopup } from './Hint'
 
@@ -17,12 +26,14 @@ const KIND_TEXT = {
  * who has just slept the two announcements; the weather then tends to do the opposite.
  */
 export function WeatherChip({
-  weather,
+  village,
+  catalog,
   citizen,
   citizens,
   onForecast,
 }: {
-  weather: Weather
+  village: VillageState
+  catalog: Catalog
   /** The player's citizen; null for the Tsar and watchers. */
   citizen: Citizen | null | undefined
   citizens: Map<string, CitizenSummary>
@@ -30,6 +41,7 @@ export function WeatherChip({
 }) {
   const i18n = useI18n()
   const { t } = i18n
+  const { weather } = village
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -69,6 +81,10 @@ export function WeatherChip({
     minutesLeft >= 60 ? t('weather.inHours', { hours: Math.floor(minutesLeft / 60), minutes: minutesLeft % 60 }) : t('weather.inMinutes', { minutes: minutesLeft })
   const coming = weather.night ? t('weather.comingDay') : t('weather.comingNight')
 
+  const unlocked = unlockedTasks(village, catalog)
+  const indoor = catalog.tasks.some(
+    (task) => (task.requiredBuilding === 'Library' || task.requiredBuilding === 'Tavern') && unlocked.has(task.id),
+  )
   const synoptic = citizen?.forecastReliability != null ? citizen : null
   const rested =
     synoptic !== null &&
@@ -118,13 +134,13 @@ export function WeatherChip({
 
           <p className="small weather-effects-title">{t('weather.effectsTitle')}</p>
           <ul className="weather-effects small">
-            <li className="good">{t('weather.effectFields')}</li>
-            <li className="good">{t('weather.effectFishing', { percent: percent(RAIN.fishingYield) })}</li>
-            <li className="good">{t('weather.effectIndoor', { percent: percent(RAIN.indoorYield) })}</li>
+            {unlocked.has('water-fields') && <li className="good">{t('weather.effectFields')}</li>}
+            {unlocked.has('fish') && <li className="good">{t('weather.effectFishing', { percent: percent(RAIN.fishingYield) })}</li>}
+            {indoor && <li className="good">{t('weather.effectIndoor', { percent: percent(RAIN.indoorYield) })}</li>}
             <li className="good">{t('weather.effectForest', { times: RAIN.forestRegrowth })}</li>
             <li className="bad">{t('weather.effectEnergy', { percent: percent(RAIN.outdoorEnergyCost) })}</li>
             <li className="bad">{t('weather.effectSleep', { percent: percent(RAIN.underTreesRegeneration) })}</li>
-            <li className="bad">{t('weather.effectFire', { percent: percent(RAIN.fireMorale) })}</li>
+            {unlocked.has('tend-fire') && <li className="bad">{t('weather.effectFire', { percent: percent(RAIN.fireMorale) })}</li>}
             <li className="bad">{t('weather.effectMud', { percent: percent(RAIN.mudYield) })}</li>
             <li className="bad">{t('weather.effectHunting', { percent: percent(RAIN.huntingYield) })}</li>
           </ul>

@@ -837,6 +837,8 @@ button.quest-tracker-body:active {
   display: flex;
   flex-direction: column;
   max-height: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .modal.menu {
@@ -884,6 +886,8 @@ button.quest-tracker-body:active {
 
 .modal-body {
   overflow-y: auto;
+  min-height: 0;
+  flex: 1 1 auto;
   padding: 0.8rem;
   display: flex;
   flex-direction: column;
@@ -897,11 +901,15 @@ button.quest-tracker-body:active {
 
 .close {
   padding: 0.2rem 0.55rem;
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
+  min-width: 0;
 }
 
 .tab {

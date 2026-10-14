@@ -1769,6 +1769,14 @@ export class VillageWorld {
     }
     canvas.addEventListener('pointerup', (event) => {
       if (!this.dragging || this.dragging.moved) return
+      if (event.button === 2) {
+        // Right click always walks, even onto a tree or a building.
+        if (this.onPick) return
+        const screen = local(event)
+        const point = this.world.toLocal(screen)
+        this.onWorldPick?.(null, screen, { x: point.x / TILE, y: point.y / TILE })
+        return
+      }
       if (!this.onPick) {
         const screen = local(event)
         const citizenId = this.onCitizenPick ? this.citizenAt(screen) : null
@@ -1820,6 +1828,7 @@ export class VillageWorld {
     }
     canvas.addEventListener('pointerup', stop)
     canvas.addEventListener('pointercancel', stop)
+    canvas.addEventListener('contextmenu', (event) => event.preventDefault())
     canvas.addEventListener(
       'wheel',
       (event) => {

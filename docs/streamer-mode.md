@@ -114,7 +114,7 @@ Tasks are no longer always available. A task can be done only if the streamer ha
 - Job places fill first come, first served. A citizen who renews within the grace window keeps their place.
 - When a workplace is full, the task shows "No free job places" to the citizen and nothing to the streamer, except a visible crowd around the building.
 - Building a second hut adds more job places. This is the streamer's main lever for steering the economy.
-- Role and stat requirements from game-design.md still apply. The workplace is an additional requirement.
+- Skill level requirements from game-design.md still apply. The workplace is an additional requirement.
 - Starting village: Town Hall, City gate, one Woodcutter's hut, one Quarry, one Farm.
 
 ## 5. Roads and distance

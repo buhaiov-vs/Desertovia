@@ -109,13 +109,13 @@ Every building unlocks new jobs, new buildings, or both. Later buildings, crafts
 | Town | Alchemy | Library | Writing, Herb lore | Intelligence 6 | Alchemist |
 | Town | Forging | Smithy | Smelting | Strength 6, Dexterity 4 | Master smith, Smelt iron ×1.25 |
 
-Camp and Village discoveries ask for stats 2–4 because laborer tasks give full experience up to stat 4; Town discoveries need journeyman work (stats 5–6).
+Camp and Village discoveries ask for stats 2–4, reachable in the first hours of play; Town discoveries ask for stats 5–6. Researching a discovery is gated by these stats, not by a skill level; the challenge rule compares the researcher's primary stat with the highest one.
 
 **Not built yet:** a Stronghold era (stone walls, towers, church, Treasury, Market, Barracks) and monuments behind discoveries.
 
 - Each building type can be built many times. Repeats cost a little more each time (`cost × 1.15^count`), so expansion keeps going without becoming free.
 - Walls are built **per segment**, which gives an endless, very cooperative job list for big streams.
-- Existing roles (Miner, Smith, Carpenter, …) stay but are unlocked by their discovery, not just by stats.
+- Professions (Miner, Smith, Carpenter, …) are unlocked by their discovery; their work needs a skill level, and skill levels need stats.
 
 ## 6. What changes in the current build
 
@@ -178,15 +178,15 @@ Suggested order of implementation:
 
 **Wildlife.** Every village has three herds stored on the server. Hunting takes animals out; a herd grows back toward its capacity on its own (half of the missing animals return every half-life).
 
-Hunting is one "Hunt" card where the citizen picks the prey. Dexterity is the hunting skill: each prey needs a Dexterity level, and the role is Laborer for all of them. Experience follows the hunting time (hunting time ÷ 90 s), so every prey gives the same experience per minute; the choice is about materials.
+Hunting is one "Hunt" card where the citizen picks the prey. Each prey needs a level of the Hunting skill (which itself rests on Dexterity and Endurance, see [game-design.md](game-design.md), section 3.1), and the profession is Laborer for all of them. Experience follows the hunting time (hunting time ÷ 90 s), so every prey gives the same experience per minute; the choice is about materials.
 
-| Herd | Capacity | Half-life | Hunting ground | Task | Dexterity | Hunting time | Experience | Animals per cycle (× yield factor) | Full catch |
+| Herd | Capacity | Half-life | Hunting ground | Task | Hunting | Hunting time | Experience | Animals per cycle (× yield factor) | Full catch |
 |---|---|---|---|---|---|---|---|---|---|
 | Rabbits | 60 | 45 min | Hunting grounds | Hunt rabbits (Dexterity / Endurance) | 0 | 90 s | ×1 | 2.5 | 5 food, 1 leather |
 | Deer | 20 | 90 min | Deer woods | Hunt deer (Dexterity / Endurance) | 2 | 180 s | ×2 | 0.5 | 12 food, 4 leather |
 | Birds | 60 | 30 min | Bird grove | Hunt birds (Dexterity / Intelligence) | 3 | 45 s | ×0.5 | 3 | 1 food, 4 feathers |
 
-The walk from the hunting ground to storage is added to the hunting time. The Hunter role (Dexterity 4) stays as a title.
+The walk from the hunting ground to storage is added to the hunting time. Hunting 3 earns the Hunter title.
 
 - Abundance = animals ÷ (half of capacity), at most 1. Animals caught = animals per cycle × yield factor × abundance, never more than are left. The outputs scale by animals caught ÷ animals per cycle.
 - A hunt cannot start when less than 1 animal is left. A cycle that catches nothing counts as overflow (half experience).
@@ -196,9 +196,9 @@ The walk from the hunting ground to storage is added to the hunting time. The Hu
 - A hunter on duty chases one animal of the kind for the prey's hunting time and always reaches it at the end, then carries it home for the rest of the cycle. Animals run from hunters on duty from 4 tiles away (from other citizens only at 1.5 tiles), circle back toward their home spot, and tire in the last 20 seconds of a chase. This is drawing only; the catch is decided by the server.
 - Feathers go to the Storehouse. Nothing uses them yet (arrows are a later step).
 
-**Farming.** Every built Farm has 3 beds stored on the server. A bed holds one crop that grows in real time; citizens sow, water and harvest it. Endurance is the farming skill: better seeds need more Endurance. The role is Laborer for all farm tasks; the Farmer role (Endurance 4) is a title. Sowing is one "Sow" card where the citizen picks the seeds, like the Hunt card.
+**Farming.** Every built Farm has 3 beds stored on the server. A bed holds one crop that grows in real time; citizens sow, water and harvest it. Better seeds need a higher Farming skill (which rests on Endurance and Dexterity). The profession is Laborer for all farm tasks; Farming 3 earns the Farmer title. Sowing is one "Sow" card where the citizen picks the seeds, like the Hunt card.
 
-| Seeds | Task | Endurance | Grow time (watered) | Harvest |
+| Seeds | Task | Farming | Grow time (watered) | Harvest |
 |---|---|---|---|---|
 | Turnips | Sow turnips | 0 | 1 h | 15 food |
 | Carrots | Sow carrots | 2 | 1.5 h | 24 food |
@@ -212,7 +212,7 @@ The walk from the hunting ground to storage is added to the hunting time. The Hu
 - A wet bed grows at full speed, a dry bed at a quarter of it. Growth is computed from the time of the last change, like herds.
 - When another citizen took the bed (or the water, or the ripe crop) first, the cycle counts as overflow (half experience).
 - Flax goes to the Drying rack or Storehouse, grain to the Granary or Great Granary. Nothing uses flax yet.
-- Bakers (Dexterity 4, Endurance 2, Intelligence 2; needs the Baking discovery) bake bread at the Bakery: 2 grain from storage become 8 food per cycle (Dexterity / Endurance). Bread is food: it goes to the food storages and feeds hungry citizens like any other food.
+- Anyone can bake once the village has the Baking discovery (Baking 3 earns the Baker title): they bake bread at the Bakery: 2 grain from storage become 8 food per cycle (Dexterity / Endurance). Bread is food: it goes to the food storages and feeds hungry citizens like any other food.
 - On the map each bed is one row of the farm: darker soil while wet, and the plant grows through sprout, young and ripe pictures. The Farm popup lists each bed with its crop, growth and wetness.
 
 **Not built yet:** job places, heavy jobs, personal share cap, group hunting, ages, walls and segments, priority ordering, refunds on cancel.

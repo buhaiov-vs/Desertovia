@@ -2,6 +2,7 @@ using System.Text;
 using Desertod.Domain;
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Catalog;
+using Desertod.Domain.Combat;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Projects;
 using Desertod.Domain.Quests;
@@ -9,6 +10,7 @@ using Desertod.Domain.Rules;
 using Desertod.Domain.Storage;
 using Desertod.Domain.Technologies;
 using Desertod.Domain.Weather;
+using Desertod.Domain.World;
 using Desertod.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -144,7 +146,7 @@ public sealed class GameService(
 
             var code = village.NewInviteCode();
             await db.SaveChangesAsync(cancellationToken);
-            logger.GovernorActed(slug, "newInviteCode", "");
+            logger.TsarActed(slug, "newInviteCode", "");
             return new InviteDto(code);
         }, cancellationToken);
 
@@ -194,7 +196,7 @@ public sealed class GameService(
         var village = await LoadVillageAsync(db, slug, cancellationToken);
         if (village.OwnerAccountId == accountId)
         {
-            throw new GameRuleException("citizen.governor", "The Governor rules the village and cannot live in it as a citizen.");
+            throw new GameRuleException("citizen.tsar", "The Tsar rules the village and cannot live in it as a citizen.");
         }
 
         if (await db.Citizens.AnyAsync(c => c.VillageId == village.Id && c.AccountId == accountId, cancellationToken))
@@ -205,7 +207,7 @@ public sealed class GameService(
         if (!village.Admits(request.InviteCode))
         {
             throw string.IsNullOrWhiteSpace(request.InviteCode)
-                ? new GameRuleException("village.inviteRequired", "This village is private. Ask the Governor for the invite code.")
+                ? new GameRuleException("village.inviteRequired", "This village is private. Ask the Tsar for the invite code.")
                 : new GameRuleException("village.inviteInvalid", "This invite code is wrong or no longer valid.");
         }
 
@@ -287,27 +289,24 @@ public sealed class GameService(
         }, cancellationToken);
     }
 
-    /// <summary>The Governor puts some available technologies to the vote of the citizens.</summary>
+    /// <summary>The Tsar or a Governor puts some available technologies to the vote of the citizens.</summary>
     public async Task<VillageStateDto> OpenPollAsync(string slug, Guid accountId, IReadOnlyList<string> technologyIds, CancellationToken cancellationToken) =>
         await WithVillageAsync(await FindVillageIdAsync(slug, cancellationToken), async db =>
         {
             var village = await LoadVillageAsync(db, slug, cancellationToken);
-            if (village.OwnerAccountId != accountId)
-            {
-                throw new UnauthorizedAccessException();
-            }
+            var ruler = await RequireRulerAsync(db, village, accountId, cancellationToken);
 
             var now = time.GetUtcNow();
             TechnologyRules.OpenPoll(village, technologyIds, await CountActiveCitizensAsync(db, village, cancellationToken), now);
             await db.SaveChangesAsync(cancellationToken);
-            logger.GovernorActed(slug, "openPoll", string.Join(", ", technologyIds));
+            logger.RulerActed(slug, ruler, "openPoll", string.Join(", ", technologyIds));
 
             changes.Mark(village.Id);
             return await BuildStateAsync(db, village, now, cancellationToken);
         }, cancellationToken);
 
     public Task<VillageStateDto> CancelPollAsync(string slug, Guid accountId, CancellationToken cancellationToken) =>
-        GovernAsync(slug, accountId, "cancelPoll", "", TechnologyRules.CancelPoll, cancellationToken);
+        PlanAsync(slug, accountId, "cancelPoll", "", TechnologyRules.CancelPoll, cancellationToken);
 
     private static Task<int> CountActiveCitizensAsync(DesertodDbContext db, Village village, CancellationToken cancellationToken) =>
         db.Citizens.CountAsync(c => c.VillageId == village.Id && c.Status == CitizenStatus.Active, cancellationToken);
@@ -337,6 +336,7 @@ public sealed class GameService(
             var now = time.GetUtcNow();
             village.EnsureCamp(now);
             var context = (await LoadContextAsync(db, village, citizen.Id, now, cancellationToken)).Work;
+            var raids = await FightDueRaidsAsync(db, village, context.CompletedProjects, now, cancellationToken);
 
             var report = CycleEngine.Settle(citizen, context, now);
             await AfterSettleAsync(db, village, report, now, cancellationToken);
@@ -351,12 +351,13 @@ public sealed class GameService(
             await db.SaveChangesAsync(cancellationToken);
             logger.CitizenActed(citizen.Id, village.Slug, action, detail);
 
+            await BroadcastRaidsAsync(village, raids, now);
             await BroadcastEventsAsync(village, citizen, report, completion, quests, now);
             changes.Mark(village.Id);
             return citizen.ToDto(village, now);
         }, cancellationToken);
 
-    /// <summary>A Synoptic who has just slept announces the weather of the next weather day.</summary>
+    /// <summary>A Synoptic who has just slept announces the weather of the next day or night.</summary>
     public async Task<VillageStateDto> ForecastAsync(string slug, Guid accountId, bool rain, CancellationToken cancellationToken)
     {
         var key = await RequireCitizenAsync(slug, accountId, cancellationToken);
@@ -374,13 +375,13 @@ public sealed class GameService(
         }, cancellationToken);
     }
 
-    /// <summary>The Governor plans a building. Citizens do all the work.</summary>
+    /// <summary>The Tsar or a Governor plans a building. Citizens do all the work.</summary>
     public Task<VillageStateDto> PlaceBlueprintAsync(
         string slug,
         Guid accountId,
         PlaceBlueprintRequest request,
         CancellationToken cancellationToken) =>
-        GovernAsync(
+        PlanAsync(
             slug,
             accountId,
             "placeBlueprint",
@@ -388,19 +389,44 @@ public sealed class GameService(
             (village, now) => ConstructionRules.Place(village, request.Kind, request.X, request.Y, now),
             cancellationToken);
 
-    /// <summary>The Governor walks to a spot on the land; every viewer sees them go.</summary>
-    public Task<VillageStateDto> GovernorGoToAsync(string slug, Guid accountId, GoToRequest request, CancellationToken cancellationToken) =>
-        GovernAsync(slug, accountId, "goTo", request.Spot.ToString(), (village, _) => village.GovernorGoTo(request.Spot), cancellationToken);
+    /// <summary>The Tsar walks to a spot on the land; every viewer sees them go.</summary>
+    public Task<VillageStateDto> TsarGoToAsync(string slug, Guid accountId, GoToRequest request, CancellationToken cancellationToken) =>
+        RuleAsync(slug, accountId, "goTo", request.Spot.ToString(), (village, now) => village.TsarGoTo(request.Spot, now), cancellationToken);
 
     public Task<VillageStateDto> CancelBlueprintAsync(string slug, Guid accountId, string plotId, CancellationToken cancellationToken) =>
-        GovernAsync(slug, accountId, "cancelBlueprint", plotId, (village, _) => ConstructionRules.Cancel(village, plotId), cancellationToken);
+        PlanAsync(slug, accountId, "cancelBlueprint", plotId, (village, _) => ConstructionRules.Cancel(village, plotId), cancellationToken);
 
-    /// <summary>The Governor writes a subtitle under a citizen's name on the map.</summary>
+    /// <summary>The Tsar writes a subtitle under a citizen's name on the map.</summary>
     public Task<CitizenSummaryDto> SetSubtitleAsync(
         string slug,
         Guid accountId,
         Guid citizenId,
         string? subtitle,
+        CancellationToken cancellationToken) =>
+        ChangeCitizenAsync(slug, accountId, citizenId, "setSubtitle", citizen => citizen.SetSubtitle(subtitle), cancellationToken);
+
+    /// <summary>The Tsar appoints a citizen Governor, or dismisses them.</summary>
+    public Task<CitizenSummaryDto> SetGovernorAsync(
+        string slug,
+        Guid accountId,
+        Guid citizenId,
+        bool isGovernor,
+        CancellationToken cancellationToken) =>
+        ChangeCitizenAsync(
+            slug,
+            accountId,
+            citizenId,
+            isGovernor ? "appointGovernor" : "dismissGovernor",
+            citizen => citizen.IsGovernor = isGovernor,
+            cancellationToken);
+
+    /// <summary>A change the Tsar makes to one citizen of the village.</summary>
+    private Task<CitizenSummaryDto> ChangeCitizenAsync(
+        string slug,
+        Guid accountId,
+        Guid citizenId,
+        string actionName,
+        Action<Citizen> change,
         CancellationToken cancellationToken) =>
         WithRetryAsync(async db =>
         {
@@ -412,16 +438,17 @@ public sealed class GameService(
 
             var citizen = await db.Citizens.SingleOrDefaultAsync(c => c.Id == citizenId && c.VillageId == village.Id, cancellationToken)
                           ?? throw new NotFoundException("citizen.notFound", "This citizen does not live in the village.");
-            citizen.SetSubtitle(subtitle);
+            change(citizen);
             await db.SaveChangesAsync(cancellationToken);
-            logger.GovernorActed(slug, "setSubtitle", citizenId.ToString());
+            logger.TsarActed(slug, actionName, citizenId.ToString());
 
             var summary = citizen.ToSummaryDto(time.GetUtcNow());
             await notifier.CitizenUpdated(village.Slug, summary);
             return summary;
         }, cancellationToken);
 
-    private async Task<VillageStateDto> GovernAsync(
+    /// <summary>An action only the Tsar may take.</summary>
+    private async Task<VillageStateDto> RuleAsync(
         string slug,
         Guid accountId,
         string actionName,
@@ -436,15 +463,58 @@ public sealed class GameService(
                 throw new UnauthorizedAccessException();
             }
 
-            var now = time.GetUtcNow();
-            village.EnsureCamp(now);
-            action(village, now);
-            await db.SaveChangesAsync(cancellationToken);
-            logger.GovernorActed(slug, actionName, detail);
-
-            changes.Mark(village.Id);
-            return await BuildStateAsync(db, village, now, cancellationToken);
+            var state = await ActAsync(db, village, action, cancellationToken);
+            logger.TsarActed(slug, actionName, detail);
+            return state;
         }, cancellationToken);
+
+    /// <summary>An action the Tsar and the Governors may take: planning buildings and calling votes.</summary>
+    private async Task<VillageStateDto> PlanAsync(
+        string slug,
+        Guid accountId,
+        string actionName,
+        string detail,
+        Action<Village, DateTimeOffset> action,
+        CancellationToken cancellationToken) =>
+        await WithVillageAsync(await FindVillageIdAsync(slug, cancellationToken), async db =>
+        {
+            var village = await LoadVillageAsync(db, slug, cancellationToken);
+            var ruler = await RequireRulerAsync(db, village, accountId, cancellationToken);
+            var state = await ActAsync(db, village, action, cancellationToken);
+            logger.RulerActed(slug, ruler, actionName, detail);
+            return state;
+        }, cancellationToken);
+
+    private async Task<VillageStateDto> ActAsync(
+        DesertodDbContext db,
+        Village village,
+        Action<Village, DateTimeOffset> action,
+        CancellationToken cancellationToken)
+    {
+        var now = time.GetUtcNow();
+        village.EnsureCamp(now);
+        village.Explore(await LoadTripsAsync(db, village.Id, cancellationToken), now);
+        action(village, now);
+        await db.SaveChangesAsync(cancellationToken);
+
+        changes.Mark(village.Id);
+        return await BuildStateAsync(db, village, now, cancellationToken);
+    }
+
+    /// <summary>The Tsar, or an active citizen the Tsar appointed Governor. Returns "Tsar" or the Governor's citizen id, for the log.</summary>
+    private static async Task<string> RequireRulerAsync(DesertodDbContext db, Village village, Guid accountId, CancellationToken cancellationToken)
+    {
+        if (village.OwnerAccountId == accountId)
+        {
+            return "Tsar";
+        }
+
+        var governorId = await db.Citizens
+            .Where(c => c.VillageId == village.Id && c.AccountId == accountId && c.IsGovernor && c.Status == CitizenStatus.Active)
+            .Select(c => (Guid?)c.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+        return governorId is { } id ? $"Governor {id}" : throw new UnauthorizedAccessException();
+    }
 
     /// <summary>A finished shelter changes who sleeps where.</summary>
     private static async Task AfterSettleAsync(
@@ -502,6 +572,142 @@ public sealed class GameService(
         }, cancellationToken);
     }
 
+    /// <summary>The wounded citizen uses a remedy; see <see cref="CombatRules.Heal"/>.</summary>
+    public async Task<CitizenDto> HealAsync(string slug, Guid accountId, CancellationToken cancellationToken)
+    {
+        var key = await RequireCitizenAsync(slug, accountId, cancellationToken);
+        return await WithVillageAsync(key.VillageId, async db =>
+        {
+            var citizen = await db.Citizens.SingleAsync(c => c.Id == key.Id, cancellationToken);
+            var village = await db.Villages.SingleAsync(v => v.Id == citizen.VillageId, cancellationToken);
+            var now = time.GetUtcNow();
+            var raids = await FightDueRaidsAsync(db, village, null, now, cancellationToken);
+            CombatRules.Heal(citizen, village, now);
+            await db.SaveChangesAsync(cancellationToken);
+            logger.CitizenActed(citizen.Id, slug, "heal", "");
+
+            await BroadcastRaidsAsync(village, raids, now);
+            await notifier.CitizenUpdated(slug, citizen.ToSummaryDto(now));
+            changes.Mark(village.Id);
+            return citizen.ToDto(village, now);
+        }, cancellationToken);
+    }
+
+    /// <summary>The Tsar calls the dead up for the viewers: waves of zombies or skeletons attack the camp.</summary>
+    public async Task<VillageStateDto> CallUndeadAsync(string slug, Guid accountId, CallUndeadRequest request, CancellationToken cancellationToken) =>
+        await WithVillageAsync(await FindVillageIdAsync(slug, cancellationToken), async db =>
+        {
+            var village = await LoadVillageAsync(db, slug, cancellationToken);
+            if (village.OwnerAccountId != accountId)
+            {
+                throw new UnauthorizedAccessException();
+            }
+
+            var now = time.GetUtcNow();
+            RaidRules.CallUndead(village, request.Enemy, request.Size, await CountRecentCitizensAsync(db, village.Id, now, cancellationToken), now);
+            await db.SaveChangesAsync(cancellationToken);
+            logger.TsarActed(slug, "callUndead", $"{request.Size} {request.Enemy}");
+
+            changes.Mark(village.Id);
+            return await BuildStateAsync(db, village, now, cancellationToken);
+        }, cancellationToken);
+
+    public Task<VillageStateDto> CancelUndeadAsync(string slug, Guid accountId, CancellationToken cancellationToken) =>
+        RuleAsync(slug, accountId, "cancelUndead", "", (village, _) => RaidRules.CancelUndead(village), cancellationToken);
+
+    /// <summary>Villages with a raid due, or whose beasts have not decided yet about tonight.</summary>
+    public async Task<IReadOnlyList<Guid>> FindRaidVillagesAsync(CancellationToken cancellationToken)
+    {
+        await using var db = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var now = time.GetUtcNow();
+        var period = DayCycle.PeriodOf(now);
+        var night = DayCycle.IsNight(period);
+        var recentSince = now - GameRules.RecentActivityWindow;
+        return await db.Villages
+            .Where(v => v.NextRaidAt <= now
+                        || (night && v.RaidsPlannedPeriod < period
+                                  && db.Citizens.Any(c => c.VillageId == v.Id && c.CycleStartedAt >= recentSince)))
+            .Select(v => v.Id)
+            .ToListAsync(cancellationToken);
+    }
+
+    /// <summary>Plans tonight's raid of a village and fights the raids that struck.</summary>
+    public Task RaidVillageAsync(Guid villageId, CancellationToken cancellationToken) =>
+        WithVillageAsync(villageId, async db =>
+        {
+            var village = await db.Villages.SingleAsync(v => v.Id == villageId, cancellationToken);
+            var now = time.GetUtcNow();
+            var planned = RaidRules.PlanNight(village, await CountRecentCitizensAsync(db, villageId, now, cancellationToken), Random.Shared, now);
+            var raids = await FightDueRaidsAsync(db, village, null, now, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            if (planned is not null)
+            {
+                logger.RaidPlanned(village.Slug, planned.Count, planned.Enemy.ToString(), planned.StrikesAt);
+            }
+
+            await BroadcastRaidsAsync(village, raids, now);
+            if (planned is not null || raids.Reports.Count > 0)
+            {
+                changes.Mark(villageId);
+            }
+
+            return true;
+        }, cancellationToken);
+
+    private static Task<int> CountRecentCitizensAsync(DesertodDbContext db, Guid villageId, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        var recentSince = now - GameRules.RecentActivityWindow;
+        return db.Citizens.CountAsync(
+            c => c.VillageId == villageId && c.Status == CitizenStatus.Active && c.CycleStartedAt >= recentSince, cancellationToken);
+    }
+
+    /// <param name="Citizens">Defenders and wounded, to send their new state.</param>
+    private sealed record RaidsFought(IReadOnlyList<RaidReport> Reports, IReadOnlyList<Citizen> Citizens);
+
+    /// <summary>
+    /// Fights the raids that struck by now, before anything else changes the citizens: who was on watch at the moment of
+    /// the strike is read from their running cycles.
+    /// </summary>
+    /// <param name="completedProjects">Loaded here when null.</param>
+    private static async Task<RaidsFought> FightDueRaidsAsync(
+        DesertodDbContext db,
+        Village village,
+        IReadOnlyCollection<string>? completedProjects,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var due = RaidRules.Due(village, now);
+        if (due.Count == 0)
+        {
+            return new RaidsFought([], []);
+        }
+
+        completedProjects ??= await db.VillageProjects
+            .Where(p => p.VillageId == village.Id && p.Status == ProjectStatus.Completed)
+            .Select(p => p.DefinitionId)
+            .ToListAsync(cancellationToken);
+        var citizens = await db.Citizens.Where(c => c.VillageId == village.Id).ToListAsync(cancellationToken);
+        var reports = due.Select(raid => RaidRules.Resolve(village, raid, citizens, completedProjects, Random.Shared, now)).ToList();
+        var affected = reports
+            .SelectMany(r => r.Defenders.Select(d => d.CitizenId).Concat(r.Victims.Select(v => v.CitizenId)))
+            .ToHashSet();
+        return new RaidsFought(reports, citizens.Where(c => affected.Contains(c.Id)).ToList());
+    }
+
+    private async Task BroadcastRaidsAsync(Village village, RaidsFought raids, DateTimeOffset now)
+    {
+        foreach (var report in raids.Reports)
+        {
+            logger.RaidFought(village.Slug, report.Count, report.Enemy.ToString(), report.Repelled, report.Defenders.Count);
+            await notifier.RaidFought(village.Slug, report);
+        }
+
+        foreach (var citizen in raids.Citizens)
+        {
+            await notifier.CitizenUpdated(village.Slug, citizen.ToSummaryDto(now));
+        }
+    }
+
     /// <summary>The idle citizen takes a good out of one storage building into their hands.</summary>
     public async Task<CitizenDto> TakeFromStorageAsync(string slug, Guid accountId, TakeRequest request, CancellationToken cancellationToken)
     {
@@ -530,10 +736,12 @@ public sealed class GameService(
             var citizen = await db.Citizens.SingleAsync(c => c.Id == key.Id, cancellationToken);
             var village = await db.Villages.SingleAsync(v => v.Id == citizen.VillageId, cancellationToken);
             var now = time.GetUtcNow();
-            CycleEngine.Cancel(citizen, now);
+            var raids = await FightDueRaidsAsync(db, village, null, now, cancellationToken);
+            CycleEngine.Cancel(citizen, now, village);
             await db.SaveChangesAsync(cancellationToken);
             logger.CitizenActed(citizen.Id, slug, "cancelTask", "");
 
+            await BroadcastRaidsAsync(village, raids, now);
             await notifier.CitizenUpdated(slug, citizen.ToSummaryDto(now));
             changes.Mark(village.Id);
             return citizen.ToDto(village, now);
@@ -544,15 +752,16 @@ public sealed class GameService(
     public async Task<CitizenDto> GoToAsync(string slug, Guid accountId, GoToRequest request, CancellationToken cancellationToken)
     {
         var key = await RequireCitizenAsync(slug, accountId, cancellationToken);
-        return await WithRetryAsync(async db =>
+        return await WithVillageAsync(key.VillageId, async db =>
         {
             var citizen = await db.Citizens.SingleAsync(c => c.Id == key.Id, cancellationToken);
+            var village = await db.Villages.SingleAsync(v => v.Id == citizen.VillageId, cancellationToken);
             var now = time.GetUtcNow();
-            citizen.GoTo(request.Spot, now);
+            village.EnsureCamp(now);
+            citizen.GoTo(request.Spot, village, now);
             await db.SaveChangesAsync(cancellationToken);
             logger.CitizenActed(citizen.Id, slug, "goTo", request.Spot.ToString());
 
-            var village = await db.Villages.AsNoTracking().SingleAsync(v => v.Id == citizen.VillageId, cancellationToken);
             await notifier.CitizenUpdated(slug, citizen.ToSummaryDto(now));
             return citizen.ToDto(village, now);
         }, cancellationToken);
@@ -628,9 +837,17 @@ public sealed class GameService(
         var now = time.GetUtcNow();
         village.EnsureCamp(now);
         var context = (await LoadContextAsync(db, village, citizen.Id, now, cancellationToken)).Work;
+        var raids = await FightDueRaidsAsync(db, village, context.CompletedProjects, now, cancellationToken);
         var report = CycleEngine.Settle(citizen, context, now);
         if (report is null)
         {
+            if (raids.Reports.Count > 0)
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                await BroadcastRaidsAsync(village, raids, now);
+                changes.Mark(village.Id);
+            }
+
             return false;
         }
 
@@ -638,6 +855,7 @@ public sealed class GameService(
         var completion = await CompleteProjectIfDoneAsync(db, context, now, cancellationToken);
         var quests = await UpdateQuestsAsync(db, village, citizen, report, now, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+        await BroadcastRaidsAsync(village, raids, now);
         if (logger.IsEnabled(LogLevel.Debug))
         {
             logger.CycleSettled(
@@ -847,10 +1065,18 @@ public sealed class GameService(
             .Where(a => a.Id == village.OwnerAccountId)
             .Select(a => new { a.DisplayName, a.Character })
             .SingleAsync(cancellationToken);
-        var governor = new GovernorDto(owner.Character?.Name ?? owner.DisplayName, owner.Character?.Appearance, village.GovernorSpot);
+        var tsar = new TsarDto(owner.Character?.Name ?? owner.DisplayName, owner.Character?.Appearance, village.TsarSpot);
+        var trips = await LoadTripsAsync(db, village.Id, cancellationToken);
 
-        return village.ToStateDto(context.Work, context.CompletedInOrder, quests, governor, now);
+        return village.ToStateDto(context.Work, context.CompletedInOrder, quests, tsar, trips, now);
     }
+
+    /// <summary>Last walks of the village's citizens, those who left included: what they saw stays seen.</summary>
+    private static async Task<IReadOnlyList<Trip>> LoadTripsAsync(DesertodDbContext db, Guid villageId, CancellationToken cancellationToken) =>
+        await db.Citizens.AsNoTracking()
+            .Where(c => c.VillageId == villageId && c.Trip != null)
+            .Select(c => c.Trip!)
+            .ToListAsync(cancellationToken);
 
     /// <summary>Runs a change to the village while no other change to it runs in this process.</summary>
     private async Task<T> WithVillageAsync<T>(Guid villageId, Func<DesertodDbContext, Task<T>> action, CancellationToken cancellationToken)

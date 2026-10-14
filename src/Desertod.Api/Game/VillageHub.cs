@@ -1,4 +1,5 @@
 using Desertod.Api.Auth;
+using Desertod.Domain.Combat;
 using Desertod.Domain.Projects;
 using Desertod.Domain.Quests;
 using Desertod.Domain.Rules;
@@ -9,9 +10,12 @@ namespace Desertod.Api.Game;
 
 /// <summary>Read-only feed of a village for signed-in players.</summary>
 [Authorize]
-public sealed class VillageHub(ILogger<VillageHub> logger) : Hub
+public sealed class VillageHub(ChatService chat, ILogger<VillageHub> logger) : Hub
 {
     public static string GroupName(string slug) => $"village:{slug.ToLowerInvariant()}";
+
+    /// <summary>Chat lines go only to the Tsar and the citizens, unlike the rest of the feed.</summary>
+    public static string ChatGroupName(string slug) => $"chat:{slug.ToLowerInvariant()}";
 
     public override Task OnConnectedAsync()
     {
@@ -31,10 +35,25 @@ public sealed class VillageHub(ILogger<VillageHub> logger) : Hub
         return Groups.AddToGroupAsync(Context.ConnectionId, GroupName(slug));
     }
 
-    public Task LeaveVillage(string slug)
+    /// <summary>False when the player neither rules nor lives in the village; they get no chat lines.</summary>
+    public async Task<bool> JoinChat(string slug)
+    {
+        if (Context.User?.GetAccountId() is not { } accountId
+            || !await chat.IsMemberAsync(slug, accountId, Context.ConnectionAborted))
+        {
+            return false;
+        }
+
+        logger.HubJoinedChat(Context.ConnectionId, slug);
+        await Groups.AddToGroupAsync(Context.ConnectionId, ChatGroupName(slug));
+        return true;
+    }
+
+    public async Task LeaveVillage(string slug)
     {
         logger.HubLeft(Context.ConnectionId, slug);
-        return Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(slug));
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(slug));
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChatGroupName(slug));
     }
 }
 
@@ -43,7 +62,8 @@ public sealed record VillageEventsDto(
     IReadOnlyList<CycleReport> Cycles,
     IReadOnlyList<ProjectCompletion> Projects,
     IReadOnlyList<QuestCompletion> Quests,
-    IReadOnlyList<CitizenSummaryDto> Citizens);
+    IReadOnlyList<CitizenSummaryDto> Citizens,
+    IReadOnlyList<RaidReport> Raids);
 
 /// <summary>
 /// Sends the village state at once, and queues the other events, which <see cref="VillageStatePublisher"/> sends
@@ -69,6 +89,12 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
 
     public Task QuestCompleted(string slug, QuestCompletion completion) => Queue(slug, events => events.Quests.Add(completion));
 
+    public Task RaidFought(string slug, RaidReport report) => Queue(slug, events => events.Raids.Add(report));
+
+    /// <summary>Sent at once: players expect their line to show up as they press Enter.</summary>
+    public Task ChatMessageSent(string slug, ChatMessageDto message) =>
+        hub.Clients.Group(VillageHub.ChatGroupName(slug)).SendAsync("chatMessage", message);
+
     /// <summary>Takes the queued events of all villages.</summary>
     public IReadOnlyList<(string Slug, VillageEventsDto Events)> TakeEvents()
     {
@@ -79,7 +105,8 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
                     entry.Value.Cycles,
                     entry.Value.Projects,
                     entry.Value.Quests,
-                    [.. entry.Value.Citizens.Values])))
+                    [.. entry.Value.Citizens.Values],
+                    entry.Value.Raids)))
                 .ToList();
             pending.Clear();
             return taken;
@@ -109,5 +136,6 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
         public List<ProjectCompletion> Projects { get; } = [];
         public List<QuestCompletion> Quests { get; } = [];
         public Dictionary<Guid, CitizenSummaryDto> Citizens { get; } = [];
+        public List<RaidReport> Raids { get; } = [];
     }
 }

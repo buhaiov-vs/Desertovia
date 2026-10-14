@@ -1,5 +1,6 @@
 using Desertod.Domain.Buildings;
 using Desertod.Domain.Catalog;
+using Desertod.Domain.Combat;
 using Desertod.Domain.Entities;
 using Desertod.Domain.Farming;
 using Desertod.Domain.Projects;
@@ -43,7 +44,9 @@ public sealed record CycleReport(
     BuildingKind? BuildingCompleted = null,
     bool Hungry = false,
     string? TechnologyId = null,
-    bool TechnologyDiscovered = false);
+    bool TechnologyDiscovered = false,
+    FightReport? Fight = null,
+    int Repaired = 0);
 
 public static class CycleEngine
 {
@@ -58,7 +61,7 @@ public static class CycleEngine
     {
         var village = context.Village;
         CheckReady(citizen, now);
-        if (spot is { } picked)
+        if (spot is { } picked && !Wilderness.IsWild(task))
         {
             WorkSpots.Check(village, task, picked, now);
         }
@@ -91,24 +94,6 @@ public static class CycleEngine
             }
         }
 
-        if (!GameCatalog.HasHuntingSkill(citizen.Stats, task))
-        {
-            throw new GameRuleException("hunt.skillRequired", $"Hunting {WildlifeCatalog.Get(task.Hunt!.Prey).Name} needs Dexterity {task.Hunt.Dexterity}.",
-                new Dictionary<string, object> { ["animal"] = task.Hunt.Prey.ToString(), ["level"] = task.Hunt.Dexterity });
-        }
-
-        if (!GameCatalog.HasFarmingSkill(citizen.Stats, task))
-        {
-            var crop = FarmCatalog.Get(task.Crop!.Value);
-            throw new GameRuleException("farm.skillRequired", $"Growing {crop.Name} needs Endurance {crop.Endurance}.",
-                new Dictionary<string, object> { ["crop"] = crop.Kind.ToString(), ["level"] = crop.Endurance });
-        }
-
-        if (!GameCatalog.CanPerform(citizen.Stats, task))
-        {
-            throw new GameRuleException("task.roleRequired", $"You lack the skills for the {role.Name} role.", new Dictionary<string, object> { ["roleId"] = role.Id });
-        }
-
         SkillRules.Check(citizen, task);
 
         if (task.Effect is TaskEffect.Sow or TaskEffect.Water or TaskEffect.Harvest)
@@ -119,9 +104,17 @@ public static class CycleEngine
         CheckHands(citizen, village, task, now);
         CheckProjectTask(citizen, task, context);
         CheckPrey(village, task, now);
+        var repairAt = task.Effect == TaskEffect.Repair
+            ? CombatRules.MostDamaged(village) ?? throw new GameRuleException("repair.nothing", "No building needs repair.")
+            : null;
         if (GoldVein.IsDug(task) && GoldVein.IsEmpty(village))
         {
             throw new GameRuleException("task.veinEmpty", "The gold vein is empty.", new Dictionary<string, object> { ["taskId"] = task.Id });
+        }
+
+        if (Wilderness.IsWild(task))
+        {
+            spot = Wilderness.WorkSpot(village, task, spot);
         }
 
         foreach (var input in task.Inputs)
@@ -137,12 +130,26 @@ public static class CycleEngine
             TakeFromHandsThenStorage(citizen, village, input.Resource, input.Amount);
         }
 
+        var repairYard = repairAt is null ? (TilePoint?)null : WorldMap.Yard(repairAt);
+        if ((spot ?? repairYard ?? NaturalPlace(task)) is { } destination)
+        {
+            citizen.SetOut(destination, village, now);
+        }
+
         var work = SkillRules.WorkTime(citizen, task.Skill, task.SkillLevel, TimeSpan.FromSeconds(task.WorkSeconds));
-        Begin(citizen, task.Id, work + Walk(citizen, village, task, spot, now), WeatherRules.EnergyCost(village, !WeatherRules.IsIndoor(task), now), village, now);
+        var walk = repairYard is { } yard ? WorldMap.Walk(WorldMap.Places[WorldMap.Camp], yard) : Walk(citizen, village, task, spot, now);
+        Begin(citizen, task.Id, work + walk, WeatherRules.EnergyCost(village, !WeatherRules.IsIndoor(task), now), village, now);
         citizen.CurrentSiteId = null;
         citizen.CurrentSiteStage = null;
         citizen.Spot = spot;
+        if (IsArmed(task))
+        {
+            CombatRules.Arm(citizen, village);
+        }
     }
+
+    /// <summary>Tasks a citizen takes weapons for: work where beasts attack, and guard duty.</summary>
+    public static bool IsArmed(TaskDefinition task) => task.Danger is not null || task.Effect == TaskEffect.Guard;
 
     /// <summary>Starts a job on a construction site: hauling material there, or working on the current stage.</summary>
     public static void StartJob(Citizen citizen, string plotId, int stage, string jobId, WorkContext context, DateTimeOffset now)
@@ -182,11 +189,17 @@ public static class CycleEngine
     /// Stops the running task, job or research. Nothing is given back: the inputs and energy spent at the start
     /// are lost and the cycle earns nothing. The streak stays where it was before this cycle started.
     /// </summary>
-    public static void Cancel(Citizen citizen, DateTimeOffset now)
+    /// <param name="village">Takes back the weapons the citizen took for the task; without it they keep them until the next task ends.</param>
+    public static void Cancel(Citizen citizen, DateTimeOffset now, Village? village = null)
     {
         if (citizen.WorkState(now) != WorkState.Working)
         {
             throw new GameRuleException("task.notRunning", "There is no task running.");
+        }
+
+        if (village is not null)
+        {
+            CombatRules.Disarm(citizen, village);
         }
 
         // A streak above zero means this cycle renewed the last one: keep the grace window open so the next task renews it again.
@@ -224,9 +237,11 @@ public static class CycleEngine
             return SettleResearch(citizen, context, now);
         }
 
-        return citizen.CurrentSiteId is not null
+        var report = citizen.CurrentSiteId is not null
             ? SettleJob(citizen, context, now)
             : SettleTask(citizen, context, now);
+        CombatRules.Disarm(citizen, context.Village);
+        return report;
     }
 
     private static CycleReport? SettleResearch(Citizen citizen, WorkContext context, DateTimeOffset now)
@@ -245,8 +260,9 @@ public static class CycleEngine
         var overflowed = amount == 0;
         var hungry = Eat(citizen, village, now);
 
+        var challenge = Progression.ChallengeMultiplier(citizen.Stats.Get(technology.Primary), technology.Researcher.Max(r => r.Minimum));
         var report = Finish(citizen, village, TechnologyCatalog.ResearchTaskId, technology.Primary, technology.Secondary, SkillRules.Research,
-            technology.Researcher.Max(r => r.Minimum), overflowed ? GameRules.OverflowExperienceMultiplier : 1, hungry,
+            challenge, overflowed ? GameRules.OverflowExperienceMultiplier : 1, hungry,
             [], [], 0, 0, false, overflowed);
         return report with { TechnologyId = technology.Id, TechnologyDiscovered = discovered };
     }
@@ -263,7 +279,8 @@ public static class CycleEngine
         var project = context.Project is { Status: ProjectStatus.Active } active ? active : null;
         var factor = YieldFactor(citizen, village, task.Primary, task.Secondary, now) * TechnologyRules.YieldMultiplier(village, task.Id)
                      * SkillRules.YieldMultiplier(citizen, task.Skill, task.SkillLevel)
-                     * WeatherRules.YieldMultiplier(village, task, WorkedAt(citizen, now));
+                     * WeatherRules.YieldMultiplier(village, task, WorkedAt(citizen, now))
+                     * CombatRules.BuildingMultiplier(village, task);
 
         var produced = new List<ResourceAmount>();
         var carried = new List<ResourceAmount>();
@@ -271,6 +288,7 @@ public static class CycleEngine
         var rareFind = false;
         double moraleGained = 0;
         var contributed = 0;
+        var repaired = 0;
         double experienceShare = 1;
 
         void Produce(ResourceKind kind, int amount)
@@ -289,8 +307,27 @@ public static class CycleEngine
             }
         }
 
-        switch (task.Effect)
+        var fight = task.Danger is { } danger
+            ? CombatRules.Ambush(citizen, village, danger, context.Random, WorkedAt(citizen, now), now)
+            : null;
+        foreach (var loot in fight?.Loot ?? [])
         {
+            Produce(loot.Resource, loot.Amount);
+        }
+
+        // Beaten by a beast: the citizen runs back with nothing.
+        var beaten = fight is { Won: false };
+        overflowed = beaten;
+        switch (beaten ? (TaskEffect?)null : task.Effect)
+        {
+            case TaskEffect.Guard:
+                break;
+
+            case TaskEffect.Repair:
+                repaired = CombatRules.Repair(village, YieldMath.Whole(task.BaseYield * factor));
+                overflowed = repaired == 0;
+                break;
+
             case TaskEffect.Resources:
             {
                 var share = factor;
@@ -308,6 +345,21 @@ public static class CycleEngine
                     var dug = GoldVein.Take(village, YieldMath.Whole(perShare * share));
                     share = (double)dug / perShare;
                     overflowed = dug == 0;
+                }
+
+                if (Wilderness.ObstacleOf(task) is { } obstacle)
+                {
+                    var perCycle = Wilderness.WorkPerCycle(obstacle);
+                    var cleared = Wilderness.Clear(village, obstacle, YieldMath.Whole(perCycle * share),
+                        citizen.Spot ?? WorldMap.Places[WorldMap.Camp], now);
+                    share = (double)cleared / perCycle;
+                    overflowed = cleared == 0;
+                }
+
+                if (task.Workplace == Wilderness.Cave && context.Random.NextDouble() < Wilderness.CaveFindChance * share)
+                {
+                    var find = Loot.Roll(Wilderness.CaveFinds, context.Random);
+                    Produce(find.Resource, find.Amount);
                 }
 
                 var wood = 0;
@@ -478,8 +530,10 @@ public static class CycleEngine
         }
 
         var hungry = task.Effect != TaskEffect.Unload && Eat(citizen, village, now);
-        return Finish(citizen, village, task.Id, task.Primary, task.Secondary, task.Skill, task.TierRequirement, experienceShare, hungry,
+        var report = Finish(citizen, village, task.Id, task.Primary, task.Secondary, task.Skill,
+            SkillRules.Challenge(citizen, task.Skill, task.SkillLevel), experienceShare, hungry,
             produced, carried, moraleGained, contributed, rareFind, overflowed);
+        return report with { Fight = fight, Repaired = repaired };
     }
 
     private static CycleReport? SettleJob(Citizen citizen, WorkContext context, DateTimeOffset now)
@@ -551,7 +605,7 @@ public static class CycleEngine
         var completed = site is null ? null : ConstructionRules.Advance(village, site, context.RecentCitizenCount, now);
         var hungry = Eat(citizen, village, now);
 
-        var report = Finish(citizen, village, job.Id, job.Primary, job.Secondary, job.Skill, 1,
+        var report = Finish(citizen, village, job.Id, job.Primary, job.Secondary, job.Skill, SkillRules.Challenge(citizen, job.Skill, 0),
             overflowed ? GameRules.OverflowExperienceMultiplier : 1, hungry,
             produced, carried, 0, overflowed ? 0 : amount, false, overflowed);
         return report with { SiteId = plotId, BuildingCompleted = completed };
@@ -564,7 +618,7 @@ public static class CycleEngine
         Stat primary,
         Stat secondary,
         Skill skill,
-        int tierRequirement,
+        double challenge,
         double experienceShare,
         bool hungry,
         IReadOnlyList<ResourceAmount> produced,
@@ -575,7 +629,7 @@ public static class CycleEngine
         bool overflowed)
     {
         var earned = GameRules.BaseExperiencePerCycle
-                     * Progression.ChallengeMultiplier(citizen.Stats.Get(primary), tierRequirement)
+                     * challenge
                      * (citizen.CycleTired ? GameRules.TiredExperienceMultiplier : 1)
                      * experienceShare
                      * (hungry ? GameRules.HungryExperienceMultiplier : 1);
@@ -585,6 +639,7 @@ public static class CycleEngine
         var primaryResult = Progression.AddExperience(citizen.Stats, primary, experience);
         var secondaryResult = Progression.AddExperience(citizen.Stats, secondary, secondaryExperience);
         var skillLevelsGained = SkillRules.AddExperience(citizen, skill, experience);
+        SkillRules.CatchUp(citizen);
         var renown = primaryResult.RenownGained + secondaryResult.RenownGained;
         citizen.Renown += renown;
 
@@ -658,6 +713,12 @@ public static class CycleEngine
             throw new GameRuleException("citizen.dormant", "Dormant citizens cannot work.");
         }
 
+        if (CombatRules.IsInjured(citizen, now))
+        {
+            throw new GameRuleException("citizen.injured", "You are wounded and cannot work until the wound heals. A remedy heals it at once.",
+                new Dictionary<string, object> { ["readyAt"] = citizen.InjuredUntil!.Value });
+        }
+
         if (citizen.CycleEndsAt is not null && now < citizen.CycleEndsAt)
         {
             throw new GameRuleException("task.cycleRunning", "The current task is not finished yet.");
@@ -691,6 +752,10 @@ public static class CycleEngine
         citizen.CycleSettled = false;
     }
 
+    /// <summary>The place on the map a task is done at, unless it is done at the camp, in a building or all over the land.</summary>
+    private static TilePoint? NaturalPlace(TaskDefinition task) =>
+        task.Workplace != WorldMap.Camp && WorldMap.Places.TryGetValue(task.Workplace, out var place) ? place : null;
+
     /// <summary>Walking time of a task: from where the work happens to where its result is dropped.</summary>
     public static TimeSpan Walk(Citizen citizen, Village village, TaskDefinition task) =>
         Walk(citizen, village, task, Workplace(village, task));
@@ -719,7 +784,7 @@ public static class CycleEngine
         }
 
         var fromSpot = Walk(citizen, village, task, picked);
-        return WorkSpots.TreeAt(village, task, picked, now) is not null || fromSpot > standard ? fromSpot : standard;
+        return WorkSpots.TreeAt(village, task, picked, now) is not null || Wilderness.IsWild(task) || fromSpot > standard ? fromSpot : standard;
     }
 
     private static TimeSpan Walk(Citizen citizen, Village village, TaskDefinition task, TilePoint place)
@@ -863,7 +928,7 @@ public static class CycleEngine
 
             if (citizen.Load.All(g => village.FreeSpace(g.Kind) == 0))
             {
-                throw new GameRuleException("hands.noRoom", "Storage has no room for what you carry. The Governor must build more storage.");
+                throw new GameRuleException("hands.noRoom", "Storage has no room for what you carry. Ask the Tsar or a Governor to plan more storage.");
             }
 
             return;

@@ -89,7 +89,7 @@ Goal: "we need more people". See [cooperative-building.md](cooperative-building.
 - [ ] Job places per job and per workplace.
 - [ ] Heavy jobs (need two citizens in overlapping cycles).
 - [ ] Group hunting bonus.
-- [ ] Arrows made from feathers, used by hunting (feathers are collected but have no use yet).
+- [x] Arrows made from feathers (Fletch arrows, Archery), shot by bows in fights.
 - [ ] Personal share cap per stage.
 
 ## Phase 5 — Subscriber integration
@@ -107,7 +107,9 @@ Goal: an endless list of goals.
 
 - [ ] Town and Stronghold ages: Stone yard upgrades, Treasury, Market, Barracks. (Storehouse, Tavern, Stage, Library and Mine are buildable behind discoveries.)
 - [ ] Roads and haul distance.
-- [ ] Raids and defense: Patrol (Guard) and Command (Captain).
+- [x] Raids and defense: beast ambushes on hunts and expeditions, night raids on the camp, undead events called by the Governor, Keep watch, Patrol (Guard) and Command (Captain), a shared armory (spears, bows and arrows, swords, leather armor, shields) that wears out, wounds healed by remedies or poultices, damaged buildings and repairs, Barracks. See [game-design.md](game-design.md), section 12.
+- [ ] Balance enemy power, raid chance and gear from a play-test.
+- [ ] Hand-drawn sprites for the enemies (they are drawn in code in `web/src/game/enemies.ts`).
 - [ ] Trade at the Market (Merchant).
 - [ ] Diplomacy between villages (Envoy, Negotiate).
 - [ ] Draft plans (Architect) and Lead a crew (Foreman).

@@ -54,12 +54,12 @@ public class CycleEngineTests
     }
 
     [Fact]
-    public void Start_WithoutRole_IsRejected()
+    public void Start_WithoutTheSkill_IsRejected()
     {
         var (citizen, village) = Setup();
 
         var error = Assert.Throws<GameRuleException>(() => CycleEngine.Start(citizen, Task("survey"), WorkContext.For(village), Now));
-        Assert.Equal("task.roleRequired", error.Code);
+        Assert.Equal("task.skillRequired", error.Code);
     }
 
     [Fact]
@@ -182,7 +182,7 @@ public class CycleEngineTests
     public void Carrying_BlocksExpeditions()
     {
         var (citizen, village) = Setup();
-        citizen.Carry(ResourceKind.Stone, 1);
+        citizen.WithSkill(Skill.Exploring, Task("expedition").SkillLevel).Carry(ResourceKind.Stone, 1);
 
         var error = Assert.Throws<GameRuleException>(() =>
             CycleEngine.Start(citizen, Task("expedition"), WorkContext.For(village), Now));
@@ -363,21 +363,36 @@ public class CycleEngineTests
     }
 
     [Fact]
-    public void EveryStat_HasFullExperienceTaskAtEveryLevel()
+    public void CraftsWithMasterWork_HaveFullExperienceTaskAtEveryLevel()
     {
-        foreach (var stat in Enum.GetValues<Stat>())
-        {
-            var requirements = GameCatalog.Tasks
-                .Where(t => t.Primary == stat)
-                .Select(t => t.TierRequirement)
-                .ToHashSet();
+        var available = GameCatalog.Tasks.Where(t => t.Effect != TaskEffect.NotAvailableYet).ToList();
+        var crafts = available.Where(t => t.SkillLevel == GameCatalog.MasterSkill).Select(t => t.Skill).Distinct().ToList();
+        Assert.NotEmpty(crafts);
 
-            for (var level = 1; level <= GameRules.StatMaximum; level++)
+        foreach (var skill in crafts)
+        {
+            var requirements = available.Where(t => t.Skill == skill).Select(t => t.SkillLevel).ToHashSet();
+            for (var level = 0; level < GameRules.SkillMaximum; level++)
             {
                 Assert.True(
                     requirements.Any(r => r <= level && Progression.ChallengeMultiplier(level, r) == 1.0),
-                    $"{stat} has no full-experience task at level {level}.");
+                    $"{skill} has no full-experience task at level {level}.");
             }
         }
+    }
+
+    [Fact]
+    public void FarTooEasyWork_TeachesLittle()
+    {
+        var village = NewVillage();
+        var novice = NewCitizen(village);
+        var woodcutter = NewCitizen(village).WithSkill(Skill.Woodcutting, GameRules.ChallengeThreshold + 1);
+
+        CycleEngine.Start(novice, Task("chop-wood"), WorkContext.For(village), Now);
+        CycleEngine.Start(woodcutter, Task("chop-wood"), WorkContext.For(village), Now);
+
+        var full = Finish(novice, WorkContext.For(village)).PrimaryExperience;
+        var penalized = Finish(woodcutter, WorkContext.For(village)).PrimaryExperience;
+        Assert.Equal(YieldMath.Whole(full * GameRules.ChallengePenalty), penalized);
     }
 }

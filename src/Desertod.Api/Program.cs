@@ -3,6 +3,8 @@ using System.Text.Json.Serialization;
 using Desertod.Api;
 using Desertod.Api.Auth;
 using Desertod.Api.Game;
+using Desertod.Domain.Combat;
+using Desertod.Domain.Weather;
 using Desertod.Infrastructure;
 using Desertod.Infrastructure.Data;
 using Microsoft.AspNetCore.ResponseCompression;
@@ -21,6 +23,11 @@ if (!string.IsNullOrWhiteSpace(logLevelsFile))
 {
     builder.Configuration.AddJsonFile(Path.GetFullPath(logLevelsFile), optional: true, reloadOnChange: true);
 }
+
+var gameOptions = builder.Configuration.GetSection(GameOptions.Section).Get<GameOptions>() ?? new GameOptions();
+DayCycle.Configure(gameOptions.DayLength);
+CombatRules.Configure(gameOptions.PeacefulTime);
+builder.Services.AddSingleton(DtoMapper.Catalog(gameOptions));
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddInfrastructure(
@@ -53,7 +60,9 @@ builder.Services.AddSingleton<TelegramLoginVerifier>();
 builder.Services.AddSingleton<VillageNotifier>();
 builder.Services.AddSingleton<VillageStateChanges>();
 builder.Services.AddSingleton<GameService>();
+builder.Services.AddSingleton<ChatService>();
 builder.Services.AddHostedService<CycleSettlementWorker>();
+builder.Services.AddHostedService<RaidWorker>();
 builder.Services.AddHostedService<VillageStatePublisher>();
 
 var app = builder.Build();

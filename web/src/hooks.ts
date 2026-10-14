@@ -1,12 +1,14 @@
-import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
+import { HubConnectionBuilder, LogLevel, type HubConnection } from '@microsoft/signalr'
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import {
   api,
   loadVillage,
+  type ChatMessage,
   type CitizenSummary,
   type CycleReport,
   type ProjectCompletion,
   type QuestCompletion,
+  type RaidReport,
   type VillageEvents,
   type VillageState,
 } from './api'
@@ -14,13 +16,33 @@ import type { GameCanvasHandle } from './game/GameCanvas'
 import { PRIEST_ID } from './game/VillageWorld'
 import { useI18n } from './i18n'
 
+/** `at` is the local time the event arrived. */
 export type FeedEntry =
-  | { key: number; kind: 'cycle'; report: CycleReport }
-  | { key: number; kind: 'project'; completion: ProjectCompletion }
+  | { key: number; at: number; kind: 'cycle'; report: CycleReport }
+  | { key: number; at: number; kind: 'project'; completion: ProjectCompletion }
+  | { key: number; at: number; kind: 'raid'; report: RaidReport }
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 
 const FEED_LENGTH = 8
+const CHAT_LENGTH = 100
 
-/** Wait after the weather day ends before asking for the new sky, and between retries; covers clock drift. */
+/** Adds messages once each, oldest first, keeping the latest `CHAT_LENGTH`. */
+function mergeChat(previous: ChatMessage[], added: ChatMessage[]) {
+  const byId = new Map(previous.map((message) => [message.id, message]))
+  for (const message of added) byId.set(message.id, message)
+  return [...byId.values()]
+    .sort((a, b) => Date.parse(a.sentAt) - Date.parse(b.sentAt) || a.id.localeCompare(b.id))
+    .slice(-CHAT_LENGTH)
+}
+
+/** Subscribes to the chat lines and loads the recent ones; null when the player is not a member of the village. */
+async function joinChat(connection: HubConnection, slug: string) {
+  if (!(await connection.invoke<boolean>('JoinChat', slug))) return null
+  return api.chat(slug)
+}
+
+/** Wait after the daytime or night ends before asking for the new sky, and between retries; covers clock drift. */
 const WEATHER_RETRY_MS = 5_000
 
 export interface LiveVillageHandlers {
@@ -28,26 +50,46 @@ export interface LiveVillageHandlers {
   onCycleCompleted?: (report: CycleReport) => void
   onProjectCompleted?: (completion: ProjectCompletion) => void
   onQuestCompleted?: (completion: QuestCompletion) => void
+  onRaidFought?: (report: RaidReport) => void
+  /** A line written while the page is open, once each; not for the history. */
+  onChatMessage?: (message: ChatMessage) => void
 }
 
-/** Loads a village and keeps it live through the SignalR hub. */
-export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {}) {
+/**
+ * Loads a village and keeps it live through the SignalR hub.
+ * `resident`: the player has a citizen here; with the Governor, the only ones who get the chat.
+ */
+export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVillageHandlers = {}) {
   const [state, setState] = useState<VillageState | null>(null)
   const [citizens, setCitizens] = useState<Map<string, CitizenSummary>>(new Map())
   const [isOwner, setIsOwner] = useState(false)
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [feed, setFeed] = useState<FeedEntry[]>([])
+  const [chat, setChat] = useState<ChatMessage[]>([])
+  /** The hub connection once it has joined the village. */
+  const [hub, setHub] = useState<HubConnection | null>(null)
   const [error, setError] = useState<unknown>(null)
+  const member = isOwner || resident
+  const memberRef = useRef(member)
   const callbacks = useRef(handlers)
   useEffect(() => {
     callbacks.current = handlers
+    memberRef.current = member
   })
+  /** Own lines come back from the hub as well as from the request. */
+  const announced = useRef(new Set<string>())
+  const receive = useCallback((message: ChatMessage) => {
+    setChat((previous) => mergeChat(previous, [message]))
+    if (announced.current.has(message.id)) return
+    announced.current.add(message.id)
+    callbacks.current.onChatMessage?.(message)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
     let feedKey = 0
-    const push = (entry: { kind: 'cycle'; report: CycleReport } | { kind: 'project'; completion: ProjectCompletion }) =>
-      setFeed((previous) => [{ ...entry, key: feedKey++ }, ...previous].slice(0, FEED_LENGTH))
+    const push = (entry: DistributiveOmit<FeedEntry, 'key' | 'at'>) =>
+      setFeed((previous) => [{ ...entry, key: feedKey++, at: Date.now() } as FeedEntry, ...previous].slice(0, FEED_LENGTH))
 
     const connection = new HubConnectionBuilder()
       .withUrl('/hubs/village')
@@ -66,6 +108,10 @@ export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {})
         callbacks.current.onProjectCompleted?.(completion)
       }
       for (const completion of events.quests) callbacks.current.onQuestCompleted?.(completion)
+      for (const report of events.raids ?? []) {
+        push({ kind: 'raid', report })
+        callbacks.current.onRaidFought?.(report)
+      }
       if (events.citizens.length > 0) {
         setCitizens((previous) => {
           const next = new Map(previous)
@@ -75,7 +121,14 @@ export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {})
         for (const citizen of events.citizens) callbacks.current.onCitizenUpdated?.(citizen)
       }
     })
-    connection.onreconnected(() => connection.invoke('JoinVillage', slug))
+    connection.on('chatMessage', receive)
+    // Groups are per connection, and lines written while offline come back with the history.
+    connection.onreconnected(async () => {
+      await connection.invoke('JoinVillage', slug)
+      if (!memberRef.current) return
+      const history = await joinChat(connection, slug)
+      if (history && !cancelled) setChat((previous) => mergeChat(previous, history))
+    })
 
     const load = async () => {
       try {
@@ -88,6 +141,7 @@ export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {})
         await connection.start()
         if (cancelled) return
         await connection.invoke('JoinVillage', slug)
+        if (!cancelled) setHub(connection)
       } catch (exception) {
         if (!cancelled) setError(exception)
       }
@@ -98,37 +152,56 @@ export function useLiveVillage(slug: string, handlers: LiveVillageHandlers = {})
       cancelled = true
       void connection.stop()
     }
-  }, [slug])
+  }, [slug, receive])
 
-  // The sky changes when the weather day ends, and the server sends nothing at that moment.
-  const dayEndsAt = state?.weather.dayEndsAt
+  // Night falls, day breaks and the sky changes when the period ends, and the server sends nothing at that moment.
+  const periodEndsAt = state?.weather.periodEndsAt
   useEffect(() => {
-    if (!dayEndsAt) return
+    if (!periodEndsAt) return
     let cancelled = false
     let id = 0
     const refresh = async () => {
       try {
         const next = (await api.village(slug)).state
         if (cancelled) return
-        if (next.weather.dayEndsAt === dayEndsAt) id = window.setTimeout(refresh, WEATHER_RETRY_MS)
+        if (next.weather.periodEndsAt === periodEndsAt) id = window.setTimeout(refresh, WEATHER_RETRY_MS)
         else setState(next)
       } catch {
         if (!cancelled) id = window.setTimeout(refresh, WEATHER_RETRY_MS)
       }
     }
-    id = window.setTimeout(refresh, Math.max(0, Date.parse(dayEndsAt) - Date.now()) + WEATHER_RETRY_MS)
+    id = window.setTimeout(refresh, Math.max(0, Date.parse(periodEndsAt) - Date.now()) + WEATHER_RETRY_MS)
     return () => {
       cancelled = true
       window.clearTimeout(id)
     }
-  }, [slug, dayEndsAt])
+  }, [slug, periodEndsAt])
+
+  // A newcomer gets the chat once they settle in.
+  useEffect(() => {
+    if (!hub || !member) return
+    let cancelled = false
+    joinChat(hub, slug).then(
+      (history) => {
+        if (history && !cancelled) setChat((previous) => mergeChat(previous, history))
+      },
+      () => {
+        // The next reconnect tries again.
+      },
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [hub, member, slug])
+
+  const sendChat = useCallback(async (text: string) => receive(await api.sendChat(slug, text)), [slug, receive])
 
   const updateCitizen = useCallback(
     (citizen: CitizenSummary) => setCitizens((previous) => new Map(previous).set(citizen.id, citizen)),
     [],
   )
 
-  return { state, setState, citizens, updateCitizen, isOwner, inviteCode, setInviteCode, feed, error }
+  return { state, setState, citizens, updateCitizen, isOwner, inviteCode, setInviteCode, feed, chat, sendChat, member, error }
 }
 
 /** Current time in milliseconds, adjusted to the server clock, refreshed every `intervalMs`. */
@@ -177,20 +250,6 @@ function currentWork(village: VillageState, i18n: ReturnType<typeof useI18n>) {
   }
   const site = village.sites[0]
   return site ? { project: i18n.building(site.kind).name, percent: Math.floor(site.progress * 100) } : null
-}
-
-/** True between 21:00 and 06:00 local time, re-checked every minute. */
-export function useLocalNight() {
-  const check = () => {
-    const hour = new Date().getHours()
-    return hour >= 21 || hour < 6
-  }
-  const [night, setNight] = useState(check)
-  useEffect(() => {
-    const id = window.setInterval(() => setNight(check()), 60_000)
-    return () => window.clearInterval(id)
-  }, [])
-  return night
 }
 
 /** Mirrors a CSS media query. */

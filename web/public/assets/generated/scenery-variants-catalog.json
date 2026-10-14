@@ -1,0 +1,62 @@
+[
+  {
+    "section": "8-scenery",
+    "kind": "prop",
+    "name": "prop-mountain-peak-1",
+    "description": "Bare rocky peak",
+    "status": "generated-awaiting-final-style-and-alignment-audit",
+    "file": "scenery-mountains/prop-mountain-peak-1.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "section": "8-scenery",
+    "kind": "prop",
+    "name": "prop-mountain-peak-2",
+    "description": "Bare rocky peak",
+    "status": "generated-awaiting-final-style-and-alignment-audit",
+    "file": "scenery-mountains/prop-mountain-peak-2.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "section": "8-scenery",
+    "kind": "prop",
+    "name": "prop-mountain-peak-3",
+    "description": "Bare rocky peak",
+    "status": "generated-awaiting-final-style-and-alignment-audit",
+    "file": "scenery-mountains/prop-mountain-peak-3.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "section": "8-scenery",
+    "kind": "prop",
+    "name": "prop-mountain-peak-1-mossy",
+    "description": "Matching peak with moss patches",
+    "status": "generated-awaiting-final-style-and-alignment-audit",
+    "file": "scenery-mountains/prop-mountain-peak-1-mossy.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "section": "8-scenery",
+    "kind": "prop",
+    "name": "prop-mountain-peak-2-mossy",
+    "description": "Matching peak with moss patches",
+    "status": "generated-awaiting-final-style-and-alignment-audit",
+    "file": "scenery-mountains/prop-mountain-peak-2-mossy.png",
+    "width": 32,
+    "height": 32
+  },
+  {
+    "section": "8-scenery",
+    "kind": "prop",
+    "name": "prop-mountain-peak-3-mossy",
+    "description": "Matching peak with moss patches",
+    "status": "generated-awaiting-final-style-and-alignment-audit",
+    "file": "scenery-mountains/prop-mountain-peak-3-mossy.png",
+    "width": 32,
+    "height": 32
+  }
+]

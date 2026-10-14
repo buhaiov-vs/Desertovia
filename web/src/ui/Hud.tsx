@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import type { Catalog, Citizen, CitizenSummary, VillageState } from '../api'
-import type { FeedEntry } from '../hooks'
+import { isInjured, type Catalog, type Citizen, type CitizenSummary, type VillageState } from '../api'
 import { useI18n } from '../i18n'
 import { TABS, tabsFor, type MenuTab } from './menuTabs'
 import { NextAction } from './NextAction'
@@ -12,17 +11,16 @@ import { WeatherChip } from './WeatherChip'
 
 export function TopBar({
   village,
-  governor,
-  night,
-  onNight,
+  tsar,
+  dayNight,
   citizen,
   citizens,
   onForecast,
 }: {
   village: VillageState
-  governor: boolean
-  night: boolean
-  onNight: () => void
+  tsar: boolean
+  /** Development only: the toggle between daylight and night; null hides it. */
+  dayNight: { night: boolean; onToggle: () => void } | null
   citizen: Citizen | null | undefined
   citizens: Map<string, CitizenSummary>
   onForecast: (rain: boolean) => Promise<void>
@@ -36,7 +34,8 @@ export function TopBar({
           {t('brand')}
         </Link>
         <span className="village-name">{village.name}</span>
-        {governor && <span className="badge">{t('hud.governor')}</span>}
+        {tsar && <span className="badge">{t('hud.tsar')}</span>}
+        {citizen?.isGovernor && <span className="badge">{t('hud.governor')}</span>}
       </div>
       <ProjectBanner village={village} />
       <div className="hud-resources">
@@ -53,9 +52,11 @@ export function TopBar({
           {t('hud.morale', { value: Math.round(village.morale * 100) })}
         </span>
         <WeatherChip weather={village.weather} citizen={citizen} citizens={citizens} onForecast={onForecast} />
-        <button className="night-toggle" onClick={onNight} title={t('hud.dayNightTitle')} aria-pressed={night}>
-          {night ? t('hud.day') : t('hud.night')}
-        </button>
+        {dayNight && (
+          <button className="night-toggle" onClick={dayNight.onToggle} title={t('hud.dayNightTitle')} aria-pressed={dayNight.night}>
+            {dayNight.night ? t('hud.day') : t('hud.night')}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -79,28 +80,13 @@ export function FoldHead({ collapsed, onToggle, children }: { collapsed: boolean
   )
 }
 
-export function MiniFeed({ feed }: { feed: FeedEntry[] }) {
-  const i18n = useI18n()
-  if (feed.length === 0) return null
-  return (
-    <ul className="mini-feed">
-      {feed.slice(0, 4).map((entry) => (
-        <li key={entry.key}>
-          {entry.kind === 'cycle'
-            ? i18n.describeReport(entry.report)
-            : i18n.t('feed.built', { project: i18n.project(entry.completion.projectId).name })}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
 export function BottomBar({
   citizen,
   catalog,
   now,
   phone,
-  governor,
+  tsar,
+  ruler,
   hasResult,
   poll,
   onMenu,
@@ -110,14 +96,18 @@ export function BottomBar({
   onCancelTask,
   drinks,
   onDrink,
+  remedies,
+  onHeal,
 }: {
   citizen: Citizen | null | undefined
   catalog: Catalog
   now: number
   phone: boolean
-  governor: boolean
+  tsar: boolean
+  /** The Tsar, or a citizen the Tsar appointed Governor: plans buildings and calls votes. */
+  ruler: boolean
   hasResult: boolean
-  /** "Vote open" while a hidden vote runs, "Call a vote" for the Governor; null hides the button. */
+  /** "Vote open" while a hidden vote runs, "Call a vote" for the rulers; null hides the button. */
   poll: { label: string; onClick: () => void } | null
   onMenu: (tab: MenuTab) => void
   onInventory: () => void
@@ -127,16 +117,28 @@ export function BottomBar({
   /** Vigor drinks in the citizen's hands and in village storage. */
   drinks: number
   onDrink: () => void
+  /** Remedies in the citizen's hands and in village storage. */
+  remedies: number
+  onHeal: () => void
 }) {
   const { t } = useI18n()
   return (
     <div className="hud-bottom">
       <div className="hud-left">
-        {!governor && citizen && (
-          <CitizenNeeds citizen={citizen} catalog={catalog} now={now} drinks={drinks} pending={pending} onDrink={onDrink} />
+        {!tsar && citizen && (
+          <CitizenNeeds
+            citizen={citizen}
+            catalog={catalog}
+            now={now}
+            drinks={drinks}
+            pending={pending}
+            onDrink={onDrink}
+            remedies={remedies}
+            onHeal={onHeal}
+          />
         )}
         <div className="hud-status">
-          {governor ? (
+          {tsar ? (
             <button className="primary" onClick={() => onMenu('build')}>
               {t('hud.build')}
             </button>
@@ -148,6 +150,7 @@ export function BottomBar({
                   {t('hud.results')}
                 </button>
               )}
+              {ruler && <button onClick={() => onMenu('build')}>{t('hud.build')}</button>}
             </>
           ) : (
             <button className="primary" onClick={() => onMenu('character')}>
@@ -164,7 +167,7 @@ export function BottomBar({
       <div className="hud-buttons">
         {phone ? (
           // Settings stay reachable from the tab row inside the menu, keeping the phone bar short.
-          tabsFor(governor).filter((tab) => tab !== 'settings').map((tab) => (
+          tabsFor(tsar, ruler).filter((tab) => tab !== 'settings').map((tab) => (
             <button key={tab} onClick={() => onMenu(tab)}>
               {t(TABS[tab])}
             </button>
@@ -190,6 +193,8 @@ function CitizenNeeds({
   drinks,
   pending,
   onDrink,
+  remedies,
+  onHeal,
 }: {
   citizen: Citizen
   catalog: Catalog
@@ -197,6 +202,8 @@ function CitizenNeeds({
   drinks: number
   pending: boolean
   onDrink: () => void
+  remedies: number
+  onHeal: () => void
 }) {
   const i18n = useI18n()
   const { t } = i18n
@@ -245,6 +252,43 @@ function CitizenNeeds({
           {t('needs.drink', { energy: catalog.rules.vigorDrinkEnergy, count: drinks })}
         </button>
       )}
+      {isInjured(citizen, now) && <InjuryChip citizen={citizen} remedies={remedies} pending={pending} onHeal={onHeal} />}
     </div>
+  )
+}
+
+/** Shown while the citizen is wounded: when they can work again, and the remedy that heals them now. */
+export function InjuryChip({
+  citizen,
+  remedies,
+  pending,
+  onHeal,
+}: {
+  citizen: Citizen
+  remedies: number
+  pending: boolean
+  onHeal: () => void
+}) {
+  const i18n = useI18n()
+  const { t } = i18n
+  const time = new Date(citizen.injuredUntil!).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })
+  return (
+    <>
+      <span className="resource-chip needs-warning injury-chip" title={t('injury.hint')}>
+        <span className="injury-icon" aria-hidden>
+          ✚
+        </span>
+        {t('injury.title', { time })}
+      </span>
+      <button
+        className="drink-button"
+        disabled={pending || remedies === 0}
+        onClick={onHeal}
+        title={remedies === 0 ? t('injury.noRemedy') : t('injury.hint')}
+      >
+        <ResourceIcon kind="Remedy" scale={1.5} />
+        {t('injury.heal', { count: remedies })}
+      </button>
+    </>
   )
 }

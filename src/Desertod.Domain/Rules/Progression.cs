@@ -68,6 +68,6 @@ public static class Progression
         return new ExperienceResult(levelsGained, renown);
     }
 
-    public static double ChallengeMultiplier(int statLevel, int tierRequirement) =>
-        statLevel <= tierRequirement + GameRules.ChallengeThreshold ? 1.0 : GameRules.ChallengePenalty;
+    public static double ChallengeMultiplier(int level, int requirement) =>
+        level <= requirement + GameRules.ChallengeThreshold ? 1.0 : GameRules.ChallengePenalty;
 }

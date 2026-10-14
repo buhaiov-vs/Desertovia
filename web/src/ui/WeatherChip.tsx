@@ -1,12 +1,19 @@
 import { useState } from 'react'
-import { RAIN, type Citizen, type CitizenSummary, type Forecast, type Weather } from '../api'
+import { RAIN, type Citizen, type CitizenSummary, type Forecast, type Weather, type WeatherKind } from '../api'
 import { useI18n } from '../i18n'
 
 const percent = (multiplier: number) => Math.round(Math.abs(multiplier - 1) * 100)
 
+const KIND_TEXT = {
+  Clear: 'weather.sun',
+  Rain: 'weather.rain',
+  Wind: 'weather.wind',
+  Thunderstorm: 'weather.thunderstorm',
+} as const satisfies Record<WeatherKind, string>
+
 /**
- * Today's sky in the top bar. Opens the forecasts, what rain does, and for a Synoptic who has just slept
- * the two announcements; the weather then tends to do the opposite.
+ * The sky of the current daytime or night in the top bar. Opens the forecasts, what rain does, and for a Synoptic
+ * who has just slept the two announcements; the weather then tends to do the opposite.
  */
 export function WeatherChip({
   weather,
@@ -26,11 +33,12 @@ export function WeatherChip({
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const sky = (rain: boolean) => (rain ? t('weather.rain') : t('weather.sun'))
+  const sky = weather.kind === 'Clear' && weather.night ? t('weather.clearNight') : t(KIND_TEXT[weather.kind])
   const nameOf = (forecast: Forecast) => citizens.get(forecast.citizenId)?.name ?? t('weather.someone')
-  const minutesLeft = Math.max(0, Math.ceil((Date.parse(weather.dayEndsAt) - Date.now()) / 60_000))
+  const minutesLeft = Math.max(0, Math.ceil((Date.parse(weather.periodEndsAt) - Date.now()) / 60_000))
   const changesIn =
     minutesLeft >= 60 ? t('weather.inHours', { hours: Math.floor(minutesLeft / 60), minutes: minutesLeft % 60 }) : t('weather.inMinutes', { minutes: minutesLeft })
+  const coming = weather.night ? t('weather.comingDay') : t('weather.comingNight')
 
   const synoptic = citizen?.forecastReliability != null ? citizen : null
   const rested =
@@ -52,29 +60,29 @@ export function WeatherChip({
   return (
     <span className="weather">
       <button
-        className={`resource-chip weather-chip${weather.raining ? ' raining' : ''}`}
+        className={`resource-chip weather-chip weather-${weather.kind.toLowerCase()}${weather.raining ? ' raining' : ''}${weather.night ? ' night' : ''}`}
         onClick={() => setOpen(!open)}
         title={t('weather.title')}
         aria-expanded={open}
       >
         <span className="weather-icon" aria-hidden />
-        {sky(weather.raining)}
+        {sky}
       </button>
       {open && (
         <div className="weather-panel">
           <div className="weather-row">
-            <strong>{t('weather.today', { sky: sky(weather.raining) })}</strong>
-            <span className="muted small">{t('weather.changes', { time: changesIn })}</span>
+            <strong>{t('weather.today', { sky })}</strong>
+            <span className="muted small">{t(weather.night ? 'weather.dawnIn' : 'weather.nightIn', { time: changesIn })}</span>
           </div>
-          {weather.today && (
+          {weather.current && (
             <p className="small">
-              {t(weather.today.saysRain ? 'weather.promisedRain' : 'weather.promisedSun', { name: nameOf(weather.today) })}{' '}
-              {weather.today.saysRain === weather.raining ? t('weather.cameTrue') : t('weather.cameWrong')}
+              {t(weather.current.saysRain ? 'weather.promisedRain' : 'weather.promisedSun', { name: nameOf(weather.current) })}{' '}
+              {weather.current.saysRain === weather.raining ? t('weather.cameTrue') : t('weather.cameWrong')}
             </p>
           )}
           <p className="small">
-            {weather.tomorrow
-              ? t(weather.tomorrow.saysRain ? 'weather.promisesRain' : 'weather.promisesSun', { name: nameOf(weather.tomorrow) })
+            {weather.next
+              ? t(weather.next.saysRain ? 'weather.promisesRain' : 'weather.promisesSun', { name: nameOf(weather.next), when: coming })
               : t('weather.noForecast')}
           </p>
 
@@ -96,7 +104,7 @@ export function WeatherChip({
               <p className="small">
                 {t('weather.synoptic', { percent: Math.round((synoptic.forecastReliability ?? 0) * 100) })}
               </p>
-              {weather.tomorrow ? null : rested ? (
+              {weather.next ? null : rested ? (
                 <div className="weather-buttons">
                   <button disabled={pending} onClick={() => forecast(false)}>
                     {t('weather.saySun')}

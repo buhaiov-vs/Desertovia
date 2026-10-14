@@ -24,6 +24,7 @@ public sealed class DesertodApiFactory : WebApplicationFactory<Program>, IAsyncL
         builder.UseSetting("Authentication:Twitch:ClientId", "");
         builder.UseSetting("Authentication:Google:ClientId", "");
         builder.UseSetting("Authentication:Telegram:BotToken", "");
+        builder.UseSetting("Authentication:Password:AccountsPerAddress", "3");
         builder.ConfigureServices(services => services.AddTransient<IStartupFilter, TestAddressStartupFilter>());
     }
 

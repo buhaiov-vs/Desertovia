@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Desertod.Api.Game;
+using Desertod.Domain.Weather;
 
 namespace Desertod.Api.Tests;
 
@@ -35,6 +36,20 @@ public sealed class PublicEndpointTests(DesertodApiFactory factory)
         Assert.NotEmpty(catalog.GetProperty("tasks").EnumerateArray());
         Assert.NotEmpty(catalog.GetProperty("roles").EnumerateArray());
         Assert.Equal(JsonValueKind.Object, catalog.GetProperty("rules").ValueKind);
+        Assert.True(catalog.GetProperty("devTools").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Village_state_tells_day_or_night_and_its_weather()
+    {
+        var village = await (await SignedInClientAsync()).GetFromJsonAsync<JsonElement>($"/api/villages/{DemoVillage.Slug}");
+        var weather = village.GetProperty("state").GetProperty("weather");
+
+        var startedAt = weather.GetProperty("periodStartedAt").GetDateTimeOffset();
+
+        Assert.Contains(weather.GetProperty("kind").GetString(), Enum.GetNames<WeatherKind>());
+        Assert.Equal(DayCycle.IsNight(startedAt), weather.GetProperty("night").GetBoolean());
+        Assert.Equal(DayCycle.PeriodLength, weather.GetProperty("periodEndsAt").GetDateTimeOffset() - startedAt);
     }
 
     [Fact]

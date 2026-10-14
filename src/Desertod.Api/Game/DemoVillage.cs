@@ -49,7 +49,7 @@ public static class DemoVillage
 
     public static async Task SeedAsync(DesertodDbContext db, TimeProvider time, CancellationToken cancellationToken)
     {
-        await RemoveAsync(db, cancellationToken);
+        await RemoveAsync(db, Slug, cancellationToken);
         var now = time.GetUtcNow();
 
         var tsar = await AccountAsync(db, TsarName, now, cancellationToken);
@@ -163,9 +163,9 @@ public static class DemoVillage
         }
     }
 
-    private static async Task RemoveAsync(DesertodDbContext db, CancellationToken cancellationToken)
+    internal static async Task RemoveAsync(DesertodDbContext db, string slug, CancellationToken cancellationToken)
     {
-        var village = await db.Villages.SingleOrDefaultAsync(v => v.Slug == Slug, cancellationToken);
+        var village = await db.Villages.SingleOrDefaultAsync(v => v.Slug == slug, cancellationToken);
         if (village is null)
         {
             return;
@@ -188,7 +188,7 @@ public static class DemoVillage
     }
 
     /// <summary>The development login with this name, as the login page would create it.</summary>
-    private static async Task<Account> AccountAsync(DesertodDbContext db, string name, DateTimeOffset now, CancellationToken cancellationToken)
+    internal static async Task<Account> AccountAsync(DesertodDbContext db, string name, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var userId = name.ToLowerInvariant();
         var login = await db.ExternalLogins.SingleOrDefaultAsync(

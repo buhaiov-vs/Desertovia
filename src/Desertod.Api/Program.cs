@@ -78,6 +78,7 @@ await using (var scope = app.Services.CreateAsyncScope())
     if (app.Environment.IsDevelopment())
     {
         await DemoVillage.SeedAsync(db, app.Services.GetRequiredService<TimeProvider>(), CancellationToken.None);
+        await BuiltVillage.SeedAsync(db, app.Services.GetRequiredService<TimeProvider>(), CancellationToken.None);
     }
 }
 

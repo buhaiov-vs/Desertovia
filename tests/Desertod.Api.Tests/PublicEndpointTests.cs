@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Desertod.Api.Game;
+using Desertod.Domain.Buildings;
+using Desertod.Domain.Storage;
 using Desertod.Domain.Weather;
 
 namespace Desertod.Api.Tests;
@@ -67,6 +69,20 @@ public sealed class PublicEndpointTests(DesertodApiFactory factory)
 
         Assert.Equal(DemoVillage.Slug, village.GetProperty("state").GetProperty("slug").GetString());
         Assert.NotEmpty(village.GetProperty("citizens").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Built_village_state_loads_with_every_building()
+    {
+        var village = await (await SignedInClientAsync()).GetFromJsonAsync<JsonElement>($"/api/villages/{BuiltVillage.Slug}");
+        var state = village.GetProperty("state");
+
+        var built = state.GetProperty("structures").EnumerateArray()
+            .Concat(state.GetProperty("storages").EnumerateArray())
+            .Select(building => building.GetProperty("kind").GetString())
+            .ToHashSet();
+        Assert.All(Enum.GetNames<BuildingKind>(), kind => Assert.Contains(kind, built));
+        Assert.All(Enum.GetNames<StorageKind>(), kind => Assert.Contains(kind, built));
     }
 
     [Fact]

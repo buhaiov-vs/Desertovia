@@ -1562,7 +1562,10 @@
     "name": "Tree, variant 3",
     "description": "Tall tree of another kind (for example a pine), two tiles high.",
     "prompt": "16×32 prop: tall dark-green spruce with layered drooping branches and a brown trunk, small ground shadow.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-trees/prop-tree-variant-3.png",
+    "width": 16,
+    "height": 32
   },
   {
     "section": "8-Scenery (27)",
@@ -1570,7 +1573,10 @@
     "name": "Tree, variant 4",
     "description": "Small tree of another kind, one tile.",
     "prompt": "16×16 prop: small young spruce, dark-green cone shape, small ground shadow.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-trees/prop-tree-variant-4.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "8-Scenery (27)",
@@ -1578,7 +1584,10 @@
     "name": "Tree, variant 5",
     "description": "Round bushy tree, one tile.",
     "prompt": "16×16 prop: round bushy oak with a dark-green crown and a short thick trunk, small ground shadow.",
-    "status": "pending"
+    "status": "generated-awaiting-final-style-audit",
+    "file": "scenery-trees/prop-tree-variant-5.png",
+    "width": 16,
+    "height": 16
   },
   {
     "section": "8-Scenery (27)",

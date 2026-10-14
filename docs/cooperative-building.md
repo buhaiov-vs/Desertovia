@@ -4,7 +4,7 @@ This document extends [streamer-mode.md](streamer-mode.md). It replaces the inst
 
 ## 1. Principles
 
-1. **Nothing happens without a player.** The Tsar and the Governors only *plan*. Every log, stone, beam and roof tile on the map was moved by a citizen during one of their 90-second cycles. No timers, no automatic workers, no "the building finishes itself".
+1. **Nothing happens without a player.** The Tsar and the Governors only *plan*. Every log, stone, beam and roof tile on the map was moved by a citizen during one of their tasks of a few minutes. No timers, no automatic workers, no "the building finishes itself".
 2. **Work is split as finely as possible.** A building is not one "Build" task. It is many small jobs: bring stone, bring wood, lay the foundation, raise posts, tie the frame, weave walls, thatch the roof. Different jobs suit different people.
 3. **A building needs a crew, not a hero.** One very active player must not be able to finish a building alone. Every stage needs several *different* citizens.
 4. **Everyone starts with nothing.** The tribe begins as wild people at a campfire: no buildings, no tools, all skills at 0. Everything else is built up over many streams.
@@ -75,8 +75,8 @@ Rules:
 
   | Shelter | Energy regeneration |
   |---|---|
-  | Under the trees | × 0.5 |
-  | Lean-to | × 0.75 |
+  | Under the trees | × 0.8 |
+  | Lean-to | × 0.9 |
   | Hut and better | × 1.0 |
 
 - **Eating** (decision 3): each finished cycle eats 0.2 food, from the citizen's hands first, then from storage. With no food the cycle still gives yield but experience × 0.5 and energy regeneration × 0.5 ("You are hungry"). The Tsar sees thin, slow citizens, not a number.
@@ -112,7 +112,7 @@ Every building unlocks new jobs, new buildings, or both. Later buildings, crafts
 | Town | Alchemy | Library | Writing, Herb lore | Intelligence 6 | Alchemist |
 | Town | Forging | Smithy | Smelting | Strength 6, Dexterity 4 | Master smith, Smelt iron ×1.25 |
 
-Camp and Village discoveries ask for stats 2–4, reachable in the first hours of play; Town discoveries ask for stats 5–6. Researching a discovery is gated by these stats, not by a skill level; the challenge rule compares the researcher's primary stat with the highest one.
+Camp and Village discoveries ask for stats 2–4, reachable in the first one or two days of play; Town discoveries ask for stats 5–6. Researching a discovery is gated by these stats, not by a skill level; the challenge rule compares the researcher's primary stat with the highest one.
 
 **Not built yet:** a Stronghold era (stone walls, towers, church, Treasury, Market, Barracks) and monuments behind discoveries.
 
@@ -152,12 +152,13 @@ Suggested order of implementation:
 
 | Action | Duration |
 |---|---|
-| Gathering task | 90 s + walk from the workplace to the storage that takes the good |
-| Expedition | 90 s + walk from the gate to the camp |
-| Roam the land | 90 s; the walk is the task. 6 glances, each finds 2 wood, 1.5 stone, 1.5 food or 2 reeds (× yield factor) with 25% + 2.5% per Dexterity. Needs empty hands |
+| Gathering task | 3 min + walk from the workplace to the storage that takes the good |
+| Crafting, camp and project task | 5 min (+ walk to storage for crafted goods) |
+| Expedition | 3 min + walk from the gate to the camp |
+| Roam the land | 3 min; the walk is the task. 6 glances, each finds 2 wood, 1.5 stone, 1.5 food or 2 reeds (× yield factor) with 25% + 2.5% per Dexterity. Needs empty hands |
 | Carry to storage | 15 s + walk from the camp to the storage |
-| Haul job | 45 s + walk from where the good is picked up to the site yard |
-| Labor job | 90 s + walk from the camp to the site |
+| Haul job | 3 min + walk from where the good is picked up to the site yard |
+| Labor job, research | 5 min + walk from the camp to the site |
 
 **Blueprints.** Free to place anywhere on the camp land west of the river (snapped to whole tiles), as long as the 3×4 footprint stays off other buildings, the campfire and the project sites; at most 3 open sites, requirements checked (for example a Hut needs a Lean-to). A repeat needs `1.15^count` times the haul amounts. Only a site nobody has worked on can be withdrawn; materials are never refunded.
 
@@ -171,7 +172,7 @@ Suggested order of implementation:
 
 **Crew.** A stage finishes when its jobs are done **and** `min(stage crew, citizens active in the last 2 hours)` different citizens worked on it. When the jobs are done but hands are missing, a "Lend a hand" job opens for citizens who have not yet worked on that stage.
 
-**Finished buildings.** Storage kinds join the storage list (the Heap, Wood pile, Stone pile, Drying rack, Woodyard, Stone yard, Granary). Others become structures. Shelters assign beds, oldest citizens first: under the trees ×0.5 regeneration, Lean-to (2 beds) ×0.75, Hut (4 beds) ×1.
+**Finished buildings.** Storage kinds join the storage list (the Heap, Wood pile, Stone pile, Drying rack, Woodyard, Stone yard, Granary). Others become structures. Shelters assign beds, oldest citizens first: under the trees ×0.8 regeneration, Lean-to (2 beds) ×0.9, Hut (4 beds) ×1.
 
 **Wild start.** New villages get a campfire and no storage: gathered goods stay in hands (half experience, and the Storage quest opens) until the tribe builds its first storage, usually a Heap, from what it holds. Stats start at 0 and level 0 → 1 needs 100 experience. Creation is name only. First tasks: Gather wood, Gather stones, Forage berries, Cut reeds, Hunt rabbits (food and hides), Hunt birds (food and feathers), Tend the fire, Carry to storage. Tasks of later buildings (fields, mines, smithy, library, …) are locked with "Needs: building".
 
@@ -181,13 +182,13 @@ Suggested order of implementation:
 
 **Wildlife.** Every village has three herds stored on the server. Hunting takes animals out; a herd grows back toward its capacity on its own (half of the missing animals return every half-life).
 
-Hunting is one "Hunt" card where the citizen picks the prey. Each prey needs a level of the Hunting skill (which itself rests on Dexterity and Endurance, see [game-design.md](game-design.md), section 3.1), and the profession is Laborer for all of them. Experience follows the hunting time (hunting time ÷ 90 s), so every prey gives the same experience per minute; the choice is about materials.
+Hunting is one "Hunt" card where the citizen picks the prey. Each prey needs a level of the Hunting skill (which itself rests on Dexterity and Endurance, see [game-design.md](game-design.md), section 3.1), and the profession is Laborer for all of them. Experience follows the hunting time (hunting time ÷ 3 min), so every prey gives the same experience per minute; the choice is about materials.
 
 | Herd | Capacity | Half-life | Hunting ground | Task | Hunting | Hunting time | Experience | Animals per cycle (× yield factor) | Full catch |
 |---|---|---|---|---|---|---|---|---|---|
-| Rabbits | 60 | 45 min | Hunting grounds | Hunt rabbits (Dexterity / Endurance) | 0 | 90 s | ×1 | 2.5 | 5 food, 1 leather |
-| Deer | 20 | 90 min | Deer woods | Hunt deer (Dexterity / Endurance) | 2 | 180 s | ×2 | 0.5 | 12 food, 4 leather |
-| Birds | 60 | 30 min | Bird grove | Hunt birds (Dexterity / Intelligence) | 3 | 45 s | ×0.5 | 3 | 1 food, 4 feathers |
+| Rabbits | 60 | 45 min | Hunting grounds | Hunt rabbits (Dexterity / Endurance) | 0 | 3 min | ×1 | 2.5 | 5 food, 1 leather |
+| Deer | 20 | 90 min | Deer woods | Hunt deer (Dexterity / Endurance) | 2 | 6 min | ×2 | 0.5 | 12 food, 4 leather |
+| Birds | 60 | 30 min | Bird grove | Hunt birds (Dexterity / Intelligence) | 3 | 90 s | ×0.5 | 3 | 1 food, 4 feathers |
 
 The walk from the hunting ground to storage is added to the hunting time. Hunting 3 earns the Hunter title.
 

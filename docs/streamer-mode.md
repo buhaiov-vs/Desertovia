@@ -8,7 +8,7 @@ The decisions in section 10 are settled. Phase 1 (storage buildings, carried goo
 
 | | Streamer (Tsar) | Citizens (subscribers) |
 |---|---|---|
-| Does | Places buildings, roads and storage; sets storage orders; issues decrees; chooses the next monument | Gather, craft, haul, build; pick their own jobs every 90 seconds |
+| Does | Places buildings, roads and storage; sets storage orders; issues decrees; chooses the next monument | Gather, craft, haul, build; pick their own jobs every few minutes |
 | Never does | Gathers or carries anything | Places buildings or decides the layout |
 | Knows | The city and its **numbers**: stock, capacity, what each building takes and how much was delivered | The same numbers, plus why their own job is blocked |
 | Learns about problems | From the numbers, the map and the chat of the streaming platform | Directly from the game |

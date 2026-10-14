@@ -30,7 +30,7 @@ Pages (everything except signing in needs an account; there are no anonymous vis
 
 - `/` — sign in, list your villages, browse open villages.
 - `/new` — streamers found a village: name, optional description, open or invite-only. The owner of an invite-only village finds the invite link and code in Settings and can replace the code; `/v/{slug}?invite={code}` fills it in for viewers.
-- `/v/{slug}` — citizen page: asks to sign in first, then create a character, pick tasks, renew every 90 seconds.
+- `/v/{slug}` — citizen page: asks to sign in first, then create a character, pick tasks, renew every few minutes.
 
 ### Bots
 

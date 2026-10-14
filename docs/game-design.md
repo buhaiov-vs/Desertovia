@@ -6,7 +6,7 @@ Status: draft v0.1. All numbers are tuning parameters, collected in [Tuning para
 
 - A **streamer** hosts a **Village**. Any streamer on the platform can host one.
 - **Citizens** are the streamer's subscribers. Each person has one **Account** with one **Character** (name and look), created right after signing up. Opening a Village settles the Character there as a **Citizen**; stats, skills and renown are per Citizen, so every Village starts from scratch.
-- Citizens work in a browser page (clicker style): pick a task, it runs for **90 seconds**, then must be renewed or changed.
+- Citizens work in a browser page (clicker style): pick a task, it runs for **a few minutes** (3 for gathering, 5 for crafting), then must be renewed or changed.
 - The village is rendered as a 2D map in the browser.
 
 ## 2. Stats
@@ -66,11 +66,11 @@ When a skill has the experience for its next level but not the stats, the level 
 
 Three tiers. A task's skill level is its only gate besides the village's buildings and discoveries; the profession is a title and the group its tasks are listed under.
 
-| Tier | Craft level | Typical time to reach (primary experience) |
+| Tier | Craft level | Typical time to reach (section 5.3) |
 |---|---|---|
 | Basic (Laborer) | — | immediately |
-| Journeyman | 3 | ~0.9 active hours |
-| Master | 7 | ~8.8 active hours |
+| Journeyman | 3 | ~2 days of energy |
+| Master | 7 | ~6 days of energy |
 
 | Craft | Journeyman (3) | Master (7) | Work by required level |
 |---|---|---|---|
@@ -98,11 +98,21 @@ Crafts with work at 0, 3 and 7 always have a task that teaches in full (section 
 
 ### 4.1 Task cycle
 
-- A task runs for **90 seconds** (one *cycle*). The duration is measured on the server; the client only displays it.
+- A task (one *cycle*) runs for **a few minutes**, so a day of play is many short visits rather than one long session. The duration is measured on the server; the client only displays it.
+
+  | Kind | Work time |
+  |---|---|
+  | Gathering, farming, mining, roaming, expeditions, hunting rabbits, hauling to a site | 3 minutes |
+  | Crafting, construction labor, research, project work (deliver, build, survey, supervise), camp work (tend the fire, tell stories, repair) | 5 minutes |
+  | Guard shifts (keep watch, patrol, command) | 20 minutes |
+  | Hunting deer / birds | 6 minutes / 90 seconds |
+  | Carry to storage | 15 seconds |
+
+  Walking to the workplace and to the storage is added on top.
 - When a cycle completes, its result is **banked automatically**. Work already done is never lost.
 - After completion the player has a **60 second grace window** to renew or change the task.
 - After the grace window the Citizen goes **idle** until the player picks a task again.
-- Only **one active task** per Citizen. A new cycle can only start after the previous one completes. Clicking faster gives nothing: the server allows at most **40 cycles per hour**.
+- Only **one active task** per Citizen. A new cycle can only start after the previous one completes. Clicking faster gives nothing: every task costs energy (section 5.5).
 
 ### 4.2 Task definition
 
@@ -174,66 +184,66 @@ XP_secondary = 0.3 × XP_primary
 ### 5.2 Experience curve
 
 ```text
-XP_to_next(0) = 50
-XP_to_next(L) = round(60 × L^1.5)         for L = 1..9
+Skill:  XP_to_next(0) = 50,  XP_to_next(L) = 270 + 20 × L       for L = 1..9   (290 … 450)
+Stat:   XP_to_next(L) = round(0.6 × skill XP_to_next(L))                       (30, 174 … 270)
 ```
 
-Experience is tracked per stat. At level 10 the stat is maxed and further experience becomes Renown.
+Experience is tracked per stat and per skill. At level 10 a stat is maxed and further experience becomes Renown.
 
-**Pacing rule:** every technology (a profession tier, a story project) should be reachable in a few hours of play, about two in four hours. Citizens start with every stat at 0.
+**Pacing rule:** a day of energy (about 36 tasks, section 5.5) gives about **one level of the profession** and **about two stat points**, so every day opens something new. The first level comes in the first few tasks. Citizens start with every stat at 0.
 
 ### 5.3 Pacing (calculated)
 
 Calculated by `dotnet run tools/Balance/balance.cs` from the live catalogs. Assumptions: the player renews within 5 seconds, is fed, switches crafts before the challenge rule bites, has no streak, morale or tool bonus, and drops goods at the camp (no storage building nearby).
 
-**One cycle in real time.** Work (90 s) + a one-way walk to where the goods are dropped + renewing. Gathering takes 119–123 s, so **one active hour ≈ 30 cycles ≈ 300 primary experience**. Work at the camp (tend the fire, build, deliver) has no walk: 95 s, 38 per hour.
+**One task in real time.** A gathering task is 3 minutes of work + a one-way walk to where the goods are dropped + renewing: about 3.5 minutes, 17 tasks an hour. Crafting and camp work is about 5 minutes, 12 an hour. A day of energy (36 tasks) is about 2–3 hours of work, for example **a task every 30 minutes from morning to night**.
 
-| Level | XP to next | Cumulative XP | Full cycles | Active hours |
+| Level | Skill XP | Skill tasks | Days of energy | Stat XP | Stat tasks (main stat) |
+|---|---|---|---|---|---|
+| 1 | 50 | 5 | 0.1 | 30 | 3 |
+| 2 | 340 | 34 | 0.9 | 204 | 21 |
+| 3 (journeyman) | 650 | 65 | 1.8 | 390 | 39 |
+| 4 | 980 | 98 | 2.7 | 588 | 59 |
+| 5 | 1 330 | 133 | 3.7 | 798 | 80 |
+| 6 | 1 700 | 170 | 4.7 | 1 020 | 102 |
+| 7 (master) | 2 090 | 209 | 5.8 | 1 254 | 126 |
+| 8 | 2 500 | 250 | 6.9 | 1 500 | 150 |
+| 9 | 2 930 | 293 | 8.1 | 1 758 | 176 |
+| 10 | 3 380 | 338 | 9.4 | 2 028 | 203 |
+
+The main stat stays ahead of the skill, so the stat gate (section 3.1) holds back only a craft whose stats are spent elsewhere. The talent cap takes 11 days of energy spread as 6 in every stat, or 13 days as 10/10/10 (a full task gives 10 main and 3 side stat experience).
+
+**Energy sets the daily budget** (full-experience tasks per day, section 5.5; beds from section 4 of [cooperative-building.md](cooperative-building.md)):
+
+| Endurance | Pool | Under the trees (× 0.8) | Lean-to (× 0.9) | Hut (× 1) |
 |---|---|---|---|---|
-| 1 | 60 | 50 | 5 | 0.2 |
-| 2 | 170 | 110 | 11 | 0.4 |
-| 3 | 312 | 280 | 28 | 0.9 |
-| 4 | 480 | 592 | 60 | 2.0 |
-| 5 | 671 | 1 072 | 108 | 3.6 |
-| 6 | 882 | 1 743 | 175 | 5.8 |
-| 7 | 1 111 | 2 625 | 263 | 8.8 |
-| 8 | 1 358 | 3 736 | 374 | 12.5 |
-| 9 | 1 620 | 5 094 | 510 | 17.0 |
-| 10 | — | 6 714 | 672 | 22.4 |
+| 0 | 36 | 29 | 32 | 36 |
+| 4 | 40 | 32 | 36 | 40 |
+| 10 | 46 | 37 | 41 | 46 |
 
-The talent cap costs about 670 full cycles (22 active hours) spread as 6 in every stat, or about 1 550 (52 hours) as 10/10/10; a full cycle gives 10 primary and 3 secondary experience.
+**Calendar time** (sleeping in a hut; under the trees it is a day or two later):
 
-**Energy sets the daily budget** (full-experience cycles per day, section 5.5; beds from section 4 of [cooperative-building.md](cooperative-building.md)):
-
-| Endurance | Pool | Under the trees (× 0.5) | Lean-to (× 0.75) | Hut (× 1) |
+| Player | Journeyman (3) | Master (7) | Main stat 10 | Skill 10 |
 |---|---|---|---|---|
-| 0 | 60 | 36 (1.2 h) | 54 (1.8 h) | 72 (2.4 h) |
-| 4 | 92 | 55 (1.8 h) | 83 (2.8 h) | 110 (3.7 h) |
-| 10 | 140 | 84 (2.8 h) | 126 (4.2 h) | 168 (5.6 h) |
+| A task every 30 minutes, 7:00–23:00 | day 3 | day 7 | day 7 | day 11 |
+| 1 h every day | day 4 | day 13 | day 12 | day 20 |
+| 3 h every day | day 2 | day 6 | day 6 | day 9 |
+| 8 h every day | day 2 | day 6 | day 6 | day 9 |
+| Bot, 24 h a day | day 1 | day 5 | day 5 | day 8 |
+| One 3 h stream a week | day 8 | day 36 | day 29 | day 50 |
+| Three 3 h streams a week | day 3 | day 12 | day 10 | day 17 |
 
-A fresh citizen has about two active hours before the pool is empty.
+Playing longer than the energy lasts gains almost nothing: a bot is only a day or two ahead of a player who checks in every half hour.
 
-**Calendar time** (sleeping in a hut; under the trees only slows the daily 3 h and longer players):
+**Discoveries.** A fresh citizen qualifies as a researcher in 0.6 days of energy for the Camp era, 1.1–1.6 days for the Village era and 2.2–3.8 days for the Town era (Mechanics and Forging are the slowest).
 
-| Player | Level 4 | Level 5 | Master craft (7) | Level 10 |
-|---|---|---|---|---|
-| One 3 h stream a week | day 1 | day 8 | day 22 | day 50 (8 streams) |
-| Three 3 h streams a week | day 1 | day 3 | day 8 | day 17 |
-| 1 h every day | day 2 | day 4 | day 9 | day 23 |
-| 8 h every day | day 1 | day 2 | day 3 | day 7 |
-| Bot, 24 h a day | day 1 | day 1 | day 3 | day 6 |
-
-**Discoveries.** A fresh citizen qualifies as a researcher in 0.4 active hours for the Camp era, 0.9–2 hours for the Village era (Mining, Strength 4, is the slowest) and 2.3–6.1 hours for the Town era (Mechanics and Forging). Research itself is 5.4 person-hours for the whole tree; the buildings it needs are 13–20 person-hours.
-
-**Village work** (person-hours with gathering the material, stats 0 to 3): a hut, granary, library or barracks 1.6–2.8 each; palisade 4–7; Bell Tower 7–9; Great Granary 8–13; Tsar Bridge 9–14; the whole story chain 35–52.
+**Village work** (person-tasks with gathering the material, stats 0 to 3): a hut, granary, library or barracks 54–99 each; palisade 142–225; Bell Tower 235–318; Great Granary 279–429; Tsar Bridge 303–460. The whole story chain is 1 170–1 740 tasks and the buildings and research of the discovery tree 630–880 more: 10–15 days for 5 citizens, 5–7 days for 10, 2.5–3.5 days for 20, if each spends a day of energy.
 
 Findings:
 
-- Content runs out long before citizens stop growing: the story chain and the discovery tree together are 50–70 person-hours, about three streams for ten regular players, while one citizen grows for 22–52 active hours.
-- Tired work still counts for the village: results round to whole units with a minimum of 1, so a tired, weak citizen does a full unit of construction labor, building, survey or research per cycle. Tiredness bites only on gathering, where it costs about half.
-- The pool caps a weekly stream at about two hours of experience; the rest of the stream earns none.
-- A vigor drink every 2 hours gives up to +80 energy over an 8-hour day, more than an Endurance 0 citizen regenerates in a hut.
-- Short tasks (birds 45 s, carry to storage 15 s) exceed 40 cycles per hour; energy still costs 1 per cycle, so experience stays bounded.
+- Tired work still counts for the village: results round to whole units with a minimum of 1, so a tired, weak citizen does a full unit of construction labor, building, survey or research per task. Tiredness bites only on gathering, where it costs about half.
+- The pool caps a weekly stream at about 37 tasks (2 hours); the rest of the stream earns no experience. Stream-only players grow a profession level per stream.
+- Short tasks (birds 90 s, carry to storage 15 s) cost the same energy, so experience stays bounded.
 
 ### 5.4 Challenge: no farming trivial tasks
 
@@ -247,8 +257,8 @@ The challenge compares the Citizen's level in the task's skill with the level th
 ### 5.5 Fatigue: rolling energy pool (main anti-bot and anti-no-life rule)
 
 ```text
-EnergyMax   = 60 + 8 × Endurance            (68 at Endurance 1, 140 at Endurance 10)
-EnergyRegen = EnergyMax / 20 per hour       (empty to full in 20 hours, continuous)
+EnergyMax   = 36 + Endurance                (37 at Endurance 1, 46 at Endurance 10)
+EnergyRegen = EnergyMax / 24 per hour       (empty to full in a day, continuous) × bed (0.8 under the trees, 0.9 lean-to, 1 hut)
 Each cycle costs 1 energy.
 ```
 
@@ -258,7 +268,7 @@ Each cycle costs 1 energy.
 | Tired | Energy = 0 | × 0 | × 0.25 |
 
 - Regeneration is **continuous**, not a daily reset, so there is no "reset at midnight" exploit and no timezone advantage.
-- Steady state: Endurance 1 ≈ 82 full cycles per day (~2 hours), Endurance 10 ≈ 168 per day (~4.2 hours).
+- Steady state: about 36 full tasks a day for everyone (29 for a newcomer under the trees, 46 at Endurance 10 in a hut). Endurance and beds change the budget only a little on purpose.
 - Tired Citizens can still work and contribute a little (it stays fun during a long stream), but they stop gaining power.
 - **Result:** a bot running 24/7 progresses at the same speed as a dedicated human. There is nothing to gain from automation.
 
@@ -402,12 +412,12 @@ Applied to the yield of everyone working on the same project.
 
 | Abuse | Countermeasure |
 |---|---|
-| Fast clicking / scripted requests | Server-authoritative 90 s cycle, max 40 cycles per hour, results computed from server timestamps |
+| Fast clicking / scripted requests | Server-authoritative task length (minutes), every task costs energy, results computed from server timestamps |
 | Bots renewing 24/7 | Rolling energy pool: experience stops when energy is empty, so bots do not outpace humans |
 | Farming the easiest task | Same base experience for all tasks + Challenge multiplier |
 | Grinding useless resources | Storage caps + Overflow multiplier |
 | One player carrying everything | Talent cap (30 total stat levels), project contribution cap (20%) |
-| Rushing levels | Energy pool and challenge multiplier; the curve itself is gentle on purpose (stat 10 in about 22 active hours) so technologies stay reachable in a few hours |
+| Rushing levels | Daily energy budget and challenge multiplier: about one profession level and two stat points a day however long one plays |
 | Daily reset exploits / timezones | Continuous energy regeneration instead of daily reset |
 | Multiple accounts | One Citizen per Account per Village; Accounts are tied to a verified identity (platform login or streamer invite) |
 | Suspicious automation patterns | Server heuristic: very low variance in renewal delay over hours → flag for the streamer, optional confirmation challenge |
@@ -430,17 +440,20 @@ Applied to the yield of everyone working on the same project.
 | Talent cap (sum of stats) | 30 |
 | Skill level L needs | primary stat L − 1, secondary ⌊(L − 1) / 2⌋ |
 | Journeyman / master craft level | 3 / 7 |
-| Cycle length / grace window | 90 s / 60 s |
+| Task length: gathering / crafting / guard shift | 3 min / 5 min / 20 min |
+| Grace window | 60 s |
 | Presence window (away after) | 5 minutes |
 | Base experience per cycle | 10 |
 | Secondary experience share | 0.3 |
-| Experience curve | 50 for the first level, then 60 × L^1.5 |
-| Skill maximum level | 10 (same curve as stats, no talent cap) |
+| Skill experience curve | 50 for the first level, then 270 + 20 × L |
+| Stat experience curve | 0.6 × the skill curve |
+| Skill maximum level | 10 (no talent cap) |
 | Skill bonus per level above the task's need | +5% yield, −4% work time, up to 5 levels |
 | Challenge threshold / penalty | task skill level + 3 / × 0.25 |
-| Energy max | 60 + 8 × Endurance |
-| Energy full regeneration time | 20 hours |
-| Vigor drink (tavern, "Vigor drinks" tech) | +20 energy, once per 2 hours; brewed from 2 grain + 1 food |
+| Energy max | 36 + Endurance |
+| Energy full regeneration time | 24 hours |
+| Bed regeneration: under the trees / lean-to / hut | × 0.8 / × 0.9 / × 1 |
+| Vigor drink (tavern, "Vigor drinks" tech) | +8 energy, once per 2 hours; brewed from 2 grain + 1 food |
 | Tired experience / yield | × 0 / × 0.25 |
 | Overflow experience | × 0.5 |
 | Stat factor | 0.4 + 0.12 × EffectiveStat |

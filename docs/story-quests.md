@@ -117,8 +117,8 @@ After quest 11 the chain is finished; need quests and free building continue for
 - **Objective:** the project is finished.
 - **Credit:** project work (deliveries, survey, building) and supervision cycles that let builders work.
 - **Unlocks:** the far bank: the road to the monastery and the monks' gold.
-- **Training an Engineer:** Engineer needs Intelligence 4 and Strength 2. The laborer task *Measure the river* (workplace: the ford by the road, tile 29, 14.5; main stat Intelligence, side stat Strength; 0.25 knowledge per cycle) is open from the start, so one citizen qualifies in roughly 60–80 cycles, about two hours of play. Measuring is not credited to the quest.
-- **Pacing rule (from the user):** every technology should be reachable in a few hours, about two in four hours of play. The experience curve was lowered for this (see `game-design.md`, section 5.2).
+- **Training an Engineer:** Engineer needs Intelligence 4 and Strength 2. The laborer task *Measure the river* (workplace: the ford by the road, tile 29, 14.5; main stat Intelligence, side stat Strength; 0.25 knowledge per cycle) is open from the start, so one citizen qualifies within one day of energy (under 36 cycles, under two hours of play). Measuring is not credited to the quest.
+- **Pacing rule (from the user):** one real day of energy gives about one profession level and about two stat points, so a player has something new to learn every day; tasks last a few minutes so players make several short visits a day (see `game-design.md`, sections 5.2 and 5.3).
 
 
 

@@ -1862,10 +1862,11 @@ input[aria-invalid='true'] {
   }
 }
 
-/* Under the minimap; stays where it is when the rest of the interface is hidden, so it is found again. */
+/* Under the minimap; stays where it is when the rest of the interface is hidden, so it is found again.
+   Above every panel and popup, below hints and the update prompt. */
 .ui-toggle {
   position: absolute;
-  z-index: 2;
+  z-index: 999;
   top: calc(max(10px, env(safe-area-inset-top)) + 186px);
   right: 12px;
   display: flex;
@@ -1921,7 +1922,8 @@ input[aria-invalid='true'] {
   }
 }
 
-.game-root.ui-hidden .hud,
+/* Panels, popups and dialogs are siblings of the canvas, so everything but the map and the toggles goes. */
+.game-root.ui-hidden > :not(.game-canvas, .ui-toggle, .night-toggle),
 .game-root.ui-hidden .minimap {
   display: none;
 }

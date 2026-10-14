@@ -143,7 +143,7 @@ function drawLook(look: AnimalLook): GraphicsContext {
 
 /**
  * Game animals living all over the wild land. How many are drawn follows the herds on the server,
- * so the Governor sees the land empty out without ever seeing a number. Hunters on duty chase one animal
+ * so the Tsar sees the land empty out without ever seeing a number. Hunters on duty chase one animal
  * and always catch it when their chase time is up.
  */
 export class WildlifeLayer {

@@ -189,7 +189,7 @@ export const PRIEST_SPOT = { x: 13.6, y: 12.6 }
 export type BuildingCell = TileRef | TileRef[]
 
 /**
- * Finished buildings drawn from tiles, each with its own roof, walls and props so the Governor can tell them apart.
+ * Finished buildings drawn from tiles, each with its own roof, walls and props so the Tsar can tell them apart.
  * Shelters and racks of the wild age and the open stage are drawn as shapes instead.
  */
 export const BUILDING_TILES: Record<string, BuildingCell[][]> = {

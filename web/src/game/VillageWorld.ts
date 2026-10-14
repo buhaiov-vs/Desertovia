@@ -795,7 +795,7 @@ export class VillageWorld {
       } else if (stayAt) {
         this.walkTo(walker, stayAt)
       } else if (waitAt && carried) {
-        // Waiting at a full storage building with the load in hands: the crowd is the Governor's only hint.
+        // Waiting at a full storage building with the load in hands: the crowd is the Tsar's only hint.
         walker.targetX = (waitAt.x + (pseudo(walker.seed, 5) - 0.5) * waitAt.spread * 2) * TILE
         walker.targetY = (waitAt.y + (pseudo(walker.seed, 6) - 0.5) * 0.6) * TILE
         const tile = RESOURCE_ICONS[carried]

@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Desertod.Domain.Catalog;
+using Desertod.Domain.Rules;
 using Desertod.Domain.Skills;
 using Desertod.Domain.Storage;
 using Desertod.Domain.Technologies;
@@ -48,6 +49,31 @@ public sealed class DiscoveryTests(DesertodApiFactory factory)
         Assert.Equal(TechnologyCatalog.StoneTools, closed.GetProperty("poll").GetProperty("winner").GetString());
         Assert.Equal(TechnologyCatalog.StoneTools, closed.GetProperty("currentResearch").GetString());
         await AssertRuleBrokenAsync(await VoteAsync(carl, TechnologyCatalog.HerbLore), "poll.notOpen");
+    }
+
+    [Fact]
+    public async Task Citizens_away_for_a_while_still_live_in_the_village_but_do_not_hold_the_vote_open()
+    {
+        var village = await players.FoundVillageAsync("Absent Voters");
+        var ann = await players.JoinAsync(village, "Ann");
+        await players.JoinAsync(village, "Bob");
+        await players.JoinAsync(village, "Carl");
+        var opened = await OkJsonAsync(await OpenPollAsync(village.Tsar, village, CampChoices));
+        Assert.Equal(3, opened.GetProperty("poll").GetProperty("electorate").GetInt32());
+
+        factory.Clock.Advance(GameRules.PresenceWindow + TimeSpan.FromSeconds(1));
+
+        var seen = await OkJsonAsync(await village.Tsar.GetAsync(village.Path));
+        Assert.Equal(3, seen.GetProperty("citizens").GetArrayLength());
+        Assert.Equal(3, seen.GetProperty("awayCitizenIds").GetArrayLength());
+        Assert.Equal(0, seen.GetProperty("state").GetProperty("poll").GetProperty("electorate").GetInt32());
+
+        var closed = await OkJsonAsync(await VoteAsync(ann, TechnologyCatalog.HerbLore));
+
+        Assert.Equal(TechnologyCatalog.HerbLore, closed.GetProperty("poll").GetProperty("winner").GetString());
+        Assert.Equal(1, closed.GetProperty("poll").GetProperty("electorate").GetInt32());
+        var after = await OkJsonAsync(await village.Tsar.GetAsync(village.Path));
+        Assert.DoesNotContain(after.GetProperty("awayCitizenIds").EnumerateArray(), id => id.GetGuid() == ann.Id);
     }
 
     [Fact]

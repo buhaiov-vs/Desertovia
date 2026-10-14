@@ -152,6 +152,13 @@ Each task has:
 | Negotiate | Envoy | Trading 7 | Charisma / Intelligence | +relation with another village | — |
 | Command | Captain | Guarding 7 | Endurance / Strength | defends the camp; +4% defense per Endurance (section 12) | — |
 
+### 4.4 Presence
+
+- A citizen is **present** while their village page is open, and for **5 minutes** after it closes or after their last action.
+- A citizen who is not present is **away**. They still live in the village and keep everything; they are back as soon as they open the page or act.
+- Away citizens are not counted in votes: the poll closes once more than half of the present citizens voted. A ballot cast before going away still counts.
+- An away citizen stays on the map while a task they started is running, and disappears once it ends.
+
 ## 5. Progression math
 
 ### 5.1 Experience gain per cycle
@@ -424,6 +431,7 @@ Applied to the yield of everyone working on the same project.
 | Skill level L needs | primary stat L − 1, secondary ⌊(L − 1) / 2⌋ |
 | Journeyman / master craft level | 3 / 7 |
 | Cycle length / grace window | 90 s / 60 s |
+| Presence window (away after) | 5 minutes |
 | Base experience per cycle | 10 |
 | Secondary experience share | 0.3 |
 | Experience curve | 50 for the first level, then 60 × L^1.5 |

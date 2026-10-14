@@ -721,7 +721,7 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
       <GameCanvas
         ref={canvas}
         village={live.state}
-        citizens={citizens}
+        citizens={shownCitizens}
         highlightId={citizen?.id ?? null}
         nightOverride={catalog.devTools ? nightOverride : null}
         catalog={catalog}
@@ -741,6 +741,17 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
       >
         <EyeIcon closed={uiHidden} />
       </button>
+
+      {dayNight && (
+        <button
+          className="night-toggle"
+          onClick={dayNight.onToggle}
+          title={i18n.t('hud.dayNightTitle')}
+          aria-pressed={dayNight.night}
+        >
+          {dayNight.night ? i18n.t('hud.day') : i18n.t('hud.night')}
+        </button>
+      )}
 
       {showWatched && (
         <ServerClock offsetMs={serverOffset}>
@@ -785,7 +796,6 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
         <TopBar
           village={live.state}
           catalog={catalog}
-          dayNight={dayNight}
           citizen={citizen}
           citizens={live.citizens}
           onForecast={async (rain) => setVillageState(await api.forecast(slug, rain))}

@@ -69,6 +69,8 @@ export interface LiveVillageHandlers {
 export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVillageHandlers = {}) {
   const [state, setState] = useState<VillageState | null>(null)
   const [citizens, setCitizens] = useState<Map<string, CitizenSummary>>(new Map())
+  /** Citizens who are away; see `Village.awayCitizenIds`. */
+  const [away, setAway] = useState<ReadonlySet<string>>(new Set())
   const [isOwner, setIsOwner] = useState(false)
   const [inviteCode, setInviteCode] = useState<string | null>(null)
   const [feed, setFeed] = useState<FeedEntry[]>([])
@@ -136,6 +138,17 @@ export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVi
         setCitizens((previous) => new Map([...previous].filter(([id]) => !left.has(id))))
         setChat((previous) => previous.filter((message) => !message.citizenId || !left.has(message.citizenId)))
       }
+      const wentAway = events.away ?? []
+      const cameBack = events.back ?? []
+      if (wentAway.length > 0 || cameBack.length > 0 || left.size > 0) {
+        setAway((previous) => {
+          const next = new Set(previous)
+          for (const id of wentAway) next.add(id)
+          for (const id of cameBack) next.delete(id)
+          for (const id of left) next.delete(id)
+          return next
+        })
+      }
     })
     connection.on('chatMessage', receive)
     connection.on('villageDeleted', () => callbacks.current.onVillageDeleted?.())
@@ -155,6 +168,7 @@ export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVi
         setIsOwner(village.isOwner)
         setInviteCode(village.inviteCode)
         setCitizens(new Map(village.citizens.map((c) => [c.id, c])))
+        setAway(new Set(village.awayCitizenIds ?? []))
         await connection.start()
         if (cancelled) return
         await connection.invoke('JoinVillage', slug)
@@ -218,7 +232,7 @@ export function useLiveVillage(slug: string, resident: boolean, handlers: LiveVi
     [],
   )
 
-  return { state, setState, citizens, updateCitizen, isOwner, inviteCode, setInviteCode, feed, chat, sendChat, member, error }
+  return { state, setState, citizens, away, updateCitizen, isOwner, inviteCode, setInviteCode, feed, chat, sendChat, member, error }
 }
 
 /**

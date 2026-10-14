@@ -586,7 +586,7 @@ export interface TechnologyState {
   crewNeeded: number
 }
 
-/** A vote on the next discovery. It closes once more than half of the active citizens voted. */
+/** A vote on the next discovery. It closes once more than half of the present citizens voted; away ones are not counted. */
 export interface TechnologyPoll {
   id: string
   options: Array<{ technologyId: string; votes: number }>
@@ -988,6 +988,8 @@ export interface Village {
   /** Only sent to the owner of a private village. */
   inviteCode: string | null
   citizens: CitizenSummary[]
+  /** Citizens with the village page closed for a while: not counted in votes, hidden from the map while idle. */
+  awayCitizenIds: string[]
 }
 
 export interface VillageListItem {
@@ -1142,6 +1144,10 @@ export interface VillageEvents {
   dungeons: DungeonRun[]
   /** Ids of citizens who left the village for good. */
   left: string[]
+  /** Ids of citizens who went away; they still live in the village. */
+  away: string[]
+  /** Ids of citizens who came back. */
+  back: string[]
 }
 
 export const CHAT_MESSAGE_MAXIMUM = 120

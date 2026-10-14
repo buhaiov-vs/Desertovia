@@ -10,7 +10,7 @@ namespace Desertod.Api.Game;
 
 /// <summary>Read-only feed of a village for signed-in players.</summary>
 [Authorize]
-public sealed class VillageHub(ChatService chat, ILogger<VillageHub> logger) : Hub
+public sealed class VillageHub(ChatService chat, GameService game, ILogger<VillageHub> logger) : Hub
 {
     public static string GroupName(string slug) => $"village:{slug.ToLowerInvariant()}";
 
@@ -26,13 +26,19 @@ public sealed class VillageHub(ChatService chat, ILogger<VillageHub> logger) : H
     public override Task OnDisconnectedAsync(Exception? exception)
     {
         logger.HubDisconnected(exception, Context.ConnectionId);
+        game.Disconnect(Context.ConnectionId);
         return base.OnDisconnectedAsync(exception);
     }
 
-    public Task JoinVillage(string slug)
+    /// <summary>A citizen watching their own village is present while connected; see <see cref="CitizenPresence"/>.</summary>
+    public async Task JoinVillage(string slug)
     {
         logger.HubJoined(Context.ConnectionId, slug);
-        return Groups.AddToGroupAsync(Context.ConnectionId, GroupName(slug));
+        await Groups.AddToGroupAsync(Context.ConnectionId, GroupName(slug));
+        if (Context.User?.GetAccountId() is { } accountId)
+        {
+            await game.ConnectAsync(slug, accountId, Context.ConnectionId, Context.ConnectionAborted);
+        }
     }
 
     /// <summary>False when the player neither rules nor lives in the village; they get no chat lines.</summary>
@@ -52,6 +58,7 @@ public sealed class VillageHub(ChatService chat, ILogger<VillageHub> logger) : H
     public async Task LeaveVillage(string slug)
     {
         logger.HubLeft(Context.ConnectionId, slug);
+        game.Disconnect(Context.ConnectionId);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(slug));
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, ChatGroupName(slug));
     }
@@ -59,6 +66,8 @@ public sealed class VillageHub(ChatService chat, ILogger<VillageHub> logger) : H
 
 /// <summary>Events of one village since the last batch, in the order they happened; only the latest summary per citizen.</summary>
 /// <param name="Left">Citizens who left the village; none of them is in <paramref name="Citizens"/>.</param>
+/// <param name="Away">Citizens who went away, see <see cref="CitizenPresence"/>; none of them is in <paramref name="Back"/>.</param>
+/// <param name="Back">Citizens who came back.</param>
 public sealed record VillageEventsDto(
     IReadOnlyList<CycleReport> Cycles,
     IReadOnlyList<ProjectCompletion> Projects,
@@ -66,7 +75,9 @@ public sealed record VillageEventsDto(
     IReadOnlyList<CitizenSummaryDto> Citizens,
     IReadOnlyList<RaidReport> Raids,
     IReadOnlyList<DungeonDto> Dungeons,
-    IReadOnlyList<Guid> Left);
+    IReadOnlyList<Guid> Left,
+    IReadOnlyList<Guid> Away,
+    IReadOnlyList<Guid> Back);
 
 /// <summary>
 /// Sends the village state at once, and queues the other events, which <see cref="VillageStatePublisher"/> sends
@@ -95,7 +106,23 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
         Queue(slug, events =>
         {
             events.Citizens.Remove(citizenId);
+            events.Away.Remove(citizenId);
+            events.Back.Remove(citizenId);
             events.Left.Add(citizenId);
+        });
+
+    public Task CitizenAway(string slug, Guid citizenId) =>
+        Queue(slug, events =>
+        {
+            events.Back.Remove(citizenId);
+            events.Away.Add(citizenId);
+        });
+
+    public Task CitizenBack(string slug, Guid citizenId) =>
+        Queue(slug, events =>
+        {
+            events.Away.Remove(citizenId);
+            events.Back.Add(citizenId);
         });
 
     /// <summary>Sent at once, so the viewers go back to the home page.</summary>
@@ -130,7 +157,9 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
                     [.. entry.Value.Citizens.Values],
                     entry.Value.Raids,
                     entry.Value.Dungeons,
-                    [.. entry.Value.Left])))
+                    [.. entry.Value.Left],
+                    [.. entry.Value.Away],
+                    [.. entry.Value.Back])))
                 .ToList();
             pending.Clear();
             return taken;
@@ -163,5 +192,7 @@ public sealed class VillageNotifier(IHubContext<VillageHub> hub, VillageStateCha
         public List<RaidReport> Raids { get; } = [];
         public List<DungeonDto> Dungeons { get; } = [];
         public HashSet<Guid> Left { get; } = [];
+        public HashSet<Guid> Away { get; } = [];
+        public HashSet<Guid> Back { get; } = [];
     }
 }

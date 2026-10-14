@@ -59,11 +59,13 @@ builder.Services.AddHealthChecks().AddDbContextCheck<DesertodDbContext>();
 builder.Services.AddSingleton<TelegramLoginVerifier>();
 builder.Services.AddSingleton<VillageNotifier>();
 builder.Services.AddSingleton<VillageStateChanges>();
+builder.Services.AddSingleton<CitizenPresence>();
 builder.Services.AddSingleton<GameService>();
 builder.Services.AddSingleton<ChatService>();
 builder.Services.AddSingleton<DungeonRuntime>();
 builder.Services.AddHostedService<CycleSettlementWorker>();
 builder.Services.AddHostedService<RaidWorker>();
+builder.Services.AddHostedService<PresenceWorker>();
 builder.Services.AddHostedService<DungeonWorker>();
 builder.Services.AddHostedService<VillageStatePublisher>();
 

@@ -99,7 +99,7 @@ public sealed record PollOptionDto(string TechnologyId, int Votes);
 
 public sealed record PollBallotDto(Guid CitizenId, string TechnologyId);
 
-/// <param name="Electorate">Active citizens now, or when the poll closed.</param>
+/// <param name="Electorate">Active citizens who are present now, or when the poll closed.</param>
 /// <param name="VotesNeeded">Votes that close the poll: more than half of <paramref name="Electorate"/>.</param>
 /// <param name="Winner">Null while open, or when the poll was cancelled.</param>
 public sealed record TechnologyPollDto(
@@ -227,7 +227,13 @@ public sealed record CitizenSummaryDto(
     ResourceKind? Weapon);
 
 /// <param name="InviteCode">Only sent to the owner of a private village.</param>
-public sealed record VillageDto(VillageStateDto State, bool IsOwner, string? InviteCode, IReadOnlyList<CitizenSummaryDto> Citizens);
+/// <param name="AwayCitizenIds">Citizens who are away, see <see cref="CitizenPresence"/>: hidden from the map while idle.</param>
+public sealed record VillageDto(
+    VillageStateDto State,
+    bool IsOwner,
+    string? InviteCode,
+    IReadOnlyList<CitizenSummaryDto> Citizens,
+    IReadOnlyList<Guid> AwayCitizenIds);
 
 public sealed record VillageListItemDto(string Slug, string Name, bool IsOwner);
 
@@ -398,6 +404,7 @@ public static class DtoMapper
         this Village village,
         WorkContext context,
         IReadOnlyList<string> completedProjects,
+        int electorate,
         IReadOnlyList<VillageQuest> quests,
         TsarDto tsar,
         IReadOnlyList<Trip> citizenTrips,
@@ -451,7 +458,7 @@ public static class DtoMapper
                     TechnologyRules.CrewNeeded(technology, context.RecentCitizenCount));
             })
             .ToList(),
-        village.Poll?.ToDto(context.ActiveCitizenCount),
+        village.Poll?.ToDto(electorate),
         GoldVein.Remaining(village),
         village.Fields
             .OrderBy(b => b.PlotId)

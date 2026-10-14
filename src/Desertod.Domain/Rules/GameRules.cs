@@ -17,6 +17,12 @@ public static class GameRules
     /// <summary>Citizens active within this window count towards the crew a construction stage needs.</summary>
     public static readonly TimeSpan RecentActivityWindow = TimeSpan.FromHours(2);
 
+    /// <summary>
+    /// A citizen whose village page is closed and who has not acted for this long is away: not counted in votes, and
+    /// hidden from the map while idle. They still live in the village and are back as soon as they return.
+    /// </summary>
+    public static readonly TimeSpan PresenceWindow = TimeSpan.FromMinutes(5);
+
     public const int BaseExperiencePerCycle = 10;
     public const double SecondaryExperienceShare = 0.3;
     public const double ExperienceCurveBase = 60;

@@ -34,6 +34,7 @@ public sealed partial class GameService(
     TimeProvider time,
     VillageNotifier notifier,
     VillageStateChanges changes,
+    CitizenPresence presence,
     ILogger<GameService> logger)
 {
     private const int MaximumAttempts = 5;
@@ -54,7 +55,7 @@ public sealed partial class GameService(
     private sealed record CitizenKey(Guid Id, Guid VillageId, bool IsDue);
 
     /// <param name="CompletedInOrder">Finished project ids, oldest first.</param>
-    private sealed record VillageContext(WorkContext Work, IReadOnlyList<string> CompletedInOrder);
+    private sealed record VillageContext(WorkContext Work, IReadOnlyList<string> CompletedInOrder, IReadOnlyList<Guid> ActiveCitizenIds);
 
     public async Task<IReadOnlyList<VillageListItemDto>> ListVillagesAsync(Guid accountId, CancellationToken cancellationToken)
     {
@@ -128,7 +129,28 @@ public sealed partial class GameService(
             await BuildStateAsync(db, village, now, cancellationToken),
             isOwner,
             isOwner ? village.InviteCode : null,
-            citizens.Select(c => c.ToSummaryDto(now)).ToList());
+            citizens.Select(c => c.ToSummaryDto(now)).ToList(),
+            citizens.Where(c => !presence.IsPresent(c.Id)).Select(c => c.Id).ToList());
+    }
+
+    /// <summary>The player's village page connected to the hub; a citizen of this village is present while it stays open.</summary>
+    public async Task ConnectAsync(string slug, Guid accountId, string connectionId, CancellationToken cancellationToken)
+    {
+        if (await FindCitizenAsync(slug, accountId, cancellationToken) is { } key && presence.Connect(key.Id, slug, connectionId))
+        {
+            await notifier.CitizenBack(slug, key.Id);
+        }
+    }
+
+    public void Disconnect(string connectionId) => presence.Disconnect(connectionId);
+
+    /// <summary>The citizen did something, so they are present.</summary>
+    private async Task SeeAsync(string slug, Guid citizenId)
+    {
+        if (presence.Touch(citizenId, slug))
+        {
+            await notifier.CitizenBack(slug, citizenId);
+        }
     }
 
     public async Task<InviteDto> NewInviteCodeAsync(string slug, Guid accountId, CancellationToken cancellationToken) =>
@@ -159,6 +181,7 @@ public sealed partial class GameService(
             return null;
         }
 
+        await SeeAsync(slug, key.Id);
         if (key.IsDue)
         {
             await SettleVillageAsync(key.VillageId, [key.Id], cancellationToken);
@@ -227,6 +250,7 @@ public sealed partial class GameService(
         ShelterRules.Assign(village, [.. housed, citizen], now);
         await db.SaveChangesAsync(cancellationToken);
         logger.CitizenJoined(accountId, village.Slug, citizen.Id);
+        presence.Touch(citizen.Id, village.Slug);
 
         await notifier.CitizenUpdated(village.Slug, citizen.ToSummaryDto(now));
         return citizen.ToDto(village, now);
@@ -260,6 +284,7 @@ public sealed partial class GameService(
             ShelterRules.Assign(village, housed, now);
             await db.SaveChangesAsync(cancellationToken);
             logger.CitizenLeft(accountId, slug, citizen.Id);
+            presence.Forget(citizen.Id);
 
             await notifier.CitizenLeft(slug, citizen.Id);
             changes.Mark(village.Id);
@@ -345,7 +370,7 @@ public sealed partial class GameService(
             var citizen = await db.Citizens.SingleAsync(c => c.Id == key.Id, cancellationToken);
             var village = await db.Villages.SingleAsync(v => v.Id == citizen.VillageId, cancellationToken);
             var now = time.GetUtcNow();
-            TechnologyRules.CastVote(village, citizen, technologyId, await CountActiveCitizensAsync(db, village, cancellationToken), now);
+            TechnologyRules.CastVote(village, citizen, technologyId, await CountElectorateAsync(db, village, cancellationToken), now);
             await db.SaveChangesAsync(cancellationToken);
             logger.CitizenActed(citizen.Id, village.Slug, "vote", technologyId);
 
@@ -375,6 +400,16 @@ public sealed partial class GameService(
 
     private static Task<int> CountActiveCitizensAsync(DesertodDbContext db, Village village, CancellationToken cancellationToken) =>
         db.Citizens.CountAsync(c => c.VillageId == village.Id && c.Status == CitizenStatus.Active, cancellationToken);
+
+    /// <summary>Active citizens who are present; away citizens do not hold a vote open.</summary>
+    private async Task<int> CountElectorateAsync(DesertodDbContext db, Village village, CancellationToken cancellationToken)
+    {
+        var ids = await db.Citizens
+            .Where(c => c.VillageId == village.Id && c.Status == CitizenStatus.Active)
+            .Select(c => c.Id)
+            .ToListAsync(cancellationToken);
+        return ids.Count(presence.IsPresent);
+    }
 
     public async Task<CitizenDto> StartJobAsync(string slug, Guid accountId, StartJobRequest request, CancellationToken cancellationToken)
     {
@@ -1112,16 +1147,17 @@ public sealed partial class GameService(
                 .Sum(c => ProjectRules.SupervisionCapacity(c.Intelligence)),
             BuildersWorking = working.Count(c => c.CurrentTaskId == BuildTaskId && c.Id != citizenId),
         };
-        return new VillageContext(work, completedProjects);
+        return new VillageContext(work, completedProjects, citizens.Where(c => c.IsActive).Select(c => c.Id).ToList());
     }
 
-    private static async Task<VillageStateDto> BuildStateAsync(
+    private async Task<VillageStateDto> BuildStateAsync(
         DesertodDbContext db,
         Village village,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
         var context = await LoadContextAsync(db, village, null, now, cancellationToken);
+        var electorate = context.ActiveCitizenIds.Count(presence.IsPresent);
         var quests = await db.VillageQuests
             .Where(q => q.VillageId == village.Id && q.Status == QuestStatus.Active)
             .OrderBy(q => q.StartedAt)
@@ -1138,7 +1174,7 @@ public sealed partial class GameService(
             .OrderByDescending(r => r.OpenedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
-        return village.ToStateDto(context.Work, context.CompletedInOrder, quests, tsar, trips, dungeon, now);
+        return village.ToStateDto(context.Work, context.CompletedInOrder, electorate, quests, tsar, trips, dungeon, now);
     }
 
     /// <summary>Last walks of the village's citizens, those who left included: what they saw stays seen.</summary>
@@ -1202,9 +1238,14 @@ public sealed partial class GameService(
             .SingleOrDefaultAsync(cancellationToken);
     }
 
-    private async Task<CitizenKey> RequireCitizenAsync(string slug, Guid accountId, CancellationToken cancellationToken) =>
-        await FindCitizenAsync(slug, accountId, cancellationToken)
-        ?? throw new NotFoundException("citizen.notInVillage", "You do not live in this village.");
+    /// <summary>The player's citizen in the village, who is present from now on since they act.</summary>
+    private async Task<CitizenKey> RequireCitizenAsync(string slug, Guid accountId, CancellationToken cancellationToken)
+    {
+        var key = await FindCitizenAsync(slug, accountId, cancellationToken)
+                  ?? throw new NotFoundException("citizen.notInVillage", "You do not live in this village.");
+        await SeeAsync(slug, key.Id);
+        return key;
+    }
 
     private async Task<Guid> FindVillageIdAsync(string slug, CancellationToken cancellationToken)
     {

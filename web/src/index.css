@@ -1829,9 +1829,14 @@ input[aria-invalid='true'] {
 }
 
 @media (max-width: 720px) {
+  /* --hud-top-bottom is where the top bar ends, measured by the game page. */
+  .game-root {
+    --minimap-top: calc(var(--hud-top-bottom, 122px) + 6px);
+  }
+
   .minimap {
     right: 8px;
-    top: 128px;
+    top: var(--minimap-top);
     width: 112px;
   }
 
@@ -1875,7 +1880,7 @@ input[aria-invalid='true'] {
 
 @media (max-width: 720px) {
   .minimap-locate {
-    top: 182px;
+    top: calc(var(--minimap-top) + 54px);
     right: 14px;
     width: 26px;
     height: 26px;
@@ -1895,7 +1900,7 @@ input[aria-invalid='true'] {
 @media (max-width: 720px) {
   /* Under the minimap, in the column the guide keeps clear. */
   .ui-toggle {
-    top: 218px;
+    top: calc(var(--minimap-top) + 90px);
     right: 8px;
   }
 }

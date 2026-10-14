@@ -636,6 +636,11 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
   const canWork = !tsar && !!citizen
   const working = citizen?.state === 'Working'
   const ownId = citizen?.id
+  /** Away citizens stay on the map only while a task they started is still running. */
+  const shownCitizens = useMemo(
+    () => citizens.filter((c) => c.id === ownId || c.state === 'Working' || !live.away.has(c.id)),
+    [citizens, live.away, ownId],
+  )
   const pickWorld = useMemo(() => {
     /** Water and mountains stop walkers; says so instead of asking the server. */
     const blocked = (walkerId: string, point: TilePoint) => {
@@ -675,6 +680,24 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
   const showPicked = picked !== null && canWork && panel === 'none'
   const showWatched = picked !== null && tsar && panel === 'none' && live.state !== null && watchable(picked.target, live.state)
   const subtitleCitizen = subtitleFor ? live.citizens.get(subtitleFor) : undefined
+
+  /** On phones the minimap sits right under the top bar, whose height changes with the banner and the wrapped chips. */
+  const topBarObserver = useRef<ResizeObserver | null>(null)
+  const watchTopBar = useCallback((hud: HTMLDivElement | null) => {
+    topBarObserver.current?.disconnect()
+    topBarObserver.current = null
+    const top = hud?.querySelector<HTMLElement>('.hud-top')
+    const root = hud?.parentElement
+    if (!top || !root) return
+    const measure = () => {
+      // Hidden with the rest of the interface: the minimap and its buttons stay where they were.
+      if (top.offsetHeight === 0) return
+      root.style.setProperty('--hud-top-bottom', `${top.getBoundingClientRect().bottom - root.getBoundingClientRect().top}px`)
+    }
+    topBarObserver.current = new ResizeObserver(measure)
+    topBarObserver.current.observe(top)
+    measure()
+  }, [])
 
   if (live.error) {
     return (
@@ -758,7 +781,7 @@ function VillageView({ me, onAccountChanged }: { me: Me; onAccountChanged: () =>
         </ServerClock>
       )}
 
-      <div className="hud">
+      <div className="hud" ref={watchTopBar}>
         <TopBar
           village={live.state}
           catalog={catalog}
